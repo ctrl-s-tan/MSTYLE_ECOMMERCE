@@ -1,0 +1,1032 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Promotions & Discounts</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/promotions.css') }}">
+    <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+</head>
+
+<body>
+    <!-- Include seller header -->
+    {% include 'seller_header.html' %}
+
+    <div class="container">
+        <div class="content">
+            <div class="dashboard-header">
+                <div class="dashboard-avatar">
+                    <i class="bi bi-percent"></i>
+                </div>
+                <h1>Promotions & Discounts</h1>
+                <p>Create and manage promotional campaigns for your products</p>
+            </div>
+
+            <div class="dashboard-container">
+                <!-- Action Buttons -->
+                <div class="action-buttons mb-4">
+                    <button class="btn btn-primary btn-create" data-bs-toggle="modal"
+                        data-bs-target="#createPromotionModal">
+                        <i class="bi bi-plus-circle"></i>
+                        Create New Promotion
+                    </button>
+                </div>
+
+                <!-- Active Promotions Section -->
+                <div class="row mb-5">
+                    <div class="col-12">
+                        <div class="card promotion-card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-lightning-charge"></i> Active Promotions
+                                </h5>
+                                <span class="badge bg-success">{{ active_promotions|length }} Active</span>
+                            </div>
+                            <div class="card-body">
+                                {% if active_promotions %}
+                                <div class="row">
+                                    {% for promotion in active_promotions %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="promotion-item active">
+                                            <div class="promotion-badge" data-type="{{ promotion.type }}">
+                                                <span class="discount-percent">
+                                                    {% if promotion.type == 'percentage' %}
+                                                    {{ promotion.discount_value|int }}% OFF
+                                                    {% elif promotion.type == 'fixed' %}
+                                                    ₱{{ promotion.discount_value|int }} OFF
+                                                    {% elif promotion.type == 'buy_one_get_one' %}
+                                                    BOGO
+                                                    {% elif promotion.type == 'free_shipping' %}
+                                                    FREE SHIPPING
+                                                    {% endif %}
+                                                </span>
+                                            </div>
+                                            <div class="promotion-content">
+                                                <h6>{{ promotion.name }}</h6>
+                                                <p class="text-muted mb-1">Code: <strong>{{ promotion.code }}</strong>
+                                                </p>
+                                                <p class="text-muted mb-2">Valid until: {{ promotion.end_date }}</p>
+                                                <div class="promotion-stats">
+                                                    <small class="text-success">
+                                                        <i class="bi bi-graph-up"></i> {{ promotion.total_uses }} uses
+                                                    </small>
+                                                </div>
+                                            </div>
+                                            <div class="promotion-actions">
+                                                <button class="btn btn-sm btn-outline-primary edit-promotion-btn"
+                                                    data-promotion-id="{{ promotion.id }}">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger delete-promotion-btn"
+                                                    data-promotion-id="{{ promotion.id }}">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {% else %}
+                                <div class="text-center py-4">
+                                    <i class="bi bi-percent text-muted" style="font-size: 3rem;"></i>
+                                    <h6 class="text-muted mt-3">No Active Promotions</h6>
+                                    <p class="text-muted">Create your first promotion to boost sales!</p>
+                                    <button class="btn btn-primary" data-bs-toggle="modal"
+                                        data-bs-target="#createPromotionModal">
+                                        <i class="bi bi-plus-circle"></i> Create Promotion
+                                    </button>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Promotion Modal -->
+    <div class="modal fade" id="createPromotionModal" tabindex="-1">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="bi bi-plus-circle"></i> Create New Promotion
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="promotionForm">
+                        <!-- Basic Information -->
+                        <div class="section-header">
+                            <h6><i class="bi bi-info-circle"></i> Basic Information</h6>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="promotionName" class="form-label">
+                                    Promotion Name <span class="text-danger">*</span>
+                                </label>
+                                <input type="text" class="form-control" id="promotionName"
+                                    placeholder="e.g., Summer Sale 2024" required>
+                                <div class="form-text">Give your promotion a catchy name</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="promotionCode" class="form-label">
+                                    Promotion Code <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <input type="text" class="form-control" id="promotionCode"
+                                        placeholder="e.g., SUMMER25" required>
+                                    <button class="btn btn-outline-secondary" type="button" id="generateCode">
+                                        <i class="bi bi-arrow-clockwise"></i> Generate
+                                    </button>
+                                </div>
+                                <div class="form-text">Customers will use this code at checkout</div>
+                            </div>
+                        </div>
+
+                        <!-- Discount Configuration -->
+                        <div class="section-header">
+                            <h6><i class="bi bi-percent"></i> Discount Configuration</h6>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="promotionType" class="form-label">
+                                    Discount Type <span class="text-danger">*</span>
+                                </label>
+                                <select class="form-select" id="promotionType" required>
+                                    <option value="">Select Type</option>
+                                    <option value="percentage">Percentage Off (%)</option>
+                                    <option value="fixed">Fixed Amount Off (₱)</option>
+                                    <option value="buy_one_get_one">Buy One Get One Free</option>
+                                    <option value="free_shipping">Free Shipping</option>
+                                </select>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="discountValue" class="form-label">
+                                    Discount Value <span class="text-danger">*</span>
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text" id="discountSymbol">%</span>
+                                    <input type="number" class="form-control" id="discountValue" min="0" step="0.01"
+                                        required>
+                                </div>
+                                <div class="form-text" id="discountHelp">Enter the discount amount</div>
+                            </div>
+                            <div class="col-md-4 mb-3" id="maxDiscountContainer" style="display: none;">
+                                <label for="maxDiscount" class="form-label">
+                                    Maximum Discount Amount (₱)
+                                </label>
+                                <div class="input-group">
+                                    <span class="input-group-text">₱</span>
+                                    <input type="number" class="form-control" id="maxDiscount" min="0" step="0.01"
+                                        placeholder="0.00">
+                                </div>
+                                <div class="form-text">Maximum discount amount for percentage discounts</div>
+                            </div>
+                        </div>
+
+                        <!-- Purchase Requirements -->
+                        <div class="section-header">
+                            <h6><i class="bi bi-cart-check"></i> Purchase Requirements</h6>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="minPurchase" class="form-label">Minimum Purchase Amount (₱)</label>
+                                <input type="number" class="form-control" id="minPurchase" min="0" step="0.01"
+                                    placeholder="0.00">
+                                <div class="form-text">Minimum order value required</div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="minQuantity" class="form-label">Minimum Quantity</label>
+                                <input type="number" class="form-control" id="minQuantity" min="1" placeholder="1">
+                                <div class="form-text">Minimum items in cart</div>
+                            </div>
+                            <div class="col-md-4 mb-3">
+                                <label for="usageLimit" class="form-label">Usage Limit per Customer</label>
+                                <input type="number" class="form-control" id="usageLimit" min="1"
+                                    placeholder="Unlimited">
+                                <div class="form-text">How many times each customer can use this</div>
+                            </div>
+                        </div>
+
+                        <!-- Validity Period -->
+                        <div class="section-header">
+                            <h6><i class="bi bi-calendar-range"></i> Validity Period</h6>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-3 mb-3">
+                                <label for="startDate" class="form-label">
+                                    Start Date <span class="text-danger">*</span>
+                                </label>
+                                <input type="date" class="form-control" id="startDate" required>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="startTime" class="form-label">Start Time</label>
+                                <input type="time" class="form-control" id="startTime" value="00:00">
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="endDate" class="form-label">
+                                    End Date <span class="text-danger">*</span>
+                                </label>
+                                <input type="date" class="form-control" id="endDate" required>
+                            </div>
+                            <div class="col-md-3 mb-3">
+                                <label for="endTime" class="form-label">End Time</label>
+                                <input type="time" class="form-control" id="endTime" value="23:59">
+                            </div>
+                        </div>
+
+                        <!-- Product Selection -->
+                        <div class="section-header">
+                            <h6><i class="bi bi-box-seam"></i> Product Selection</h6>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="product-selection">
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="productScope" id="allProducts"
+                                        value="all" checked>
+                                    <label class="form-check-label" for="allProducts">
+                                        <strong>All Products</strong>
+                                        <small class="d-block text-muted">Apply to entire inventory</small>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="productScope"
+                                        id="specificProducts" value="specific">
+                                    <label class="form-check-label" for="specificProducts">
+                                        <strong>Specific Products</strong>
+                                        <small class="d-block text-muted">Choose individual products</small>
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="productScope"
+                                        id="categoryProducts" value="category">
+                                    <label class="form-check-label" for="categoryProducts">
+                                        <strong>By Category</strong>
+                                        <small class="d-block text-muted">Apply to product categories</small>
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Specific Products Selection (Hidden by default) -->
+                        <div id="specificProductsSection" class="mb-3" style="display: none;">
+                            <label class="form-label">Select Products</label>
+                            <div class="product-checkbox-list"
+                                style="max-height: 300px; overflow-y: auto; border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;">
+                                {% for product in products %}
+                                <div class="form-check product-item"
+                                    style="margin-bottom: 15px; padding: 10px; border-radius: 6px; transition: background-color 0.2s;"
+                                    onmouseover="this.style.backgroundColor='#f8f9fa'"
+                                    onmouseout="this.style.backgroundColor='transparent'">
+                                    <input class="form-check-input" type="checkbox" id="product_{{ product.id }}"
+                                        value="{{ product.id }}" style="margin-top: 20px;">
+                                    <label class="form-check-label" for="product_{{ product.id }}"
+                                        style="cursor: pointer; width: 100%;">
+                                        <div class="d-flex align-items-center">
+                                            {% set first_image = product.image.split(',')[0] if product.image else
+                                            'placeholder.png' %}
+                                            <img src="{{ url_for('static', filename='images/uploads/' + first_image) }}"
+                                                alt="{{ product.name }}" class="product-thumb me-3"
+                                                style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; flex-shrink: 0; background-color: #f8f9fa;"
+                                                onerror="console.log('Image failed to load:', this.src); this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjRjhGOUZBIi8+CjxwYXRoIGQ9Ik0yNSAxNUMxOS40NzcyIDE1IDE1IDE5LjQ3NzIgMTUgMjVDMTUgMzAuNTIyOCAxOS40NzcyIDM1IDI1IDM1QzMwLjUyMjggMzUgMzUgMzAuNTIyOCAzNSAyNUMzNSAxOS40NzcyIDMwLjUyMjggMTUgMjUgMTVaTTI1IDE3QzI5LjQxODMgMTcgMzMgMjAuNTgxNyAzMyAyNUMzMyAyOS40MTgzIDI5LjQxODMgMzMgMjUgMzNDMjAuNTgxNyAzMyAxNyAyOS40MTgzIDE3IDI1QzE3IDIwLjU4MTcgMjAuNTgxNyAxNyAyNSAxN1oiIGZpbGw9IiM2Qzc1N0QiLz4KPHBhdGggZD0iTTIzIDIzSDI3VjI3SDIzVjIzWiIgZmlsbD0iIzZDNzU3RCIvPgo8L3N2Zz4K'; this.onerror=null;"
+                                                onload="console.log('Image loaded successfully:', this.src);">
+                                            <div style="flex-grow: 1;">
+                                                <strong style="color: #333;">{{ product.name }}</strong>
+                                                <small class="d-block text-muted">₱{{ "%.2f"|format(product.price) }} -
+                                                    {{ product.category }}</small>
+                                            </div>
+                                        </div>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Category Selection (Hidden by default) -->
+                        <div id="categorySection" class="mb-3" style="display: none;">
+                            <label class="form-label">Select Categories</label>
+                            <div class="category-checkbox-list"
+                                style="border: 1px solid #dee2e6; border-radius: 8px; padding: 15px;">
+                                {% set categories = products | map(attribute='category') | unique | list %}
+                                {% for category in categories %}
+                                <div class="form-check"
+                                    style="margin-bottom: 10px; padding: 8px; border-radius: 6px; transition: background-color 0.2s;"
+                                    onmouseover="this.style.backgroundColor='#f8f9fa'"
+                                    onmouseout="this.style.backgroundColor='transparent'">
+                                    <input class="form-check-input" type="checkbox" id="category_{{ category }}"
+                                        value="{{ category }}">
+                                    <label class="form-check-label" for="category_{{ category }}"
+                                        style="cursor: pointer;">
+                                        <strong style="color: #333;">{{ category }}</strong>
+                                    </label>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                        <!-- Additional Settings -->
+                        <div class="section-header">
+                            <h6><i class="bi bi-gear"></i> Additional Settings</h6>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="form-check form-switch">
+                                <input class="form-check-input" type="checkbox" id="isActive" checked>
+                                <label class="form-check-label" for="isActive">
+                                    <strong>Active Promotion</strong>
+                                    <small class="d-block text-muted">Enable this promotion immediately</small>
+                                </label>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+                        <i class="bi bi-x-circle"></i> Cancel
+                    </button>
+                    <button type="button" class="btn btn-outline-primary" id="previewPromotion">
+                        <i class="bi bi-eye"></i> Preview
+                    </button>
+                    <button type="button" class="btn btn-primary" id="savePromotion">
+                        <i class="bi bi-check-circle"></i> Create Promotion
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            // Set minimum date to today
+            const today = new Date().toISOString().split('T')[0];
+            document.getElementById('startDate').min = today;
+            document.getElementById('endDate').min = today;
+            document.getElementById('startDate').value = today;
+
+            // Debug: Check if products are loaded
+            const productCheckboxes = document.querySelectorAll('#specificProductsSection input[type="checkbox"]');
+            console.log('Found product checkboxes:', productCheckboxes.length);
+
+            const productImages = document.querySelectorAll('#specificProductsSection img');
+            console.log('Found product images:', productImages.length);
+            productImages.forEach((img, index) => {
+                console.log(`Image ${index + 1} src:`, img.src);
+            });
+
+            // Debug: Check if there are any promotions on the page
+            const editButtons = document.querySelectorAll('.edit-promotion-btn');
+            console.log('Found edit buttons:', editButtons.length);
+            editButtons.forEach((btn, index) => {
+                const promotionId = btn.getAttribute('data-promotion-id');
+                console.log(`Edit button ${index + 1} has promotion ID:`, promotionId);
+            });
+
+            // Initialize form handlers
+            initializePromotionForm();
+
+            // Add modal event listeners
+            const createPromotionModal = document.getElementById('createPromotionModal');
+            createPromotionModal.addEventListener('shown.bs.modal', function () {
+                console.log('Modal opened');
+
+                // Only reset if not in edit mode
+                const promotionId = this.getAttribute('data-promotion-id');
+                if (!promotionId) {
+                    // Reset form when modal opens for create
+                    resetPromotionModal();
+                    document.getElementById('startDate').value = today;
+                }
+            });
+
+            // Reset modal when hidden
+            createPromotionModal.addEventListener('hidden.bs.modal', function () {
+                console.log('Modal closed');
+                resetPromotionModal();
+            });
+
+            // Add event listeners for edit and delete buttons
+            document.addEventListener('click', function (e) {
+                if (e.target.closest('.edit-promotion-btn')) {
+                    const promotionId = e.target.closest('.edit-promotion-btn').getAttribute('data-promotion-id');
+                    console.log('Edit button clicked, promotion ID:', promotionId);
+                    editPromotion(promotionId);
+                }
+
+                if (e.target.closest('.delete-promotion-btn')) {
+                    const promotionId = e.target.closest('.delete-promotion-btn').getAttribute('data-promotion-id');
+                    console.log('Delete button clicked, promotion ID:', promotionId);
+                    deletePromotion(promotionId);
+                }
+            });
+        });
+
+        function initializePromotionForm() {
+            // Handle discount type changes
+            document.getElementById('promotionType').addEventListener('change', function () {
+                const discountSymbol = document.getElementById('discountSymbol');
+                const discountHelp = document.getElementById('discountHelp');
+                const discountValue = document.getElementById('discountValue');
+                const discountValueField = discountValue.parentElement.parentElement;
+                const maxDiscountField = document.getElementById('maxDiscountContainer');
+
+                switch (this.value) {
+                    case 'percentage':
+                        discountValueField.style.display = 'block';
+                        discountSymbol.textContent = '%';
+                        discountHelp.textContent = 'Enter percentage (1-100)';
+                        discountValue.max = '100';
+                        discountValue.min = '1';
+                        discountValue.required = true;
+                        maxDiscountField.style.display = 'block';
+                        break;
+                    case 'fixed':
+                        discountValueField.style.display = 'block';
+                        discountSymbol.textContent = '₱';
+                        discountHelp.textContent = 'Enter fixed amount in pesos';
+                        discountValue.max = '';
+                        discountValue.min = '1';
+                        discountValue.required = true;
+                        maxDiscountField.style.display = 'none';
+                        break;
+                    case 'buy_one_get_one':
+                        discountValueField.style.display = 'none';
+                        discountValue.required = false;
+                        discountValue.value = '';
+                        maxDiscountField.style.display = 'none';
+                        break;
+                    case 'free_shipping':
+                        discountValueField.style.display = 'none';
+                        discountValue.required = false;
+                        discountValue.value = '';
+                        maxDiscountField.style.display = 'none';
+                        break;
+                    default:
+                        discountValueField.style.display = 'block';
+                        discountSymbol.textContent = '';
+                        discountHelp.textContent = 'Select discount type first';
+                        discountValue.required = true;
+                        maxDiscountField.style.display = 'none';
+                }
+            });
+
+            // Handle product scope changes
+            document.querySelectorAll('input[name="productScope"]').forEach(radio => {
+                radio.addEventListener('change', function () {
+                    const specificSection = document.getElementById('specificProductsSection');
+                    const categorySection = document.getElementById('categorySection');
+
+                    // Hide all sections first
+                    specificSection.style.display = 'none';
+                    categorySection.style.display = 'none';
+
+                    // Show relevant section
+                    if (this.value === 'specific') {
+                        specificSection.style.display = 'block';
+                    } else if (this.value === 'category') {
+                        categorySection.style.display = 'block';
+                    }
+                });
+            });
+
+            // Generate promotion code
+            document.getElementById('generateCode').addEventListener('click', function () {
+                const code = generatePromotionCode();
+                document.getElementById('promotionCode').value = code;
+            });
+
+            // Handle end date validation
+            document.getElementById('startDate').addEventListener('change', function () {
+                const endDate = document.getElementById('endDate');
+                endDate.min = this.value;
+                if (endDate.value && endDate.value < this.value) {
+                    endDate.value = this.value;
+                }
+            });
+
+
+
+            // Handle preview promotion
+            document.getElementById('previewPromotion').addEventListener('click', function () {
+                console.log('Preview button clicked');
+                try {
+                    const formData = collectFormData();
+                    console.log('Form data collected:', formData);
+                    showPromotionPreview(formData);
+                } catch (error) {
+                    console.error('Error in preview:', error);
+                    alert('Error generating preview. Please check your form data.');
+                }
+            });
+
+            // Handle save promotion
+            document.getElementById('savePromotion').addEventListener('click', function () {
+                console.log('Save button clicked');
+
+                // Add a small delay to ensure modal is fully loaded
+                setTimeout(() => {
+                    try {
+                        // First check if all required elements exist
+                        const requiredElements = [
+                            'promotionName', 'promotionCode', 'promotionType',
+                            'startDate', 'endDate', 'isActive'
+                        ];
+
+                        console.log('Checking for required elements...');
+                        for (let elementId of requiredElements) {
+                            const element = document.getElementById(elementId);
+                            if (!element) {
+                                console.error(`Missing element: ${elementId}`);
+                                alert(`Form element ${elementId} not found. Please refresh the page and try again.`);
+                                return;
+                            }
+                            console.log(`✓ Found element: ${elementId}`);
+                        }
+
+                        // Check if product scope is selected
+                        const productScopeElement = document.querySelector('input[name="productScope"]:checked');
+                        if (!productScopeElement) {
+                            alert('Please select a product scope (All Products, Specific Products, or By Category).');
+                            return;
+                        }
+                        console.log('✓ Product scope selected:', productScopeElement.value);
+
+                        if (validateForm()) {
+                            console.log('Form validation passed');
+                            const formData = collectFormData();
+                            console.log('Form data for save:', formData);
+
+                            // Validate that we have the minimum required data
+                            if (!formData.name || !formData.code || !formData.type || !formData.startDate || !formData.endDate) {
+                                alert('Please fill in all required fields.');
+                                return;
+                            }
+
+                            savePromotion(formData);
+                        } else {
+                            console.log('Form validation failed');
+                        }
+                    } catch (error) {
+                        console.error('Error in save:', error);
+                        alert('Error preparing promotion data: ' + error.message + '\n\nPlease try refreshing the page.');
+                    }
+                }, 100); // 100ms delay to ensure DOM is ready
+            });
+        }
+
+        function generatePromotionCode() {
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+            let result = '';
+            for (let i = 0; i < 8; i++) {
+                result += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            return result;
+        }
+
+        function collectFormData() {
+            try {
+                // Helper function to safely get element value
+                function safeGetValue(elementId, defaultValue = '') {
+                    const element = document.getElementById(elementId);
+                    if (!element) {
+                        console.warn(`Element with id '${elementId}' not found`);
+                        return defaultValue;
+                    }
+                    return element.value || defaultValue;
+                }
+
+                // Helper function to safely get checkbox value
+                function safeGetChecked(elementId, defaultValue = false) {
+                    const element = document.getElementById(elementId);
+                    if (!element) {
+                        console.warn(`Checkbox with id '${elementId}' not found`);
+                        return defaultValue;
+                    }
+                    return element.checked;
+                }
+
+                const productScopeElement = document.querySelector('input[name="productScope"]:checked');
+                if (!productScopeElement) {
+                    throw new Error('Please select a product scope');
+                }
+
+                const formData = {
+                    name: safeGetValue('promotionName'),
+                    code: safeGetValue('promotionCode'),
+                    type: safeGetValue('promotionType'),
+                    discountValue: safeGetValue('discountValue'),
+                    maxDiscount: safeGetValue('maxDiscount'),
+                    minPurchase: safeGetValue('minPurchase'),
+                    minQuantity: safeGetValue('minQuantity'),
+                    usageLimit: safeGetValue('usageLimit'),
+                    startDate: safeGetValue('startDate'),
+                    startTime: safeGetValue('startTime', '00:00'),
+                    endDate: safeGetValue('endDate'),
+                    endTime: safeGetValue('endTime', '23:59'),
+                    productScope: productScopeElement.value,
+                    isActive: safeGetChecked('isActive', true)
+                };
+
+                console.log('Collected form data:', formData);
+
+                // Collect selected products or categories
+                if (formData.productScope === 'specific') {
+                    const selectedProducts = document.querySelectorAll('#specificProductsSection input:checked');
+                    formData.selectedProducts = Array.from(selectedProducts).map(cb => cb.value);
+                    console.log('Selected products:', formData.selectedProducts);
+                } else if (formData.productScope === 'category') {
+                    const selectedCategories = document.querySelectorAll('#categorySection input:checked');
+                    formData.selectedCategories = Array.from(selectedCategories).map(cb => cb.value);
+                    console.log('Selected categories:', formData.selectedCategories);
+                }
+
+                return formData;
+            } catch (error) {
+                console.error('Error collecting form data:', error);
+                throw error;
+            }
+        }
+
+        function validateForm() {
+            const requiredFields = ['promotionName', 'promotionCode', 'promotionType', 'startDate', 'endDate'];
+            let isValid = true;
+
+            requiredFields.forEach(fieldId => {
+                const field = document.getElementById(fieldId);
+                if (!field.value.trim()) {
+                    field.classList.add('is-invalid');
+                    isValid = false;
+                } else {
+                    field.classList.remove('is-invalid');
+                }
+            });
+
+            // Validate discount value only for percentage and fixed types
+            const promotionType = document.getElementById('promotionType').value;
+            const discountValue = document.getElementById('discountValue');
+            if ((promotionType === 'percentage' || promotionType === 'fixed') && !discountValue.value.trim()) {
+                discountValue.classList.add('is-invalid');
+                isValid = false;
+            } else {
+                discountValue.classList.remove('is-invalid');
+            }
+
+            // Validate product selection for specific products
+            const productScopeElement = document.querySelector('input[name="productScope"]:checked');
+            if (!productScopeElement) {
+                alert('Please select a product scope (All Products, Specific Products, or By Category).');
+                isValid = false;
+            } else {
+                const productScope = productScopeElement.value;
+                if (productScope === 'specific') {
+                    const selectedProducts = document.querySelectorAll('#specificProductsSection input:checked');
+                    if (selectedProducts.length === 0) {
+                        alert('Please select at least one product for this promotion.');
+                        isValid = false;
+                    }
+                } else if (productScope === 'category') {
+                    const selectedCategories = document.querySelectorAll('#categorySection input:checked');
+                    if (selectedCategories.length === 0) {
+                        alert('Please select at least one category for this promotion.');
+                        isValid = false;
+                    }
+                }
+            }
+
+            // Validate dates
+            const startDate = new Date(document.getElementById('startDate').value);
+            const endDate = new Date(document.getElementById('endDate').value);
+            if (endDate <= startDate) {
+                alert('End date must be after start date.');
+                isValid = false;
+            }
+
+            // Validate discount value based on type (only for percentage and fixed)
+            const discountType = document.getElementById('promotionType').value;
+            if (discountType === 'percentage' || discountType === 'fixed') {
+                const discountValue = parseFloat(document.getElementById('discountValue').value);
+
+                if (discountType === 'percentage' && (discountValue < 1 || discountValue > 100)) {
+                    alert('Percentage discount must be between 1% and 100%.');
+                    isValid = false;
+                } else if (discountType === 'fixed' && discountValue < 1) {
+                    alert('Fixed discount amount must be at least ₱1.');
+                    isValid = false;
+                }
+            }
+
+            return isValid;
+        }
+
+        function showPromotionPreview(formData) {
+            let previewText = `Promotion Preview:\n\n`;
+            previewText += `Name: ${formData.name}\n`;
+            previewText += `Code: ${formData.code}\n`;
+            previewText += `Type: ${formData.type.replace('_', ' ').toUpperCase()}\n`;
+
+            // Show discount based on type
+            if (formData.type === 'percentage') {
+                previewText += `Discount: ${formData.discountValue}% OFF\n`;
+            } else if (formData.type === 'fixed') {
+                previewText += `Discount: ₱${formData.discountValue} OFF\n`;
+            } else if (formData.type === 'buy_one_get_one') {
+                previewText += `Discount: Buy One Get One Free\n`;
+            } else if (formData.type === 'free_shipping') {
+                previewText += `Discount: Free Shipping\n`;
+            }
+
+            previewText += `Valid: ${formData.startDate} ${formData.startTime} to ${formData.endDate} ${formData.endTime}\n`;
+            previewText += `Status: ${formData.isActive ? 'Active' : 'Inactive'}\n`;
+            previewText += `Product Scope: ${formData.productScope.replace('_', ' ').toUpperCase()}\n`;
+
+            if (formData.minPurchase) {
+                previewText += `Minimum Purchase: ₱${formData.minPurchase}\n`;
+            }
+
+            if (formData.minQuantity && formData.minQuantity > 1) {
+                previewText += `Minimum Quantity: ${formData.minQuantity} items\n`;
+            }
+
+            if (formData.usageLimit) {
+                previewText += `Usage Limit per Customer: ${formData.usageLimit}\n`;
+            }
+
+            if (formData.maxDiscount && formData.type === 'percentage') {
+                previewText += `Maximum Discount: ₱${formData.maxDiscount}\n`;
+            }
+
+            alert(previewText);
+        }
+
+        function savePromotion(formData) {
+            // Check if this is an edit or create operation
+            const modal = document.getElementById('createPromotionModal');
+            const promotionId = modal.getAttribute('data-promotion-id');
+            const isEdit = promotionId && promotionId !== '';
+
+            // Show loading state
+            const saveBtn = document.getElementById('savePromotion');
+            const originalText = saveBtn.innerHTML;
+            saveBtn.innerHTML = isEdit ?
+                '<i class="bi bi-hourglass-split"></i> Updating...' :
+                '<i class="bi bi-hourglass-split"></i> Creating...';
+            saveBtn.disabled = true;
+
+            // Log the form data being sent
+            console.log('Sending promotion data:', formData);
+            console.log('Is edit mode:', isEdit, 'Promotion ID:', promotionId);
+
+            // Determine API endpoint and method
+            const url = isEdit ? `/api/update_promotion/${promotionId}` : '/api/create_promotion';
+            const method = isEdit ? 'PUT' : 'POST';
+
+            // Make API call
+            fetch(url, {
+                method: method,
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(formData)
+            })
+                .then(response => {
+                    console.log('Response status:', response.status);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Response data:', data);
+                    if (data.success) {
+                        alert(isEdit ? 'Promotion updated successfully!' : 'Promotion created successfully!');
+
+                        // Close modal
+                        const modalInstance = bootstrap.Modal.getInstance(modal);
+                        modalInstance.hide();
+
+                        // Reset form and modal state
+                        resetPromotionModal();
+
+                        // Reload page to show updated promotion
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + (data.message || 'Unknown error occurred'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Fetch error:', error);
+                    alert('Network error: ' + error.message + '. Please check your connection and try again.');
+                })
+                .finally(() => {
+                    // Reset button
+                    saveBtn.innerHTML = originalText;
+                    saveBtn.disabled = false;
+                });
+        }
+
+        function resetPromotionModal() {
+            // Reset form
+            document.getElementById('promotionForm').reset();
+            document.getElementById('specificProductsSection').style.display = 'none';
+            document.getElementById('categorySection').style.display = 'none';
+
+            // Reset modal state
+            const modal = document.getElementById('createPromotionModal');
+            modal.removeAttribute('data-promotion-id');
+
+            // Reset modal title and button text
+            document.querySelector('#createPromotionModal .modal-title').innerHTML =
+                '<i class="bi bi-plus-circle"></i> Create New Promotion';
+            document.getElementById('savePromotion').innerHTML =
+                '<i class="bi bi-check-circle"></i> Create Promotion';
+
+            // Ensure "All Products" is selected by default
+            document.getElementById('allProducts').checked = true;
+        }
+
+        function deletePromotion(promotionId) {
+            if (confirm('Are you sure you want to delete this promotion? This action cannot be undone.')) {
+                fetch(`/api/delete_promotion/${promotionId}`, {
+                    method: 'DELETE',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Promotion deleted successfully!');
+                            window.location.reload();
+                        } else {
+                            alert('Error: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('An error occurred while deleting the promotion.');
+                    });
+            }
+        }
+
+
+
+        function editPromotion(promotionId) {
+            console.log('Edit promotion clicked for ID:', promotionId);
+
+            if (!promotionId) {
+                alert('Invalid promotion ID');
+                return;
+            }
+
+            // Validate promotion ID is a number
+            if (isNaN(promotionId) || promotionId <= 0) {
+                alert('Invalid promotion ID format');
+                return;
+            }
+
+            // Show loading state
+            const loadingAlert = document.createElement('div');
+            loadingAlert.className = 'alert alert-info';
+            loadingAlert.innerHTML = '<i class="bi bi-hourglass-split"></i> Loading promotion data...';
+            loadingAlert.id = 'loadingAlert';
+            document.querySelector('.dashboard-container').prepend(loadingAlert);
+
+            // Function to remove loading alert
+            function removeLoadingAlert() {
+                const alert = document.getElementById('loadingAlert');
+                if (alert) {
+                    alert.remove();
+                }
+            }
+
+            // Fetch promotion data with timeout
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 10000); // 10 second timeout
+
+            fetch(`/api/get_promotion/${promotionId}`, {
+                signal: controller.signal
+            })
+                .then(response => {
+                    clearTimeout(timeoutId);
+                    console.log('Response status:', response.status);
+                    console.log('Response ok:', response.ok);
+
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Response data:', data);
+
+                    if (data.success) {
+                        console.log('Promotion data received:', data.promotion);
+                        populateEditForm(data.promotion);
+                        // Show modal
+                        const modal = new bootstrap.Modal(document.getElementById('createPromotionModal'));
+                        modal.show();
+                    } else {
+                        alert('Error loading promotion: ' + (data.message || 'Unknown error'));
+                    }
+                })
+                .catch(error => {
+                    clearTimeout(timeoutId);
+                    console.error('Fetch error:', error);
+
+                    if (error.name === 'AbortError') {
+                        alert('Request timed out. Please try again.');
+                    } else {
+                        alert('Network error loading promotion data: ' + error.message + '\n\nPlease check your connection and try again.');
+                    }
+                })
+                .finally(() => {
+                    // Always remove loading alert
+                    removeLoadingAlert();
+                });
+        }
+
+        function populateEditForm(promotion) {
+            console.log('Populating form with promotion data:', promotion);
+
+            // Set basic fields
+            document.getElementById('promotionName').value = promotion.name || '';
+            document.getElementById('promotionCode').value = promotion.code || '';
+            document.getElementById('promotionType').value = promotion.type || '';
+
+            // Set discount value if applicable
+            if (promotion.type === 'percentage' || promotion.type === 'fixed') {
+                document.getElementById('discountValue').value = promotion.discount_value || '';
+                // Trigger the type change to show/hide discount field
+                document.getElementById('promotionType').dispatchEvent(new Event('change'));
+            }
+
+            document.getElementById('maxDiscount').value = promotion.max_discount || '';
+            document.getElementById('minPurchase').value = promotion.min_purchase || '';
+            document.getElementById('minQuantity').value = promotion.min_quantity || '';
+            document.getElementById('usageLimit').value = promotion.usage_limit_per_customer || '';
+
+            // Set dates and times
+            document.getElementById('startDate').value = promotion.start_date || '';
+            document.getElementById('startTime').value = promotion.start_time || '00:00';
+            document.getElementById('endDate').value = promotion.end_date || '';
+            document.getElementById('endTime').value = promotion.end_time || '23:59';
+
+            // Set product scope
+            if (promotion.product_scope === 'all') {
+                document.getElementById('allProducts').checked = true;
+            } else if (promotion.product_scope === 'specific') {
+                document.getElementById('specificProducts').checked = true;
+                document.getElementById('specificProductsSection').style.display = 'block';
+
+                // Check selected products
+                promotion.selectedProducts.forEach(productId => {
+                    const checkbox = document.getElementById(`product_${productId}`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+            } else if (promotion.product_scope === 'category') {
+                document.getElementById('categoryProducts').checked = true;
+                document.getElementById('categorySection').style.display = 'block';
+
+                // Check selected categories
+                promotion.selectedCategories.forEach(category => {
+                    const checkbox = document.getElementById(`category_${category}`);
+                    if (checkbox) {
+                        checkbox.checked = true;
+                    }
+                });
+            }
+
+            // Set active status
+            document.getElementById('isActive').checked = promotion.is_active || false;
+
+            // Store promotion ID for update
+            document.getElementById('createPromotionModal').setAttribute('data-promotion-id', promotion.id);
+
+            // Change modal title and button text
+            document.querySelector('#createPromotionModal .modal-title').innerHTML =
+                '<i class="bi bi-pencil-square"></i> Edit Promotion';
+            document.getElementById('savePromotion').innerHTML =
+                '<i class="bi bi-check-circle"></i> Update Promotion';
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,385 @@
+/* ── MStyle Login — mirrors login.dart style ─────────────────────────────── */
+
+:root {
+    --primary:    #1a1a1a;
+    --accent:     #2c3e50;
+    --gold:       #d4af37;
+    --gold-light: #f4d03f;
+    --text-light: #6c757d;
+    --bg-field:   #f8f9fa;
+    --border:     #e9ecef;
+    --red:        #dc3545;
+    --red-bg:     rgba(220,53,69,.08);
+    --blue:       #17a2b8;
+    --blue-bg:    rgba(23,162,184,.08);
+    --green:      #28a745;
+    --green-bg:   rgba(40,167,69,.08);
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background: #f0f2f5;
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+}
+
+/* ── Outer card ─────────────────────────────────────────────────────────── */
+.page-wrap {
+    display: flex;
+    width: 100%;
+    max-width: 900px;
+    min-height: 580px;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow:
+        0 20px 60px rgba(0,0,0,.15),
+        0 8px 20px rgba(0,0,0,.08);
+}
+
+/* ── LEFT — dark gradient hero (same as mobile) ─────────────────────────── */
+.hero-panel {
+    flex: 1;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 36px;
+    position: relative;
+    overflow: hidden;
+}
+
+/* subtle radial glow */
+.hero-panel::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background:
+        radial-gradient(circle at 30% 70%, rgba(255,255,255,.07) 0%, transparent 55%),
+        radial-gradient(circle at 75% 25%, rgba(255,255,255,.04) 0%, transparent 50%);
+    pointer-events: none;
+}
+
+.hero-inner {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    position: relative;
+    z-index: 1;
+    gap: 0;
+}
+
+/* Circular logo ring — same as mobile */
+.logo-ring {
+    width: 130px;
+    height: 130px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--gold) 0%, var(--accent) 100%);
+    box-shadow: 0 8px 24px rgba(212,175,55,.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 24px;
+    flex-shrink: 0;
+}
+
+.logo-img {
+    width: 90px;
+    height: 90px;
+    object-fit: contain;
+    border-radius: 14px;
+}
+
+.logo-fallback {
+    display: none;
+    color: #fff;
+    font-size: 48px;
+    font-weight: 800;
+}
+
+.hero-title {
+    color: #fff;
+    font-size: 24px;
+    font-weight: 800;
+    letter-spacing: -.5px;
+    margin-bottom: 12px;
+    line-height: 1.2;
+}
+
+/* Gold bar — same as mobile _goldBar() */
+.gold-bar {
+    width: 55px;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light));
+    margin: 0 auto 12px;
+}
+
+.hero-sub {
+    color: rgba(255,255,255,.82);
+    font-size: 14px;
+    font-weight: 400;
+}
+
+/* ── RIGHT — white form panel ───────────────────────────────────────────── */
+.form-panel {
+    flex: 1;
+    background: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 48px 44px;
+}
+
+.form-inner {
+    width: 100%;
+    max-width: 360px;
+}
+
+.form-title {
+    color: var(--accent);
+    font-size: 26px;
+    font-weight: 800;
+    letter-spacing: -.5px;
+    text-align: center;
+    margin-bottom: 6px;
+}
+
+/* Short gold underline bar below title */
+.title-bar {
+    width: 40px;
+    height: 3px;
+    border-radius: 2px;
+    background: linear-gradient(90deg, var(--gold), var(--gold-light));
+    margin: 0 auto 8px;
+}
+
+.form-sub {
+    color: var(--text-light);
+    font-size: 13px;
+    text-align: center;
+    margin-bottom: 28px;
+}
+
+/* ── Flash messages ─────────────────────────────────────────────────────── */
+.flash {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 16px;
+}
+.flash--error   { background: var(--red-bg);   color: var(--red);   border: 1px solid rgba(220,53,69,.2); }
+.flash--success { background: var(--green-bg); color: var(--green); border: 1px solid rgba(40,167,69,.2); }
+.flash--info    { background: var(--blue-bg);  color: var(--blue);  border: 1px solid rgba(23,162,184,.2); }
+.flash--warning { background: rgba(255,193,7,.1); color: #856404; border: 1px solid rgba(255,193,7,.3); }
+
+/* ── Input fields — gold icon prefix, same feel as mobile ──────────────── */
+.field-wrap {
+    position: relative;
+    margin-bottom: 14px;
+}
+
+.field-icon {
+    position: absolute;
+    left: 16px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--gold);
+    display: flex;
+    align-items: center;
+    pointer-events: none;
+    z-index: 2;
+    /* keep icon centered regardless of label float */
+    margin-top: 6px;
+}
+
+.field-wrap input {
+    width: 100%;
+    padding: 22px 44px 10px 48px;
+    font-size: 15px;
+    font-family: 'Poppins', sans-serif;
+    font-weight: 500;
+    color: var(--accent);
+    background: var(--bg-field);
+    border: 1.5px solid var(--border);
+    border-radius: 14px;
+    outline: none;
+    transition: border-color .2s, box-shadow .2s;
+}
+
+.field-wrap input:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(26,26,26,.08);
+    background: #fff;
+}
+
+/* Floating label — mirrors Flutter's floatingLabelBehavior (top-left inside border) */
+.field-wrap label {
+    position: absolute;
+    left: 48px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 14px;
+    color: var(--text-light);
+    pointer-events: none;
+    transition: all .18s ease;
+    background: transparent;
+    white-space: nowrap;
+}
+
+.field-wrap input:focus ~ label,
+.field-wrap input:not(:placeholder-shown) ~ label {
+    top: 0;
+    left: 44px;
+    transform: translateY(-50%);
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--primary);
+    background: #fff;
+    padding: 0 5px;
+    border-radius: 3px;
+    letter-spacing: .4px;
+    text-transform: uppercase;
+}
+
+/* Eye toggle button */
+.eye-btn {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--text-light);
+    display: flex;
+    align-items: center;
+    padding: 4px;
+    transition: color .2s;
+}
+.eye-btn:hover { color: var(--primary); }
+
+/* Hide browser built-in password reveal button (Edge/Chrome/IE) */
+input[type="password"]::-ms-reveal,
+input[type="password"]::-ms-clear,
+input[type="password"]::-webkit-contacts-auto-fill-button,
+input[type="password"]::-webkit-credentials-auto-fill-button {
+    display: none !important;
+    visibility: hidden;
+    pointer-events: none;
+}
+
+/* ── Forgot password ────────────────────────────────────────────────────── */
+.forgot-row {
+    text-align: right;
+    margin-bottom: 20px;
+    margin-top: 2px;
+}
+
+.forgot-link {
+    color: var(--gold);
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: opacity .2s;
+}
+.forgot-link:hover { opacity: .75; }
+
+/* ── Login button — dark gradient, same as mobile _btn() ────────────────── */
+.btn-login {
+    width: 100%;
+    height: 54px;
+    border: none;
+    border-radius: 14px;
+    background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+    color: #fff;
+    font-family: 'Poppins', sans-serif;
+    font-size: 15px;
+    font-weight: 800;
+    letter-spacing: 1.5px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    box-shadow: 0 8px 24px rgba(26,26,26,.3);
+    transition: transform .2s, box-shadow .2s, opacity .2s;
+    margin-bottom: 20px;
+}
+
+.btn-login:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 32px rgba(26,26,26,.38);
+}
+
+.btn-login:active:not(:disabled) {
+    transform: translateY(0);
+    box-shadow: 0 4px 12px rgba(26,26,26,.25);
+}
+
+.btn-login:disabled {
+    opacity: .7;
+    cursor: not-allowed;
+}
+
+.btn-spinner {
+    display: flex;
+    align-items: center;
+}
+
+/* Spinner animation */
+@keyframes spin { to { transform: rotate(360deg); } }
+.spin { animation: spin .8s linear infinite; }
+
+/* ── Register link ──────────────────────────────────────────────────────── */
+.register-row {
+    text-align: center;
+    font-size: 13px;
+    color: var(--text-light);
+}
+
+.register-link {
+    color: var(--primary);
+    font-weight: 800;
+    text-decoration: underline;
+    transition: color .2s;
+}
+.register-link:hover { color: var(--accent); }
+
+/* ── Responsive ─────────────────────────────────────────────────────────── */
+@media (max-width: 700px) {
+    body { padding: 0; align-items: stretch; }
+
+    .page-wrap {
+        flex-direction: column;
+        border-radius: 0;
+        min-height: 100vh;
+        box-shadow: none;
+    }
+
+    .hero-panel {
+        padding: 40px 24px 48px;
+        flex: none;
+    }
+
+    .logo-ring { width: 100px; height: 100px; margin-bottom: 18px; }
+    .logo-img  { width: 70px; height: 70px; }
+    .hero-title { font-size: 20px; }
+
+    .form-panel {
+        flex: 1;
+        padding: 32px 24px 40px;
+        align-items: flex-start;
+    }
+
+    .form-inner { max-width: 100%; }
+}

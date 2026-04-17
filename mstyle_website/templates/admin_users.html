@@ -1,0 +1,3162 @@
+﻿{% extends "admin_header.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modal-improvements.css') }}">
+<div class="admin-dashboard-content">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="dashboard-avatar">
+            <i class="bi bi-people"></i>
+        </div>
+        <h1>User Management</h1>
+        <p>Manage all registered users on the platform</p>
+    </div>
+
+    <div class="dashboard-container">
+        <!-- Stats Summary -->
+        <div class="stats-summary">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-value">{{ total_users }}</div>
+                <div class="stat-label">Total Users</div>
+            </div>
+            <div class="stat-card stat-card-buyer">
+                <div class="stat-icon">
+                    <i class="fas fa-user-tag"></i>
+                </div>
+                <div class="stat-value">{{ buyer_count }}</div>
+                <div class="stat-label">Buyers</div>
+            </div>
+            <div class="stat-card stat-card-seller">
+                <div class="stat-icon">
+                    <i class="fas fa-store"></i>
+                </div>
+                <div class="stat-value">{{ seller_count }}</div>
+                <div class="stat-label">Sellers</div>
+            </div>
+            <div class="stat-card stat-card-rider">
+                <div class="stat-icon">
+                    <i class="fas fa-motorcycle"></i>
+                </div>
+                <div class="stat-value">{{ rider_count }}</div>
+                <div class="stat-label">Riders</div>
+            </div>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <form action="/admin_users" method="get" class="filter-form" id="filterForm">
+                <div class="filter-row">
+                    <!-- Left Side: Search -->
+                    <div class="filter-left">
+                        <div class="filter-group search-group">
+                            <label class="filter-label">
+                                <i class="fas fa-search"></i> Search
+                            </label>
+                            <input type="text" name="search" id="searchInput" 
+                                   placeholder="Search users by name, email, phone, or address..." 
+                                   value="{{ request.args.get('search', '') }}" 
+                                   class="search-input">
+                        </div>
+                    </div>
+                    
+                    <!-- Right Side: Filters and Actions -->
+                    <div class="filter-right">
+                        <div class="filter-group">
+                            <label class="filter-label">
+                                <i class="fas fa-user-tag"></i> User Type
+                            </label>
+                            <select name="sort" id="sortFilter" class="filter-select">
+                                <option value="all" {% if not request.args.get('sort') or request.args.get('sort') == 'all' %}selected{% endif %}>All Users</option>
+                                <option value="buyer" {% if request.args.get('sort') == 'buyer' %}selected{% endif %}>Buyers</option>
+                                <option value="seller" {% if request.args.get('sort') == 'seller' %}selected{% endif %}>Sellers</option>
+                                <option value="rider" {% if request.args.get('sort') == 'rider' %}selected{% endif %}>Riders</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group">
+                            <label class="filter-label">
+                                <i class="fas fa-circle"></i> Status
+                            </label>
+                            <select name="status" id="statusFilter" class="filter-select">
+                                <option value="" {% if not request.args.get('status') %}selected{% endif %}>All Status</option>
+                                <option value="active" {% if request.args.get('status') == 'active' %}selected{% endif %}>Active</option>
+                                <option value="suspended" {% if request.args.get('status') == 'suspended' %}selected{% endif %}>Suspended</option>
+                                <option value="banned" {% if request.args.get('status') == 'banned' %}selected{% endif %}>Banned</option>
+                            </select>
+                        </div>
+                        
+                        <div class="filter-group filter-actions">
+                            <label class="filter-label">&nbsp;</label>
+                            {% if request.args.get('search') or (request.args.get('sort') and request.args.get('sort') != 'all') or request.args.get('status') %}
+                            <a href="/admin_users" class="btn-clear">
+                                <i class="fas fa-times"></i> Clear
+                            </a>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Users Table -->
+            <div class="table-container">
+                <table class="users-table">
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-hashtag"></i> No.</th>
+                            <th><i class="fas fa-user"></i> Name</th>
+                            <th><i class="fas fa-envelope"></i> Email</th>
+                            <th><i class="fas fa-map-marker-alt"></i> Address</th>
+                            <th><i class="fas fa-tag"></i> User Type</th>
+                            <th><i class="fas fa-calendar"></i> Joined</th>
+                            <th><i class="fas fa-circle"></i> Status</th>
+                            <th><i class="fas fa-cogs"></i> Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if users %}
+                        {% for user in users %}
+                        <tr class="user-row" data-user-type="{{ user.user_type.lower() }}">
+                            <td class="sequence-number">
+                                <span class="sequence-badge">{{ loop.index }}</span>
+                            </td>
+                            <td class="user-name">
+                                <div class="user-info">
+                                    <span class="name">{{ user.first_name }} {{ user.last_name }}</span>
+                                    <span class="phone">
+                                        {% if user.phone_number %}
+                                        {% set phone = user.phone_number|string %}
+                                        {% if phone.startswith('63') and phone|length == 12 %}
+                                        +{{ phone[:2] }} {{ phone[2:5] }} {{ phone[5:8] }} {{ phone[8:] }}
+                                        {% elif phone.startswith('09') and phone|length == 11 %}
+                                        {{ phone[:4] }} {{ phone[4:7] }} {{ phone[7:] }}
+                                        {% elif phone|length >= 10 %}
+                                        {{ phone }}
+                                        {% else %}
+                                        {{ phone }}
+                                        {% endif %}
+                                        {% else %}
+                                        No phone
+                                        {% endif %}
+                                    </span>
+                                </div>
+                            </td>
+                            <td class="user-email">{{ user.email }}</td>
+                            <td class="user-address">
+                                {% if user.address %}
+                                {% set address_parts = user.address.split(',') %}
+                                {% if address_parts|length >= 3 %}
+                                <div class="address-full">
+                                    <span class="street">{{ address_parts[0].strip() }}</span>
+                                    {% if address_parts|length >= 2 %}
+                                    <span class="location">
+                                        {% if address_parts[1].strip().lower().startswith('brgy') %}
+                                        {{ address_parts[1].strip() }}
+                                        {% else %}
+                                        Brgy. {{ address_parts[1].strip() }}
+                                        {% endif %}
+                                        {% if address_parts|length >= 3 %}
+                                        , {{ address_parts[2].strip() }}
+                                        {% endif %}
+                                    </span>
+                                    {% endif %}
+                                    {% if address_parts|length >= 4 %}
+                                    <span class="city">
+                                        {{ address_parts[3].strip() }}
+                                        {% if address_parts|length >= 5 %}
+                                        , {{ address_parts[4].strip() }}
+                                        {% endif %}
+                                    </span>
+                                    {% endif %}
+                                </div>
+                                {% else %}
+                                <div class="address-simple" title="{{ user.address }}">
+                                    {{ user.address[:50] }}{% if user.address|length > 50 %}...{% endif %}
+                                </div>
+                                {% endif %}
+                                {% else %}
+                                <span class="no-address">No address provided</span>
+                                {% endif %}
+                            </td>
+                            <td class="user-type">
+                                <span class="type-badge type-{{ user.user_type.lower() }}">
+                                    <i
+                                        class="fas fa-{% if user.user_type|lower == 'seller' %}store{% elif user.user_type|lower == 'rider' %}shipping-fast{% else %}user-tag{% endif %}"></i>
+                                    {{ user.user_type }}
+                                </span>
+                            </td>
+                            <td class="user-joined">
+                                {% if user.get('created_at') %}
+                                <span class="date">{{ user.created_at.strftime('%b %d, %Y') }}</span>
+                                {% else %}
+                                <span class="no-date">Date not available</span>
+                                {% endif %}
+                            </td>
+                            <td class="user-status">
+                                {% if user.get('status') == 'suspended' %}
+                                <span class="status-badge status-suspended">
+                                    <i class="fas fa-user-clock"></i>
+                                    Suspended
+                                </span>
+                                {% elif user.get('status') == 'banned' or user.get('is_banned') %}
+                                <span class="status-badge status-banned">
+                                    <i class="fas fa-ban"></i>
+                                    Banned
+                                </span>
+                                {% else %}
+                                <span class="status-badge status-active">
+                                    <i class="fas fa-circle"></i>
+                                    Active
+                                </span>
+                                {% endif %}
+                            </td>
+                            <td class="user-actions">
+                                <div class="action-buttons">
+                                    <button class="action-btn edit-btn" onclick="editUser('{{ user.id }}')"
+                                        title="Edit User">
+                                        <i class="fas fa-edit"></i>
+                                    </button>
+                                    <button class="action-btn view-btn" onclick="viewUser('{{ user.id }}')"
+                                        title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                    {% if user.get('status') == 'suspended' %}
+                                    <button class="action-btn unsuspend-btn" onclick="unbanUser('{{ user.id }}')"
+                                        title="Unsuspend User">
+                                        <i class="fas fa-user-check"></i>
+                                    </button>
+                                    {% elif user.get('status') == 'banned' or user.get('is_banned') %}
+                                    <button class="action-btn unban-btn" onclick="unbanUser('{{ user.id }}')"
+                                        title="Unban User">
+                                        <i class="fas fa-user-check"></i>
+                                    </button>
+                                    {% else %}
+                                    <button class="action-btn suspend-btn" onclick="suspendUser('{{ user.id }}')"
+                                        title="Suspend User">
+                                        <i class="fas fa-user-clock"></i>
+                                    </button>
+                                    <button class="action-btn ban-btn" onclick="banUser('{{ user.id }}')"
+                                        title="Ban User">
+                                        <i class="fas fa-user-slash"></i>
+                                    </button>
+                                    {% endif %}
+                                    <button class="action-btn archive-btn" onclick="archiveUser('{{ user.id }}')"
+                                        title="Archive User">
+                                        <i class="fas fa-archive"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="8">
+                                <div class="empty-state">
+                                    <div class="empty-icon"><i class="fas fa-users"></i></div>
+                                    <h3>No Users Found</h3>
+                                    <p>No users are currently registered.</p>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+    </div>
+
+    <!-- User Details Modal -->
+    <div id="userModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-circle"></i> User Documents</h2>
+                <span class="close-btn" onclick="closeUserModal()">&times;</span>
+            </div>
+            <div class="modal-body" id="userModalBody">
+                <!-- User details will be loaded here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit User Modal -->
+    <div id="editUserModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-edit"></i> Edit User</h2>
+                <span class="close-btn" onclick="closeEditUserModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="editUserForm">
+                    <input type="hidden" id="editUserId" name="user_id">
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="editFirstName"><i class="fas fa-user"></i> First Name</label>
+                            <input type="text" id="editFirstName" name="first_name" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="editLastName"><i class="fas fa-user"></i> Last Name</label>
+                            <input type="text" id="editLastName" name="last_name" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="editEmail"><i class="fas fa-envelope"></i> Email</label>
+                            <input type="email" id="editEmail" name="email" required>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="editPhone"><i class="fas fa-phone"></i> Phone Number</label>
+                            <input type="text" id="editPhone" name="phone_number">
+                        </div>
+
+                        <div class="form-group full-width">
+                            <label for="editAddress"><i class="fas fa-map-marker-alt"></i> Address</label>
+                            <textarea id="editAddress" name="address" rows="3"></textarea>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="editUserType"><i class="fas fa-tag"></i> User Type</label>
+                            <select id="editUserType" name="user_type" required>
+                                <option value="buyer">Buyer</option>
+                                <option value="seller">Seller</option>
+                                <option value="rider">Rider</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="submit" class="btn-primary">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Suspend User Modal -->
+    <div id="suspendUserModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-clock"></i> Suspend User</h2>
+                <span class="close-btn" onclick="closeSuspendUserModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="suspendUserForm">
+                    <input type="hidden" id="suspendUserId" name="user_id">
+
+                    <div class="ban-warning" style="background: linear-gradient(135deg, rgba(255, 152, 0, 0.1) 0%, rgba(251, 140, 0, 0.05) 100%); border-color: rgba(255, 152, 0, 0.3);">
+                        <div class="warning-icon">
+                            <i class="fas fa-clock"></i>
+                        </div>
+                        <div class="warning-content">
+                            <h3>Temporary Suspension</h3>
+                            <p>This action will temporarily prevent the user from accessing the platform for a specified duration. An email notification will be sent with the suspension details.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="suspendReason"><i class="fas fa-clipboard-list"></i> Reason for Suspension *</label>
+                        <textarea id="suspendReason" name="suspend_reason" rows="4" required
+                            placeholder="Please provide a detailed reason for suspending this user..."></textarea>
+                        <small class="form-help">This reason will be included in the email notification sent to the user.</small>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="suspendDuration"><i class="fas fa-clock"></i> Suspension Duration *</label>
+                        <select id="suspendDuration" name="suspend_duration" required>
+                            <option value="">Select Duration</option>
+                            <option value="1">1 Day</option>
+                            <option value="3">3 Days</option>
+                            <option value="7">7 Days</option>
+                            <option value="14">14 Days</option>
+                            <option value="30">30 Days</option>
+                            <option value="60">60 Days</option>
+                            <option value="90">90 Days</option>
+                        </select>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="sendSuspendEmailNotification" name="send_email" checked>
+                            <span class="checkmark"></span>
+                            <span class="checkbox-text">Send email notification to user</span>
+                        </label>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closeSuspendUserModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn-warning">
+                            <i class="fas fa-user-clock"></i> Suspend User
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Ban User Modal (Permanent Block) -->
+    <div id="banUserModal" class="modal-overlay" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2><i class="fas fa-user-slash"></i> Ban User</h2>
+                <span class="close-btn" onclick="closeBanUserModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <form id="banUserForm">
+                    <input type="hidden" id="banUserId" name="user_id">
+
+                    <div class="ban-warning" style="background: linear-gradient(135deg, rgba(220, 53, 69, 0.1) 0%, rgba(200, 35, 51, 0.05) 100%); border-color: rgba(220, 53, 69, 0.3);">
+                        <div class="warning-icon" style="background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);">
+                            <i class="fas fa-ban"></i>
+                        </div>
+                        <div class="warning-content">
+                            <h3>Warning: Permanent Block Action</h3>
+                            <p>This action will <strong>permanently</strong> prevent the user from accessing the platform. This is irreversible and should only be used for serious violations. An email notification will be sent with the ban reason.</p>
+                        </div>
+                    </div>
+
+                    <div class="form-group full-width">
+                        <label for="banReason"><i class="fas fa-clipboard-list"></i> Reason for Permanent Ban *</label>
+                        <textarea id="banReason" name="ban_reason" rows="4" required
+                            placeholder="Please provide a detailed reason for permanently banning this user..."></textarea>
+                        <small class="form-help">This reason will be included in the email notification sent to the user.</small>
+                    </div>
+
+                    <div class="checkbox-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" id="sendEmailNotification" name="send_email" checked>
+                            <span class="checkmark"></span>
+                            <span class="checkbox-text">Send email notification to user</span>
+                        </label>
+                    </div>
+
+                    <div class="modal-actions">
+                        <button type="button" class="btn-secondary" onclick="closeBanUserModal()">
+                            <i class="fas fa-times"></i> Cancel
+                        </button>
+                        <button type="submit" class="btn-danger">
+                            <i class="fas fa-ban"></i> Ban User
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function editUser(userId) {
+            // Add loading state
+            const button = event.target.closest('.edit-btn');
+            const originalContent = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            // Fetch user data for editing
+            fetch(`/api/user_details/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        showEditUserModal(data.user);
+                    } else {
+                        alert('Error loading user details: ' + data.error);
+                    }
+                    button.innerHTML = originalContent;
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading user details. Please try again.');
+                    button.innerHTML = originalContent;
+                });
+        }
+
+        function viewUser(userId) {
+            // Show loading state
+            const button = event.target.closest('.view-btn');
+            const originalContent = button.innerHTML;
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+
+            // Show user details in modal - try approved user documents API first
+            fetch(`/api/approved_user_documents/${userId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Merge user data with document data
+                        const userData = { ...data.user, ...data.documents };
+                        showUserModal(userData);
+                    } else {
+                        // Fallback to basic user details if documents API fails
+                        return fetch(`/api/user_details/${userId}`)
+                            .then(response => response.json())
+                            .then(fallbackData => {
+                                if (fallbackData.success) {
+                                    showUserModal(fallbackData.user);
+                                } else {
+                                    throw new Error(fallbackData.error || 'Failed to load user details');
+                                }
+                            });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error loading user details: ' + (error.message || 'Please try again.'));
+                })
+                .finally(() => {
+                    button.innerHTML = originalContent;
+                });
+        }
+
+        function showUserModal(user) {
+            const modalBody = document.getElementById('userModalBody');
+
+            // Use signed URL if available, otherwise fall back to raw path
+            function getDocumentUrl(urlKey, pathKey) {
+                return user[urlKey] || user[pathKey] || null;
+            }
+
+            modalBody.innerHTML = `
+            <div class="user-details">
+                <!-- User Information Section -->
+                <div class="detail-section">
+                    <h4><i class="fas fa-user"></i> User Information</h4>
+                    <div class="detail-grid">
+                        <div class="detail-item">
+                            <label><i class="fas fa-user"></i> Name</label>
+                            <span>${user.first_name} ${user.last_name}</span>
+                        </div>
+                        <div class="detail-item">
+                            <label><i class="fas fa-envelope"></i> Email</label>
+                            <span>${user.email}</span>
+                        </div>
+                        ${user.phone_number ? `
+                            <div class="detail-item">
+                                <label><i class="fas fa-phone"></i> Phone</label>
+                                <span>${user.phone_number}</span>
+                            </div>
+                        ` : ''}
+                        ${user.address ? `
+                            <div class="detail-item full-width">
+                                <label><i class="fas fa-map-marker-alt"></i> Address</label>
+                                <span>${user.address}</span>
+                            </div>
+                        ` : ''}
+                        <div class="detail-item">
+                            <label><i class="fas fa-tag"></i> User Type</label>
+                            <span class="type-badge type-${user.user_type ? user.user_type.toLowerCase() : 'buyer'}">
+                                <i class="fas fa-${user.user_type && user.user_type.toLowerCase() === 'seller' ? 'store' : user.user_type && user.user_type.toLowerCase() === 'rider' ? 'motorcycle' : 'user-tag'}"></i>
+                                ${user.user_type || 'Buyer'}
+                            </span>
+                        </div>
+                        ${user.user_type && user.user_type.toLowerCase() === 'seller' && user.business_name ? `
+                            <div class="detail-item">
+                                <label><i class="fas fa-store"></i> Business Name</label>
+                                <span>${user.business_name}</span>
+                            </div>
+                        ` : ''}
+                        ${user.is_banned ? `
+                            <div class="detail-item full-width">
+                                <label>Ban Status</label>
+                                <span style="color: #dc3545; font-weight: 600;">
+                                    <i class="fas fa-ban"></i> BANNED
+                                    ${user.ban_reason ? `<br><small style="color: #6c757d;">Reason: ${user.ban_reason}</small>` : ''}
+                                    ${user.ban_date ? `<br><small style="color: #6c757d;">Banned on: ${new Date(user.ban_date).toLocaleDateString()}</small>` : ''}
+                                </span>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+
+                ${user.user_type && user.user_type.toLowerCase() === 'rider' && (user.vehicle_type || user.vehicle_model || user.vehicle_plate_number || user.vehicle_year_model) ? `
+                    <!-- Vehicle Information Section -->
+                    <div class="detail-section">
+                        <h4><i class="fas fa-motorcycle"></i> Vehicle Information</h4>
+                        <div class="detail-grid">
+                            ${user.vehicle_type ? `
+                                <div class="detail-item">
+                                    <label><i class="fas fa-motorcycle"></i> Vehicle Type</label>
+                                    <span>${user.vehicle_type.charAt(0).toUpperCase() + user.vehicle_type.slice(1)}</span>
+                                </div>
+                            ` : ''}
+                            ${user.vehicle_model ? `
+                                <div class="detail-item">
+                                    <label><i class="fas fa-car"></i> Vehicle Model</label>
+                                    <span>${user.vehicle_model}</span>
+                                </div>
+                            ` : ''}
+                            ${user.vehicle_plate_number ? `
+                                <div class="detail-item">
+                                    <label><i class="fas fa-id-badge"></i> Plate Number</label>
+                                    <span>${user.vehicle_plate_number}</span>
+                                </div>
+                            ` : ''}
+                            ${user.vehicle_year_model ? `
+                                <div class="detail-item">
+                                    <label><i class="fas fa-calendar-alt"></i> Year Model</label>
+                                    <span>${user.vehicle_year_model}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                ` : ''}
+
+                <!-- Documents Section -->
+                <div class="detail-section">
+                    <h4><i class="fas fa-file-alt"></i> Documents</h4>
+                    <div class="documents-grid">
+                        <!-- Valid ID Document -->
+                        <div class="document-card ${getDocumentUrl('valid_id_url', 'valid_id_path') ? 'has-document' : 'no-document'}">
+                            <div class="document-header">
+                                <div class="document-icon">
+                                    <i class="fas fa-id-card"></i>
+                                </div>
+                                <div class="document-info">
+                                    <h5>Valid Government ID</h5>
+                                    <span class="document-status ${getDocumentUrl('valid_id_url', 'valid_id_path') ? 'uploaded' : 'missing'}">
+                                        <i class="fas fa-${getDocumentUrl('valid_id_url', 'valid_id_path') ? 'check-circle' : 'times-circle'}"></i>
+                                        ${getDocumentUrl('valid_id_url', 'valid_id_path') ? 'Uploaded' : 'Not Uploaded'}
+                                    </span>
+                                </div>
+                            </div>
+                            ${getDocumentUrl('valid_id_url', 'valid_id_path') ? `
+                                <div class="document-preview clickable-image" onclick="openImageModal('${getDocumentUrl('valid_id_url', 'valid_id_path')}', 'Valid Government ID')">
+                                    <img src="${getDocumentUrl('valid_id_url', 'valid_id_path')}" alt="Valid ID" loading="lazy">
+                                    <div class="preview-overlay">
+                                        <i class="fas fa-search-plus"></i>
+                                        <span>Click to view full size</span>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="document-placeholder">
+                                    <i class="fas fa-file-image"></i>
+                                    <p>No document uploaded</p>
+                                </div>
+                            `}
+                        </div>
+
+                        <!-- DTI Certificate (seller only) -->
+                        ${user.user_type && user.user_type.toLowerCase() === 'seller' ? `
+                        <div class="document-card ${getDocumentUrl('dti_url', 'dti_path') ? 'has-document' : 'no-document'}">
+                            <div class="document-header">
+                                <div class="document-icon">
+                                    <i class="fas fa-certificate"></i>
+                                </div>
+                                <div class="document-info">
+                                    <h5>DTI Certificate</h5>
+                                    <span class="document-status ${getDocumentUrl('dti_url', 'dti_path') ? 'uploaded' : 'missing'}">
+                                        <i class="fas fa-${getDocumentUrl('dti_url', 'dti_path') ? 'check-circle' : 'times-circle'}"></i>
+                                        ${getDocumentUrl('dti_url', 'dti_path') ? 'Uploaded' : 'Not Uploaded'}
+                                    </span>
+                                </div>
+                            </div>
+                            ${getDocumentUrl('dti_url', 'dti_path') ? `
+                                <div class="document-preview clickable-image" onclick="openImageModal('${getDocumentUrl('dti_url', 'dti_path')}', 'DTI Certificate')">
+                                    <img src="${getDocumentUrl('dti_url', 'dti_path')}" alt="DTI Certificate" loading="lazy">
+                                    <div class="preview-overlay">
+                                        <i class="fas fa-search-plus"></i>
+                                        <span>Click to view full size</span>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="document-placeholder">
+                                    <i class="fas fa-file-image"></i>
+                                    <p>No document uploaded</p>
+                                </div>
+                            `}
+                        </div>
+                        ` : ''}
+
+                        <!-- BIR Certificate (seller only) -->
+                        ${user.user_type && user.user_type.toLowerCase() === 'seller' ? `
+                        <div class="document-card ${getDocumentUrl('bir_url', 'bir_path') ? 'has-document' : 'no-document'}">
+                            <div class="document-header">
+                                <div class="document-icon">
+                                    <i class="fas fa-file-invoice"></i>
+                                </div>
+                                <div class="document-info">
+                                    <h5>BIR Certificate</h5>
+                                    <span class="document-status ${getDocumentUrl('bir_url', 'bir_path') ? 'uploaded' : 'missing'}">
+                                        <i class="fas fa-${getDocumentUrl('bir_url', 'bir_path') ? 'check-circle' : 'times-circle'}"></i>
+                                        ${getDocumentUrl('bir_url', 'bir_path') ? 'Uploaded' : 'Not Uploaded'}
+                                    </span>
+                                </div>
+                            </div>
+                            ${getDocumentUrl('bir_url', 'bir_path') ? `
+                                <div class="document-preview clickable-image" onclick="openImageModal('${getDocumentUrl('bir_url', 'bir_path')}', 'BIR Certificate')">
+                                    <img src="${getDocumentUrl('bir_url', 'bir_path')}" alt="BIR Certificate" loading="lazy">
+                                    <div class="preview-overlay">
+                                        <i class="fas fa-search-plus"></i>
+                                        <span>Click to view full size</span>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="document-placeholder">
+                                    <i class="fas fa-file-image"></i>
+                                    <p>No document uploaded</p>
+                                </div>
+                            `}
+                        </div>
+                        ` : ''}
+
+                        <!-- Business Permit (seller only) -->
+                        ${user.user_type && user.user_type.toLowerCase() === 'seller' ? `
+                        <div class="document-card ${getDocumentUrl('business_permit_url', 'business_permit_path') ? 'has-document' : 'no-document'}">
+                            <div class="document-header">
+                                <div class="document-icon">
+                                    <i class="fas fa-building"></i>
+                                </div>
+                                <div class="document-info">
+                                    <h5>Business Permit</h5>
+                                    <span class="document-status ${getDocumentUrl('business_permit_url', 'business_permit_path') ? 'uploaded' : 'missing'}">
+                                        <i class="fas fa-${getDocumentUrl('business_permit_url', 'business_permit_path') ? 'check-circle' : 'times-circle'}"></i>
+                                        ${getDocumentUrl('business_permit_url', 'business_permit_path') ? 'Uploaded' : 'Not Uploaded'}
+                                    </span>
+                                </div>
+                            </div>
+                            ${getDocumentUrl('business_permit_url', 'business_permit_path') ? `
+                                <div class="document-preview clickable-image" onclick="openImageModal('${getDocumentUrl('business_permit_url', 'business_permit_path')}', 'Business Permit')">
+                                    <img src="${getDocumentUrl('business_permit_url', 'business_permit_path')}" alt="Business Permit" loading="lazy">
+                                    <div class="preview-overlay">
+                                        <i class="fas fa-search-plus"></i>
+                                        <span>Click to view full size</span>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="document-placeholder">
+                                    <i class="fas fa-file-image"></i>
+                                    <p>No document uploaded</p>
+                                </div>
+                            `}
+                        </div>
+                        ` : ''}
+
+                        <!-- OR/CR Document (rider only) -->
+                        ${user.user_type && user.user_type.toLowerCase() === 'rider' ? `
+                        <div class="document-card ${getDocumentUrl('or_cr_url', 'or_cr_path') ? 'has-document' : 'no-document'}">
+                            <div class="document-header">
+                                <div class="document-icon">
+                                    <i class="fas fa-file-alt"></i>
+                                </div>
+                                <div class="document-info">
+                                    <h5>OR/CR Document</h5>
+                                    <span class="document-status ${getDocumentUrl('or_cr_url', 'or_cr_path') ? 'uploaded' : 'missing'}">
+                                        <i class="fas fa-${getDocumentUrl('or_cr_url', 'or_cr_path') ? 'check-circle' : 'times-circle'}"></i>
+                                        ${getDocumentUrl('or_cr_url', 'or_cr_path') ? 'Uploaded' : 'Not Uploaded'}
+                                    </span>
+                                </div>
+                            </div>
+                            ${getDocumentUrl('or_cr_url', 'or_cr_path') ? `
+                                <div class="document-preview clickable-image" onclick="openImageModal('${getDocumentUrl('or_cr_url', 'or_cr_path')}', 'OR/CR Document')">
+                                    <img src="${getDocumentUrl('or_cr_url', 'or_cr_path')}" alt="OR/CR Document" loading="lazy">
+                                    <div class="preview-overlay">
+                                        <i class="fas fa-search-plus"></i>
+                                        <span>Click to view full size</span>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="document-placeholder">
+                                    <i class="fas fa-file-image"></i>
+                                    <p>No document uploaded</p>
+                                </div>
+                            `}
+                        </div>
+                        ` : ''}
+
+                        <!-- NBI Clearance (rider only) -->
+                        ${user.user_type && user.user_type.toLowerCase() === 'rider' ? `
+                        <div class="document-card ${getDocumentUrl('nbi_clearance_url', 'nbi_clearance_path') ? 'has-document' : 'no-document'}">
+                            <div class="document-header">
+                                <div class="document-icon">
+                                    <i class="fas fa-certificate"></i>
+                                </div>
+                                <div class="document-info">
+                                    <h5>NBI Clearance</h5>
+                                    <span class="document-status ${getDocumentUrl('nbi_clearance_url', 'nbi_clearance_path') ? 'uploaded' : 'missing'}">
+                                        <i class="fas fa-${getDocumentUrl('nbi_clearance_url', 'nbi_clearance_path') ? 'check-circle' : 'times-circle'}"></i>
+                                        ${getDocumentUrl('nbi_clearance_url', 'nbi_clearance_path') ? 'Uploaded' : 'Not Uploaded'}
+                                    </span>
+                                </div>
+                            </div>
+                            ${getDocumentUrl('nbi_clearance_url', 'nbi_clearance_path') ? `
+                                <div class="document-preview clickable-image" onclick="openImageModal('${getDocumentUrl('nbi_clearance_url', 'nbi_clearance_path')}', 'NBI Clearance')">
+                                    <img src="${getDocumentUrl('nbi_clearance_url', 'nbi_clearance_path')}" alt="NBI Clearance" loading="lazy">
+                                    <div class="preview-overlay">
+                                        <i class="fas fa-search-plus"></i>
+                                        <span>Click to view full size</span>
+                                    </div>
+                                </div>
+                            ` : `
+                                <div class="document-placeholder">
+                                    <i class="fas fa-file-image"></i>
+                                    <p>No document uploaded</p>
+                                </div>
+                            `}
+                        </div>
+                        ` : ''}
+                    </div>
+                    
+                    ${!user.valid_id_url && !user.valid_id_path &&
+                    (!user.user_type ||
+                        (user.user_type.toLowerCase() === 'seller' && !user.dti_url && !user.dti_path && !user.bir_url && !user.bir_path && !user.business_permit_url && !user.business_permit_path) ||
+                        (user.user_type.toLowerCase() === 'rider' && !user.or_cr_url && !user.or_cr_path && !user.nbi_clearance_url && !user.nbi_clearance_path) ||
+                        (user.user_type.toLowerCase() === 'buyer')) ? `
+                        <div class="no-documents-message">
+                            <div class="no-documents-icon">
+                                <i class="fas fa-folder-open"></i>
+                            </div>
+                            <h5>No Documents Available</h5>
+                            <p>This user has not uploaded any verification documents yet.</p>
+                        </div>
+                    ` : ''}
+                </div>
+            </div>
+        `;
+
+            document.getElementById('userModal').style.display = 'flex';
+        }
+
+        function closeUserModal() {
+            document.getElementById('userModal').style.display = 'none';
+        }
+
+        function suspendUser(userId) {
+            // Set the user ID in the modal form
+            document.getElementById('suspendUserId').value = userId;
+
+            // Show the suspend modal
+            document.getElementById('suspendUserModal').style.display = 'flex';
+        }
+
+        function closeSuspendUserModal() {
+            document.getElementById('suspendUserModal').style.display = 'none';
+            // Reset form
+            document.getElementById('suspendUserForm').reset();
+        }
+
+        function banUser(userId) {
+            // Set the user ID in the modal form
+            document.getElementById('banUserId').value = userId;
+
+            // Show the ban modal
+            document.getElementById('banUserModal').style.display = 'flex';
+        }
+
+        function closeBanUserModal() {
+            document.getElementById('banUserModal').style.display = 'none';
+            // Reset form
+            document.getElementById('banUserForm').reset();
+        }
+
+        function unbanUser(userId) {
+            // Determine if this is an unsuspend or unban action
+            const button = event.target.closest('.unsuspend-btn, .unban-btn');
+            const isUnsuspend = button.classList.contains('unsuspend-btn');
+            
+            // Different confirmation messages
+            const confirmMessage = isUnsuspend 
+                ? 'Are you sure you want to unsuspend this user? They will regain access to the platform immediately.'
+                : 'Are you sure you want to unban this user? They will regain access to the platform.';
+            
+            if (confirm(confirmMessage)) {
+                const originalContent = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                button.disabled = true;
+
+                fetch(`/api/unban_user/${userId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Add success animation
+                            const row = button.closest('tr');
+                            row.style.transition = 'all 0.5s ease';
+                            row.style.opacity = '0.7';
+                            row.style.backgroundColor = 'rgba(40, 167, 69, 0.1)';
+
+                            // Show appropriate success message
+                            const successMessage = isUnsuspend 
+                                ? 'User unsuspended successfully!' 
+                                : 'User unbanned successfully!';
+                            
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 500);
+                        } else {
+                            throw new Error(data.error || (isUnsuspend ? 'Unsuspend failed' : 'Unban failed'));
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        const errorAction = isUnsuspend ? 'unsuspending' : 'unbanning';
+                        alert(`Error ${errorAction} user: ${error.message || 'Please try again.'}`);
+                        button.innerHTML = originalContent;
+                        button.disabled = false;
+                    });
+            }
+        }
+
+        function archiveUser(userId) {
+            if (confirm('Are you sure you want to archive this user? This action can be undone from the archived accounts section.')) {
+                const button = event.target.closest('.archive-btn');
+                const originalContent = button.innerHTML;
+                button.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                button.disabled = true;
+
+                fetch(`/archive_user/${userId}`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Add success animation
+                            const row = button.closest('tr');
+                            row.style.transition = 'all 0.5s ease';
+                            row.style.opacity = '0.5';
+                            row.style.transform = 'translateX(-20px)';
+
+                            setTimeout(() => {
+                                window.location.reload();
+                            }, 500);
+                        } else {
+                            throw new Error(data.error || 'Archive failed');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert(`Error archiving user: ${error.message || 'Please try again.'}`);
+                        button.innerHTML = originalContent;
+                        button.disabled = false;
+                    });
+            }
+        }
+
+        function showEditUserModal(user) {
+            // Populate form fields
+            document.getElementById('editUserId').value = user.id;
+            document.getElementById('editFirstName').value = user.first_name || '';
+            document.getElementById('editLastName').value = user.last_name || '';
+            document.getElementById('editEmail').value = user.email || '';
+            document.getElementById('editPhone').value = user.phone_number || '';
+            document.getElementById('editAddress').value = user.address || '';
+
+            // Set user type dropdown to current user's type
+            const userTypeSelect = document.getElementById('editUserType');
+            const currentUserType = user.user_type ? user.user_type.toLowerCase() : 'buyer';
+            userTypeSelect.value = currentUserType;
+
+            // If the value didn't set properly, try to find and select the matching option
+            if (userTypeSelect.value !== currentUserType) {
+                const options = userTypeSelect.options;
+                for (let i = 0; i < options.length; i++) {
+                    if (options[i].value.toLowerCase() === currentUserType) {
+                        options[i].selected = true;
+                        break;
+                    }
+                }
+            }
+
+            // Show modal
+            document.getElementById('editUserModal').style.display = 'flex';
+        }
+
+        function closeEditUserModal() {
+            document.getElementById('editUserModal').style.display = 'none';
+        }
+
+        // Handle edit form submission
+        document.getElementById('editUserForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalContent = submitBtn.innerHTML;
+
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            submitBtn.disabled = true;
+
+            fetch('/api/update_user', {
+                method: 'POST',
+                body: formData
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        closeEditUserModal();
+                        // Show success message
+                        alert('User updated successfully!');
+                        // Reload the page to show updated data
+                        window.location.reload();
+                    } else {
+                        alert('Error updating user: ' + data.error);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error updating user. Please try again.');
+                })
+                .finally(() => {
+                    submitBtn.innerHTML = originalContent;
+                    submitBtn.disabled = false;
+                });
+        });
+
+        // Handle suspend form submission
+        document.getElementById('suspendUserForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalContent = submitBtn.innerHTML;
+            const userId = formData.get('user_id');
+
+            // Validate suspend reason
+            const suspendReason = formData.get('suspend_reason').trim();
+            if (!suspendReason) {
+                alert('Please provide a reason for suspending this user.');
+                return;
+            }
+
+            if (suspendReason.length < 10) {
+                alert('Suspension reason must be at least 10 characters long.');
+                return;
+            }
+
+            // Validate duration
+            const suspendDuration = formData.get('suspend_duration');
+            if (!suspendDuration) {
+                alert('Please select a suspension duration.');
+                return;
+            }
+
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Suspending User...';
+            submitBtn.disabled = true;
+
+            // Prepare suspend data
+            const suspendData = {
+                user_id: userId,
+                suspend_reason: suspendReason,
+                suspend_duration: suspendDuration,
+                send_email: formData.get('send_email') === 'on'
+            };
+
+            fetch(`/api/suspend_user/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(suspendData)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        closeSuspendUserModal();
+
+                        // Show success message
+                        const emailStatus = data.email_sent ? 'Email notification sent successfully.' : 'User suspended but email notification failed.';
+                        alert(`User suspended successfully! ${emailStatus}`);
+
+                        // Add visual feedback to the row
+                        const userRow = document.querySelector(`tr[data-user-id="${userId}"]`);
+                        if (userRow) {
+                            userRow.style.transition = 'all 0.5s ease';
+                            userRow.style.opacity = '0.7';
+                            userRow.style.backgroundColor = 'rgba(255, 152, 0, 0.1)';
+                        }
+
+                        // Reload the page to show updated data
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        alert('Error suspending user: ' + (data.error || 'Please try again.'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error suspending user. Please try again.');
+                })
+                .finally(() => {
+                    submitBtn.innerHTML = originalContent;
+                    submitBtn.disabled = false;
+                });
+        });
+
+        // Handle ban form submission (Permanent Block)
+        document.getElementById('banUserForm').addEventListener('submit', function (e) {
+            e.preventDefault();
+
+            const formData = new FormData(this);
+            const submitBtn = this.querySelector('button[type="submit"]');
+            const originalContent = submitBtn.innerHTML;
+            const userId = formData.get('user_id');
+
+            // Validate ban reason
+            const banReason = formData.get('ban_reason').trim();
+            if (!banReason) {
+                alert('Please provide a reason for permanently banning this user.');
+                return;
+            }
+
+            if (banReason.length < 10) {
+                alert('Ban reason must be at least 10 characters long.');
+                return;
+            }
+
+            // Additional confirmation for permanent ban
+            if (!confirm('⚠️ WARNING: This will PERMANENTLY banned this user from accessing the platform. This action cannot be undone. Are you absolutely sure?')) {
+                return;
+            }
+
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Permanently Banned User...';
+            submitBtn.disabled = true;
+
+            // Prepare ban data (permanent - no duration)
+            const banData = {
+                user_id: userId,
+                ban_reason: banReason,
+                ban_duration: 'permanent',
+                send_email: formData.get('send_email') === 'on'
+            };
+
+            fetch(`/api/ban_user/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(banData)
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        closeBanUserModal();
+
+                        // Show success message
+                        const emailStatus = data.email_sent ? 'Email notification sent successfully.' : 'User permanently banned but email notification failed.';
+                        alert(`User permanently banned! ${emailStatus}`);
+
+                        // Add visual feedback to the row
+                        const userRow = document.querySelector(`tr[data-user-id="${userId}"]`);
+                        if (userRow) {
+                            userRow.style.transition = 'all 0.5s ease';
+                            userRow.style.opacity = '0.7';
+                            userRow.style.backgroundColor = 'rgba(220, 53, 69, 0.1)';
+                        }
+
+                        // Reload the page to show updated data
+                        setTimeout(() => {
+                            window.location.reload();
+                        }, 1000);
+                    } else {
+                        alert('Error banning user: ' + (data.error || 'Please try again.'));
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('Error banning user. Please try again.');
+                })
+                .finally(() => {
+                    submitBtn.innerHTML = originalContent;
+                    submitBtn.disabled = false;
+                });
+        });
+
+        // Enhanced Image Modal Functions
+        function openImageModal(imageSrc, title) {
+            // Remove existing modal if any
+            const existingModal = document.getElementById('imageModal');
+            if (existingModal) {
+                existingModal.remove();
+            }
+
+            // Prevent body scroll
+            document.body.style.overflow = 'hidden';
+
+            // Create new modal
+            const modal = document.createElement('div');
+            modal.id = 'imageModal';
+            modal.className = 'modal-overlay';
+            modal.innerHTML = `
+                <div class="image-modal-content">
+                    <button class="close-btn" onclick="closeImageModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <img src="${imageSrc}" alt="${title}" class="full-image" onload="this.style.opacity='1'" style="opacity:0; transition: opacity 0.3s ease;">
+                </div>
+            `;
+
+            document.body.appendChild(modal);
+
+            // Show modal with animation
+            setTimeout(() => {
+                modal.classList.add('active');
+            }, 10);
+
+            // Close on outside click
+            modal.addEventListener('click', function (e) {
+                if (e.target === modal) {
+                    closeImageModal();
+                }
+            });
+
+            // Close on escape key
+            const escapeHandler = function (e) {
+                if (e.key === 'Escape') {
+                    closeImageModal();
+                    document.removeEventListener('keydown', escapeHandler);
+                }
+            };
+            document.addEventListener('keydown', escapeHandler);
+
+            // Handle image load error
+            const img = modal.querySelector('img');
+            img.onerror = function () {
+                const content = this.parentElement;
+                content.innerHTML = `
+                    <button class="close-btn" onclick="closeImageModal()">
+                        <i class="fas fa-times"></i>
+                    </button>
+                    <div style="text-align: center; padding: 3rem; color: #6c757d; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 3rem; color: #dc3545; margin-bottom: 1rem;"></i>
+                        <h4 style="color: #2c3e50; margin-bottom: 0.5rem;">Image Not Found</h4>
+                        <p style="margin: 0;">The document image could not be loaded.</p>
+                        <small style="color: #adb5bd; margin-top: 1rem; display: block;">Path: ${imageSrc}</small>
+                    </div>
+                `;
+            };
+        }
+
+        function closeImageModal() {
+            const modal = document.getElementById('imageModal');
+            if (modal) {
+                modal.classList.remove('active');
+                setTimeout(() => {
+                    modal.remove();
+                    // Restore body scroll
+                    document.body.style.overflow = '';
+                }, 300);
+            }
+        }
+
+        // Close modal when clicking outside
+        document.getElementById('userModal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeUserModal();
+            }
+        });
+
+        document.getElementById('editUserModal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeEditUserModal();
+            }
+        });
+
+        document.getElementById('suspendUserModal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeSuspendUserModal();
+            }
+        });
+
+        document.getElementById('banUserModal').addEventListener('click', function (e) {
+            if (e.target === this) {
+                closeBanUserModal();
+            }
+        });
+
+        // Phone number formatting function
+        function formatPhoneNumber(phone) {
+            if (!phone) return null;
+
+            const phoneStr = phone.toString().replace(/\D/g, ''); // Remove non-digits
+
+            // Philippine mobile format: +63 XXX XXX XXXX
+            if (phoneStr.startsWith('63') && phoneStr.length === 12) {
+                return `+${phoneStr.slice(0, 2)} ${phoneStr.slice(2, 5)} ${phoneStr.slice(5, 8)} ${phoneStr.slice(8)}`;
+            }
+            // Local mobile format: 09XX XXX XXXX
+            else if (phoneStr.startsWith('09') && phoneStr.length === 11) {
+                return `${phoneStr.slice(0, 4)} ${phoneStr.slice(4, 7)} ${phoneStr.slice(7)}`;
+            }
+            // Landline format: (0XX) XXX XXXX
+            else if (phoneStr.startsWith('0') && phoneStr.length >= 10 && phoneStr.length <= 11) {
+                if (phoneStr.length === 10) {
+                    return `(${phoneStr.slice(0, 3)}) ${phoneStr.slice(3, 6)} ${phoneStr.slice(6)}`;
+                } else {
+                    return `(${phoneStr.slice(0, 4)}) ${phoneStr.slice(4, 7)} ${phoneStr.slice(7)}`;
+                }
+            }
+            // International format
+            else if (phoneStr.length >= 10) {
+                return phoneStr.replace(/(\d{1,3})(\d{3})(\d{3})(\d{4})/, '+$1 $2 $3 $4');
+            }
+
+            // Return original if no format matches
+            return phone;
+        }
+
+        // Address formatting function
+        function formatAddress(address) {
+            if (!address) return null;
+
+            const addressParts = address.split(',').map(part => part.trim());
+
+            if (addressParts.length >= 3) {
+                let formattedAddress = '<div class="formatted-address">';
+
+                // Street/House number
+                if (addressParts[0]) {
+                    formattedAddress += `<div class="address-line street"><i class="fas fa-home"></i> ${addressParts[0]}</div>`;
+                }
+
+                // Barangay and Municipality/City
+                if (addressParts[1]) {
+                    const barangay = addressParts[1].toLowerCase().startsWith('brgy') ?
+                        addressParts[1] : `Brgy. ${addressParts[1]}`;
+                    formattedAddress += `<div class="address-line barangay"><i class="fas fa-map-marker-alt"></i> ${barangay}`;
+
+                    if (addressParts[2]) {
+                        formattedAddress += `, ${addressParts[2]}`;
+                    }
+                    formattedAddress += '</div>';
+                }
+
+                // Province and additional info
+                if (addressParts.length >= 4) {
+                    formattedAddress += `<div class="address-line province"><i class="fas fa-globe-asia"></i> `;
+                    formattedAddress += addressParts.slice(3).join(', ');
+                    formattedAddress += '</div>';
+                }
+
+                formattedAddress += '</div>';
+                return formattedAddress;
+            } else {
+                // Simple address format
+                return `<div class="simple-address"><i class="fas fa-map-marker-alt"></i> ${address}</div>`;
+            }
+        }
+
+        // Enhanced document interaction handling
+        document.addEventListener('DOMContentLoaded', function () {
+            // Add global click handler for dynamically created clickable images
+            document.addEventListener('click', function (e) {
+                if (e.target.closest('.clickable-image')) {
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    const clickableElement = e.target.closest('.clickable-image');
+                    const img = clickableElement.querySelector('img');
+
+                    if (img && img.src) {
+                        // Extract title from the document card
+                        const documentCard = clickableElement.closest('.document-card');
+                        const titleElement = documentCard ? documentCard.querySelector('h5') : null;
+                        const title = titleElement ? titleElement.textContent : 'Document';
+
+                        openImageModal(img.src, title);
+                    }
+                }
+            });
+
+            // Add hover effects for better UX
+            document.addEventListener('mouseenter', function (e) {
+                if (e.target.closest('.clickable-image')) {
+                    e.target.closest('.clickable-image').style.cursor = 'pointer';
+                }
+            }, true);
+        });
+
+        // Auto-submit filter form functionality - Matching Product Management
+        document.addEventListener('DOMContentLoaded', function() {
+            let searchTimeout;
+            const filterForm = document.getElementById('filterForm');
+            const searchInput = document.getElementById('searchInput');
+            const sortFilter = document.getElementById('sortFilter');
+            const statusFilter = document.getElementById('statusFilter');
+
+            if (!filterForm) return;
+
+            // Auto-submit on search input with debounce (wait 500ms after user stops typing)
+            if (searchInput) {
+                searchInput.addEventListener('input', function() {
+                    clearTimeout(searchTimeout);
+                    searchTimeout = setTimeout(() => {
+                        filterForm.submit();
+                    }, 500);
+                });
+            }
+
+            // Auto-submit on user type filter dropdown change
+            if (sortFilter) {
+                sortFilter.addEventListener('change', function() {
+                    filterForm.submit();
+                });
+            }
+
+            // Auto-submit on status filter dropdown change
+            if (statusFilter) {
+                statusFilter.addEventListener('change', function() {
+                    filterForm.submit();
+                });
+            }
+        });
+
+
+    </script>
+
+    <style>
+        /* Stats Summary - Matching Product Management */
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+            gap: 2rem;
+            margin-bottom: 2.5rem;
+        }
+
+        .stat-card {
+            background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+            border-radius: 20px;
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(212, 175, 55, 0.15);
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #d4af37 0%, #f4d03f 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .stat-card:hover::before {
+            opacity: 1;
+        }
+
+        .stat-card:hover {
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 20px 60px rgba(212, 175, 55, 0.2);
+            border-color: rgba(212, 175, 55, 0.3);
+        }
+
+        .stat-icon {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            color: white;
+            flex-shrink: 0;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 8px 25px rgba(212, 175, 55, 0.3);
+            transition: all 0.3s ease;
+            position: relative;
+        }
+
+        .stat-card:hover .stat-icon {
+            transform: scale(1.1) rotate(5deg);
+            box-shadow: 0 12px 35px rgba(212, 175, 55, 0.4);
+        }
+
+        .stat-icon::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
+            transform: rotate(45deg);
+            animation: shimmer 3s infinite;
+        }
+
+        @keyframes shimmer {
+            0% {
+                transform: translateX(-100%) translateY(-100%) rotate(45deg);
+            }
+            100% {
+                transform: translateX(100%) translateY(100%) rotate(45deg);
+            }
+        }
+
+        .stat-value {
+            font-size: 2.5rem;
+            font-weight: 800;
+            color: var(--primary-color);
+            margin: 0 0 0.5rem 0;
+            line-height: 1;
+            background: linear-gradient(135deg, var(--primary-color), #34495e);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .stat-label {
+            font-size: 1rem;
+            color: var(--text-light);
+            margin: 0;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        /* Buyer Stat Card - Cyan/Teal color matching buyer badge */
+        .stat-card-buyer::before {
+            background: linear-gradient(90deg, #17a2b8 0%, #138496 100%);
+        }
+
+        .stat-card-buyer:hover {
+            box-shadow: 0 20px 60px rgba(23, 162, 184, 0.2);
+            border-color: rgba(23, 162, 184, 0.3);
+        }
+
+        .stat-card-buyer .stat-icon {
+            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
+            box-shadow: 0 8px 25px rgba(23, 162, 184, 0.3);
+        }
+
+        .stat-card-buyer:hover .stat-icon {
+            box-shadow: 0 12px 35px rgba(23, 162, 184, 0.4);
+        }
+
+        .stat-card-buyer .stat-value {
+            background: linear-gradient(135deg, #17a2b8, #138496);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Seller Stat Card - Green color matching seller badge */
+        .stat-card-seller::before {
+            background: linear-gradient(90deg, #28a745 0%, #218838 100%);
+        }
+
+        .stat-card-seller:hover {
+            box-shadow: 0 20px 60px rgba(40, 167, 69, 0.2);
+            border-color: rgba(40, 167, 69, 0.3);
+        }
+
+        .stat-card-seller .stat-icon {
+            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
+            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
+        }
+
+        .stat-card-seller:hover .stat-icon {
+            box-shadow: 0 12px 35px rgba(40, 167, 69, 0.4);
+        }
+
+        .stat-card-seller .stat-value {
+            background: linear-gradient(135deg, #28a745, #218838);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Rider Stat Card - Yellow/Orange color matching rider badge */
+        .stat-card-rider::before {
+            background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%);
+        }
+
+        .stat-card-rider:hover {
+            box-shadow: 0 20px 60px rgba(255, 193, 7, 0.2);
+            border-color: rgba(255, 193, 7, 0.3);
+        }
+
+        .stat-card-rider .stat-icon {
+            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
+            box-shadow: 0 8px 25px rgba(255, 193, 7, 0.3);
+        }
+
+        .stat-card-rider:hover .stat-icon {
+            box-shadow: 0 12px 35px rgba(255, 193, 7, 0.4);
+        }
+
+        .stat-card-rider .stat-value {
+            background: linear-gradient(135deg, #ffc107, #ff9800);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        /* Filter Section Styles - Matching Product Management */
+        .filter-section {
+            background: white;
+            border: 1px solid rgba(212, 175, 55, 0.2);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+            border-radius: 15px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+        }
+
+        .filter-form {
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .filter-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-end;
+            gap: 2rem;
+            width: 100%;
+        }
+
+        .filter-left {
+            flex: 1 1 auto;
+            min-width: 0;
+        }
+
+        .filter-right {
+            display: flex;
+            gap: 1rem;
+            align-items: flex-end;
+            flex-shrink: 0;
+        }
+
+        .search-input {
+            padding: 0.75rem 1rem;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            width: 100%;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            background: white;
+            font-family: 'Poppins', sans-serif;
+        }
+
+        .search-input:focus {
+            outline: none;
+            border-color: var(--gold-accent);
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .filter-group.search-group {
+            width: 100%;
+        }
+
+        .filter-select {
+            min-width: 180px;
+        }
+
+        .filter-actions {
+            display: flex;
+            align-items: flex-end;
+        }
+
+        .btn-clear {
+            padding: 0.75rem 1.5rem;
+            background: linear-gradient(135deg, #6c757d, #5a6268);
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .btn-clear:hover {
+            transform: translateY(-2px);
+            background: linear-gradient(135deg, #5a6268, #495057);
+            text-decoration: none;
+        }
+
+        .filter-label {
+            color: var(--primary-color);
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .filter-label i {
+            color: var(--gold-accent);
+            font-size: 0.9rem;
+        }
+
+        .filter-select {
+            padding: 0.75rem 1rem;
+            border: 2px solid #e9ecef;
+            border-radius: 12px;
+            font-size: 0.95rem;
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            font-family: 'Poppins', sans-serif;
+            width: 100%;
+        }
+
+        .filter-select:focus {
+            outline: none;
+            border-color: var(--gold-accent);
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+            transform: translateY(-1px);
+        }
+
+
+
+        .users-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .users-table th {
+            background: var(--premium-gradient);
+            color: white;
+            padding: 1rem;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .users-table td {
+            padding: 1rem;
+            border-bottom: 1px solid rgba(212, 175, 55, 0.1);
+            vertical-align: middle;
+        }
+
+        .user-row:hover {
+            background: rgba(212, 175, 55, 0.05);
+        }
+
+        .user-name {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .user-avatar {
+            width: 40px;
+            height: 40px;
+            background: var(--gold-gradient);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-color);
+            font-size: 1rem;
+        }
+
+        .user-info {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .user-info .name {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .user-info .phone {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .address-full {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .address-full .street {
+            font-weight: 500;
+        }
+
+        .address-full .location,
+        .address-full .city {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        /* Enhanced Document Styles for User Details Modal */
+        .documents-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 1.5rem;
+            margin-top: 1rem;
+        }
+
+        /* Wider modal for user details (has more content than other modals) */
+        #userModal .modal-content {
+            max-width: 1000px;
+            width: 95%;
+        }
+
+        #userModal .modal-body {
+            max-height: 75vh;
+        }
+
+        .document-card {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08);
+            border: 2px solid transparent;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .document-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #d4af37, #f4d03f);
+            transform: scaleX(0);
+            transition: transform 0.3s ease;
+        }
+
+        .document-card.has-document::before {
+            transform: scaleX(1);
+        }
+
+        .document-card.has-document {
+            border-color: rgba(212, 175, 55, 0.2);
+        }
+
+        .document-card.no-document {
+            border-color: rgba(220, 53, 69, 0.1);
+            background: rgba(248, 249, 250, 0.8);
+        }
+
+        .document-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+        }
+
+        .document-card.has-document:hover {
+            border-color: rgba(212, 175, 55, 0.4);
+        }
+
+        .document-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+
+        .document-icon {
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #d4af37, #f4d03f);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--primary-color);
+            font-size: 1.3rem;
+            flex-shrink: 0;
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+        }
+
+        .document-card.no-document .document-icon {
+            background: linear-gradient(135deg, #6c757d, #adb5bd);
+            color: white;
+        }
+
+        .document-info h5 {
+            margin: 0 0 0.25rem 0;
+            font-size: 1rem;
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .document-status {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .document-status.uploaded {
+            color: #28a745;
+        }
+
+        .document-status.missing {
+            color: #dc3545;
+        }
+
+        .document-preview {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            border: 2px solid rgba(212, 175, 55, 0.2);
+            transition: all 0.3s ease;
+            flex: 1;
+            min-height: 160px;
+        }
+
+        .document-preview:hover {
+            border-color: #d4af37;
+            transform: scale(1.02);
+            box-shadow: 0 8px 25px rgba(212, 175, 55, 0.3);
+        }
+
+        .document-preview img {
+            width: 100%;
+            height: 100%;
+            min-height: 160px;
+            object-fit: cover;
+            display: block;
+            transition: all 0.3s ease;
+        }
+
+        .document-preview:hover img {
+            transform: scale(1.05);
+        }
+
+        .preview-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.3s ease;
+            color: white;
+            text-align: center;
+        }
+
+        .document-preview:hover .preview-overlay {
+            opacity: 1;
+        }
+
+        .preview-overlay i {
+            font-size: 2.5rem;
+            color: #d4af37;
+            margin-bottom: 0.5rem;
+        }
+
+        .preview-overlay span {
+            font-size: 0.9rem;
+            font-weight: 500;
+            letter-spacing: 0.5px;
+        }
+
+        .document-placeholder {
+            text-align: center;
+            padding: 2rem 1rem;
+            color: #6c757d;
+            background: rgba(248, 249, 250, 0.8);
+            border-radius: 12px;
+            border: 2px dashed #dee2e6;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 160px;
+        }
+
+        .document-placeholder i {
+            font-size: 3rem;
+            color: #dee2e6;
+            margin-bottom: 1rem;
+        }
+
+        .document-placeholder p {
+            margin: 0;
+            font-weight: 500;
+            font-size: 0.9rem;
+        }
+
+        .no-documents-message {
+            text-align: center;
+            padding: 3rem 2rem;
+            color: #6c757d;
+            background: rgba(248, 249, 250, 0.5);
+            border-radius: 16px;
+            border: 2px dashed #dee2e6;
+            margin-top: 2rem;
+        }
+
+        .no-documents-icon {
+            font-size: 4rem;
+            color: rgba(212, 175, 55, 0.3);
+            margin-bottom: 1.5rem;
+        }
+
+        .no-documents-message h5 {
+            color: var(--primary-color);
+            margin-bottom: 0.5rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+        }
+
+        .no-documents-message p {
+            margin: 0;
+            font-size: 1rem;
+            line-height: 1.5;
+        }
+
+        /* Enhanced Image Modal */
+        .image-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+        }
+
+        .image-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .image-modal-content {
+            position: relative;
+            max-width: 95vw;
+            max-height: 95vh;
+            background: white;
+            border-radius: 16px;
+            overflow: hidden;
+            box-shadow: 0 25px 80px rgba(0, 0, 0, 0.3);
+            transform: scale(0.9);
+            transition: transform 0.3s ease;
+        }
+
+        .image-modal.active .image-modal-content {
+            transform: scale(1);
+        }
+
+        .image-modal-header {
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            color: white;
+            padding: 1rem 1.5rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .image-modal-header h3 {
+            margin: 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .image-modal-header h3 i {
+            color: #d4af37;
+        }
+
+        .image-modal-close {
+            background: rgba(255, 255, 255, 0.1);
+            border: none;
+            color: white;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+        }
+
+        .image-modal-close:hover {
+            background: rgba(220, 53, 69, 0.8);
+            transform: scale(1.1);
+        }
+
+        .image-modal-body {
+            padding: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8f9fa;
+        }
+
+        .image-modal-body img {
+            max-width: 100%;
+            max-height: 70vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            border-radius: 8px;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        /* Responsive Design for Documents */
+        @media (max-width: 900px) {
+            #userModal .modal-content {
+                max-width: 98%;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .documents-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .document-card {
+                padding: 1rem;
+            }
+
+            .document-preview img {
+                height: 150px;
+            }
+
+            .document-icon {
+                width: 40px;
+                height: 40px;
+                font-size: 1.1rem;
+            }
+
+            .document-info h5 {
+                font-size: 0.9rem;
+            }
+
+            .document-status {
+                font-size: 0.8rem;
+            }
+
+            .no-documents-message {
+                padding: 2rem 1rem;
+            }
+
+            .no-documents-icon {
+                font-size: 3rem;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .document-preview img {
+                height: 120px;
+            }
+
+            .document-placeholder {
+                padding: 1.5rem 0.5rem;
+            }
+
+            .document-placeholder i {
+                font-size: 2rem;
+            }
+
+            .preview-overlay i {
+                font-size: 2rem;
+            }
+
+            .preview-overlay span {
+                font-size: 0.8rem;
+            }
+        }
+
+        /* Loading animation for document images */
+        .document-preview img {
+            background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+            background-size: 200% 100%;
+            animation: documentLoading 1.5s infinite;
+        }
+
+        .document-preview img[src] {
+            animation: none;
+            background: none;
+        }
+
+        @keyframes documentLoading {
+            0% {
+                background-position: 200% 0;
+            }
+
+            100% {
+                background-position: -200% 0;
+            }
+        }
+
+        /* Enhanced detail sections */
+        .detail-section {
+            background: white;
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1.5rem;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+            border-left: 4px solid #d4af37;
+        }
+
+        .detail-section h4 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            font-size: 1.2rem;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        .detail-section h4 i {
+            color: #d4af37;
+            font-size: 1.1rem;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .detail-item label {
+            font-weight: 600;
+            color: #6c757d;
+            font-size: 0.9rem;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .detail-item span {
+            color: var(--primary-color);
+            font-weight: 500;
+            font-size: 1rem;
+        }
+
+        /* Enhanced type badges in detail view */
+        .detail-item .type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            width: fit-content;
+        }
+
+        .detail-item .type-badge i {
+            font-size: 0.9rem;
+        }
+
+        /* Enhanced Address and Phone Formatting */
+        .address-simple {
+            max-width: 200px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            cursor: help;
+        }
+
+        .formatted-address {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .address-line {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.25rem 0;
+            font-size: 0.95rem;
+        }
+
+        .address-line i {
+            color: #d4af37;
+            width: 16px;
+            text-align: center;
+            flex-shrink: 0;
+        }
+
+        .address-line.street {
+            font-weight: 600;
+            color: var(--primary-color);
+        }
+
+        .address-line.barangay {
+            color: #6c757d;
+        }
+
+        .address-line.province {
+            color: #6c757d;
+            font-size: 0.9rem;
+        }
+
+        .simple-address {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: var(--primary-color);
+        }
+
+        .simple-address i {
+            color: #d4af37;
+        }
+
+        .phone {
+            font-family: 'Courier New', monospace;
+            font-size: 0.9rem;
+            color: #6c757d;
+            letter-spacing: 0.5px;
+        }
+
+        .user-info .phone {
+            margin-top: 0.25rem;
+        }
+
+        /* Improved table address display */
+        .user-address {
+            max-width: 250px;
+        }
+
+        .address-full {
+            display: flex;
+            flex-direction: column;
+            gap: 0.2rem;
+            font-size: 0.9rem;
+        }
+
+        .address-full .street {
+            font-weight: 500;
+            color: var(--primary-color);
+        }
+
+        .address-full .location {
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+
+        .address-full .city {
+            color: #6c757d;
+            font-size: 0.85rem;
+        }
+
+        .text-muted {
+            color: #6c757d !important;
+            font-style: italic;
+        }
+
+        /* Ban Modal Styles */
+        .ban-warning {
+            display: flex;
+            align-items: flex-start;
+            gap: 15px;
+            background: linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 152, 0, 0.05) 100%);
+            border: 1px solid rgba(255, 193, 7, 0.3);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 25px;
+        }
+
+        .warning-icon {
+            flex-shrink: 0;
+            width: 50px;
+            height: 50px;
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 1.5rem;
+            animation: warningPulse 2s ease-in-out infinite;
+        }
+
+        @keyframes warningPulse {
+
+            0%,
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(255, 152, 0, 0.7);
+            }
+
+            50% {
+                transform: scale(1.05);
+                box-shadow: 0 0 0 10px rgba(255, 152, 0, 0);
+            }
+        }
+
+        .warning-content h3 {
+            color: var(--primary-color);
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+        }
+
+        .warning-content p {
+            color: var(--text-light);
+            margin: 0;
+            line-height: 1.5;
+            font-size: 0.95rem;
+        }
+
+        .form-help {
+            display: block;
+            color: var(--text-light);
+            font-size: 0.85rem;
+            margin-top: 5px;
+            font-style: italic;
+        }
+
+        .checkbox-group {
+            margin: 20px 0;
+        }
+
+        .checkbox-label {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            font-size: 0.95rem;
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        .checkbox-label input[type="checkbox"] {
+            display: none;
+        }
+
+        .checkmark {
+            position: relative;
+            width: 20px;
+            height: 20px;
+            background: white;
+            border: 2px solid rgba(212, 175, 55, 0.3);
+            border-radius: 4px;
+            transition: all 0.3s ease;
+            flex-shrink: 0;
+        }
+
+        .checkmark::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 6px;
+            height: 10px;
+            border: solid white;
+            border-width: 0 2px 2px 0;
+            transform: translate(-50%, -60%) rotate(45deg) scale(0);
+            transition: all 0.3s ease;
+        }
+
+        .checkbox-label input[type="checkbox"]:checked+.checkmark {
+            background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+            border-color: #d4af37;
+        }
+
+        .checkbox-label input[type="checkbox"]:checked+.checkmark::after {
+            transform: translate(-50%, -60%) rotate(45deg) scale(1);
+        }
+
+        .checkbox-text {
+            user-select: none;
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #ff9800 0%, #f57c00 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-warning:hover {
+            background: linear-gradient(135deg, #f57c00 0%, #e65100 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(255, 152, 0, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #dc3545 0%, #c82333 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #c82333 0%, #a71e2a 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(220, 53, 69, 0.3);
+        }
+
+        /* Responsive improvements */
+        @media (max-width: 768px) {
+            .user-address {
+                max-width: 150px;
+            }
+
+            .address-simple {
+                max-width: 120px;
+            }
+
+            .formatted-address {
+                font-size: 0.85rem;
+            }
+
+            .address-line {
+                font-size: 0.8rem;
+            }
+
+            .ban-warning {
+                flex-direction: column;
+                text-align: center;
+                gap: 12px;
+            }
+
+            .warning-icon {
+                align-self: center;
+            }
+
+            .modal-actions {
+                flex-direction: column;
+                gap: 10px;
+            }
+
+            .btn-primary,
+            .btn-secondary,
+            .btn-danger {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        .type-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .type-seller {
+            background: rgba(40, 167, 69, 0.1);
+            color: #155724;
+        }
+
+        .type-buyer {
+            background: rgba(23, 162, 184, 0.1);
+            color: #0c5460;
+        }
+
+        .type-rider {
+            background: rgba(255, 193, 7, 0.1);
+            color: #856404;
+        }
+
+        .user-joined {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .user-joined .date {
+            font-weight: 500;
+        }
+
+        .user-joined .time {
+            font-size: 0.85rem;
+            color: var(--text-light);
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.25rem;
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 500;
+        }
+
+        .status-active {
+            background: rgba(40, 167, 69, 0.1);
+            color: #155724;
+        }
+
+        .status-suspended {
+            background: rgba(255, 152, 0, 0.1);
+            color: #e65100;
+        }
+
+        .status-banned {
+            background: rgba(220, 53, 69, 0.1);
+            color: #721c24;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 0.25rem;
+        }
+
+        .action-btn {
+            width: 35px;
+            height: 35px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.3s ease;
+            font-size: 0.9rem;
+        }
+
+        .edit-btn {
+            background: rgba(255, 193, 7, 0.1);
+            color: #856404;
+        }
+
+        .edit-btn:hover {
+            background: #ffc107;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .view-btn {
+            background: rgba(23, 162, 184, 0.1);
+            color: #0c5460;
+        }
+
+        .view-btn:hover {
+            background: #17a2b8;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .suspend-btn {
+            background: rgba(255, 152, 0, 0.1);
+            color: #e65100;
+        }
+
+        .suspend-btn:hover {
+            background: #ff9800;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .ban-btn {
+            background: rgba(220, 53, 69, 0.1);
+            color: #721c24;
+        }
+
+        .ban-btn:hover {
+            background: #dc3545;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .unsuspend-btn {
+            background: rgba(76, 175, 80, 0.1);
+            color: #2e7d32;
+        }
+
+        .unsuspend-btn:hover {
+            background: #4caf50;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .unban-btn {
+            background: rgba(76, 175, 80, 0.1);
+            color: #2e7d32;
+        }
+
+        .unban-btn:hover {
+            background: #4caf50;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .archive-btn {
+            background: rgba(220, 53, 69, 0.1);
+            color: #721c24;
+        }
+
+        .archive-btn:hover {
+            background: #dc3545;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 4rem 2rem;
+            color: var(--text-light);
+        }
+
+        .empty-icon {
+            font-size: 4rem;
+            color: rgba(212, 175, 55, 0.3);
+            margin-bottom: 1rem;
+        }
+
+        .empty-state h3 {
+            font-size: 1.5rem;
+            color: var(--text-color);
+            margin-bottom: 0.5rem;
+        }
+
+        /* Modal Styles */
+        .user-details {
+            padding: 1rem 0;
+        }
+
+        .detail-section {
+            margin-bottom: 2rem;
+        }
+
+        .detail-section h4 {
+            color: var(--primary-color);
+            margin-bottom: 1rem;
+            padding-bottom: 0.5rem;
+            border-bottom: 2px solid rgba(212, 175, 55, 0.2);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1rem;
+        }
+
+        .detail-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.25rem;
+        }
+
+        .detail-item label {
+            font-weight: 600;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        .detail-item span {
+            color: var(--text-color);
+            font-weight: 500;
+        }
+
+        /* Edit Modal Styles */
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .form-group.full-width {
+            grid-column: 1 / -1;
+        }
+
+        .form-group label {
+            font-weight: 600;
+            color: var(--primary-color);
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-size: 0.9rem;
+        }
+
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            padding: 0.75rem;
+            border: 2px solid rgba(212, 175, 55, 0.2);
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.9);
+        }
+
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: var(--gold-accent);
+            box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+        }
+
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 1rem;
+            justify-content: flex-end;
+            padding-top: 1.5rem;
+            border-top: 1px solid rgba(212, 175, 55, 0.2);
+        }
+
+        .btn-primary,
+        .btn-secondary {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            min-width: 120px;
+            justify-content: center;
+        }
+
+        .btn-primary {
+            background: var(--primary-color);
+            color: white;
+        }
+
+        .btn-primary:hover {
+            color: white;
+            transform: translateY(-2px);
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        }
+
+        .btn-secondary {
+            background: rgba(108, 117, 125, 0.1);
+            color: #6c757d;
+            border: 2px solid rgba(108, 117, 125, 0.2);
+        }
+
+        .btn-secondary:hover {
+            background: #6c757d;
+            color: white;
+            transform: translateY(-2px);
+        }
+
+        /* Document Styles */
+        .documents-container {
+            display: flex;
+            flex-direction: column;
+            gap: 1.5rem;
+        }
+
+        .document-item {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        .document-item label {
+            font-weight: 600;
+            color: var(--text-light);
+            font-size: 0.9rem;
+        }
+
+        .document-image-container {
+            position: relative;
+            width: 200px;
+            height: 150px;
+            border-radius: 8px;
+            overflow: hidden;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid rgba(212, 175, 55, 0.2);
+        }
+
+        .document-image-container:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(212, 175, 55, 0.3);
+        }
+
+        .document-image {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transition: all 0.3s ease;
+        }
+
+        .image-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            opacity: 0;
+            transition: all 0.3s ease;
+            color: white;
+            font-size: 1.5rem;
+        }
+
+        .document-image-container:hover .image-overlay {
+            opacity: 1;
+        }
+
+        .no-document {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 1rem;
+            background: rgba(108, 117, 125, 0.1);
+            border-radius: 8px;
+            color: var(--text-light);
+            font-style: italic;
+            width: 200px;
+            height: 150px;
+            justify-content: center;
+            flex-direction: column;
+            text-align: center;
+        }
+
+        .no-document i {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+
+        /* Image Modal Styles */
+        .image-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.3s ease;
+        }
+
+        .image-modal.active {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .image-modal-content {
+            position: relative;
+            max-width: 90%;
+            max-height: 90%;
+            background: white;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+
+        .image-modal-header {
+            padding: 1rem 1.5rem;
+            background: var(--gold-gradient);
+            color: var(--primary-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .image-modal-header h3 {
+            margin: 0;
+            font-size: 1.2rem;
+        }
+
+        .image-modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: var(--primary-color);
+            padding: 0.25rem;
+            border-radius: 4px;
+            transition: all 0.3s ease;
+        }
+
+        .image-modal-close:hover {
+            background: rgba(0, 0, 0, 0.1);
+        }
+
+        .image-modal-body {
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .image-modal img {
+            max-width: 100%;
+            max-height: 70vh;
+            object-fit: contain;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .stats-summary {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .stat-card {
+                padding: 1.5rem;
+            }
+
+            .stat-icon {
+                width: 60px;
+                height: 60px;
+                font-size: 1.5rem;
+                margin-bottom: 1rem;
+            }
+
+            .stat-value {
+                font-size: 2rem;
+            }
+
+            .stat-label {
+                font-size: 0.9rem;
+            }
+
+            .filter-row {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .filter-left {
+                max-width: 100%;
+            }
+
+            .filter-right {
+                flex-wrap: wrap;
+                width: 100%;
+            }
+
+            .filter-group {
+                flex: 1;
+                min-width: 150px;
+            }
+
+            .filter-actions {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .btn-clear {
+                width: 100%;
+            }
+
+            .filter-select,
+            .search-input {
+                width: 100%;
+            }
+
+            .users-table {
+                font-size: 0.85rem;
+            }
+
+            .users-table th,
+            .users-table td {
+                padding: 0.75rem 0.5rem;
+            }
+
+            .user-name {
+                flex-direction: column;
+                text-align: center;
+                gap: 0.5rem;
+            }
+
+            .action-buttons {
+                flex-direction: column;
+                gap: 0.25rem;
+            }
+
+            .form-grid {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+            }
+
+            .modal-actions {
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+
+            .btn-primary,
+            .btn-secondary {
+                width: 100%;
+            }
+        }
+    </style>
+    {% endblock %}

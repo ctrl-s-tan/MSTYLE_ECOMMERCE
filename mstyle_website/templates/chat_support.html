@@ -1,0 +1,78 @@
+<!-- Floating Chat Support Button -->
+<div class="floating-chat-btn" id="chatSupportBtn" onclick="toggleChatSupport()">
+    <div class="chat-icon">
+        <i class="fas fa-comments"></i>
+    </div>
+    <span class="chat-text">Need Help?</span>
+    <div class="chat-pulse"></div>
+</div>
+
+<!-- Chat Support Modal -->
+<div class="chat-support-modal" id="chatSupportModal" style="display: none;">
+    <div class="chat-modal-header">
+        <button class="back-btn" id="backToOptions" onclick="showChatOptions()" style="display: none;">
+            <i class="fas fa-arrow-left"></i>
+        </button>
+        <div class="header-info">
+            <h3 id="chatHeaderTitle">Chat Support</h3>
+            <span class="online-status" id="onlineStatus">
+                <i class="fas fa-circle"></i> Online
+            </span>
+        </div>
+        <button class="close-chat" onclick="toggleChatSupport()">
+            <i class="fas fa-times"></i>
+        </button>
+    </div>
+    <div class="chat-modal-body">
+        <!-- Welcome Screen -->
+        <div class="chat-welcome" id="chatWelcome">
+            <i class="fas fa-headset"></i>
+            <h4>How can we help you?</h4>
+            <p>Our support team is here to assist you</p>
+        </div>
+
+        <!-- Chat Options -->
+        <div class="chat-options" id="chatOptions">
+            <button class="chat-option-btn" onclick="startChat('Order Inquiry')">
+                <i class="fas fa-shopping-bag"></i>
+                Order Inquiry
+            </button>
+            <button class="chat-option-btn" onclick="startChat('Product Information')">
+                <i class="fas fa-box"></i>
+                Product Information
+            </button>
+            <button class="chat-option-btn" onclick="startChat('Shipping & Delivery')">
+                <i class="fas fa-truck"></i>
+                Shipping & Delivery
+            </button>
+            <button class="chat-option-btn" onclick="startChat('General Inquiry')">
+                <i class="fas fa-comments"></i>
+                General Inquiry
+            </button>
+        </div>
+
+        <!-- Chat Messages Area -->
+        <div class="chat-messages-container" id="chatMessagesContainer" style="display: none;">
+            <div class="chat-messages" id="chatMessages">
+                <!-- Messages will be dynamically added here -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Chat Input Footer -->
+    <div class="chat-modal-footer">
+        <div class="availability-info" id="availabilityInfo">
+            <i class="fas fa-clock"></i>
+            <p>Available: Mon-Sat, 9AM-6PM</p>
+        </div>
+        <div class="chat-input-container" id="chatInputContainer" style="display: none;">
+            <input type="text" id="chatMessageInput" placeholder="Type your message..." class="chat-input">
+            <button class="send-btn" onclick="sendMessage()">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Chat Support JavaScript -->
+<script src="{{ url_for('static', filename='js/chat_support.js') }}"></script>

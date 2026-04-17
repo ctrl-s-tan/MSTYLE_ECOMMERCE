@@ -1,0 +1,114 @@
+<!-- Report Issue Modal -->
+<div id="reportIssueModal" class="report-issue-modal" style="display: none;">
+    <div class="report-issue-container">
+        <div class="report-issue-header">
+            <div class="header-info">
+                <div class="report-icon">
+                    <i class="bi bi-flag-fill"></i>
+                </div>
+                <div class="header-details">
+                    <h2>Report Issue</h2>
+                    <p class="header-subtitle">Submit a report about this order</p>
+                </div>
+            </div>
+            <button class="close-report-modal" onclick="closeReportIssueModal()">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+
+        <div class="report-issue-body">
+            <form id="reportIssueForm" onsubmit="submitReportIssue(event)">
+                <input type="hidden" id="report-order-id" name="order_id">
+                <input type="hidden" id="report-reporter-role" name="reporter_role" value="{{ 'rider' if user_type == 'Rider' else 'seller' }}">
+                <input type="hidden" id="report-reporter-email" name="reporter_email" value="{{ session.get('email', '') or user_email }}">
+                <input type="hidden" id="report-against-email" name="reported_against_email">
+                <input type="hidden" id="buyer-email-hidden">
+                <input type="hidden" id="seller-email-hidden">
+                <input type="hidden" id="rider-email-hidden">
+
+                <!-- Order Context Info -->
+                <div class="order-context-info" id="reportOrderContext">
+                    <div class="context-header">
+                        <i class="bi bi-box-seam"></i>
+                        <span>Order Information</span>
+                    </div>
+                    <div class="context-details">
+                        <div class="context-item">
+                            <span class="context-label">Order ID:</span>
+                            <span class="context-value" id="contextReportOrderId"></span>
+                        </div>
+                        <div class="context-item">
+                            <span class="context-label">Product:</span>
+                            <span class="context-value" id="contextReportProductName"></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Form Fields -->
+                <div class="form-section">
+                    <div class="form-group">
+                        <label for="report-against">
+                            <i class="bi bi-person-x"></i>
+                            <span>Report Against</span>
+                        </label>
+                        <select id="report-against" name="reported_against_role" class="form-control" required onchange="updateReportAgainstEmail()">
+                            <option value="">Select who to report</option>
+                            <option value="buyer" id="buyer-option">Buyer</option>
+                            <option value="seller" id="seller-option" style="display: block;">Seller</option>
+                            <option value="rider" id="rider-option" style="display: block;">Rider</option>
+                            <option value="platform" id="platform-option">Platform/System</option>
+                            <option value="other" id="other-option">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="issue-type">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <span>Issue Type</span>
+                        </label>
+                        <select id="issue-type" name="issue_type" class="form-control" required>
+                            <option value="">Select issue type</option>
+                            <option value="payment_issue">Payment Issue</option>
+                            <option value="delivery_delay">Delivery Delay</option>
+                            <option value="wrong_address">Wrong/Incomplete Address</option>
+                            <option value="customer_unreachable">Customer Unreachable</option>
+                            <option value="rider_issue">Rider Issue</option>
+                            <option value="damaged_product">Damaged Product (Before Pickup)</option>
+                            <option value="order_cancellation">Order Cancellation Request</option>
+                            <option value="communication_issue">Communication Issue</option>
+                            <option value="fraudulent_order">Suspected Fraudulent Order</option>
+                            <option value="other">Other</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="issue-description">
+                            <i class="bi bi-file-text"></i>
+                            <span>Issue Description</span>
+                        </label>
+                        <textarea id="issue-description" name="issue_description" class="form-control" rows="6" 
+                                  placeholder="Please provide detailed information about the issue..." 
+                                  required
+                                  maxlength="1000"></textarea>
+                        <div class="char-count-wrapper">
+                            <small class="form-text">Be as specific as possible to help us resolve the issue quickly.</small>
+                            <span class="char-count"><span id="issueCharCount">0</span>/1000</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Footer Buttons -->
+                <div class="report-modal-footer">
+                    <button type="button" class="btn-cancel" onclick="closeReportIssueModal()">
+                        <i class="bi bi-x-circle"></i>
+                        <span>Cancel</span>
+                    </button>
+                    <button type="submit" class="btn-submit-report">
+                        <i class="bi bi-send"></i>
+                        <span>Submit Report</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

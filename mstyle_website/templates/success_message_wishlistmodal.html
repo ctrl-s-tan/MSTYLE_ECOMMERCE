@@ -1,0 +1,68 @@
+<!-- Success Message Wishlist Modal -->
+<div id="successWishlistModal" class="success-wishlist-modal">
+    <div class="success-wishlist-modal-content">
+        <div class="success-wishlist-icon">
+            <i class="fas fa-heart success-wishlist-checkmark"></i>
+        </div>
+        <h2>❤️ Added to Wishlist! ❤️</h2>
+        <p class="thank-you-wishlist-message">Item successfully added to your favorites</p>
+        <p class="wishlist-message">You can view all your favorite items in your wishlist page.</p>
+        <div class="success-wishlist-modal-buttons">
+            <button class="view-wishlist-btn" onclick="goToWishlist()">
+                <i class="fas fa-heart"></i>
+                View Wishlist
+            </button>
+            <button class="continue-shopping-btn" onclick="closeSuccessWishlistModal()">
+                <i class="fas fa-shopping-bag"></i>
+                Continue Shopping
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Wishlist modal functions - explicitly attach to window object
+    window.showSuccessWishlistModal = function() {
+        console.log('=== WISHLIST MODAL FUNCTION CALLED ===');
+        const modal = document.getElementById('successWishlistModal');
+        console.log('Wishlist modal element:', modal);
+        console.log('Modal classes:', modal ? modal.className : 'N/A');
+        
+        // Also check if cart modal exists
+        const cartModal = document.getElementById('successCartModal');
+        console.log('Cart modal element:', cartModal);
+        console.log('Cart modal classes:', cartModal ? cartModal.className : 'N/A');
+        
+        if (modal) {
+            modal.classList.add('show');
+            console.log('Wishlist modal SHOW class added');
+            console.log('Updated modal classes:', modal.className);
+            // Auto close after 5 seconds
+            setTimeout(() => {
+                closeSuccessWishlistModal();
+            }, 5000);
+        } else {
+            console.error('ERROR: Wishlist modal element not found in DOM!');
+            alert('DEBUG: Wishlist modal not found!');
+        }
+    }
+
+    window.closeSuccessWishlistModal = function() {
+        const modal = document.getElementById('successWishlistModal');
+        if (modal) {
+            modal.classList.remove('show');
+        }
+    }
+
+    window.goToWishlist = function() {
+        window.location.href = '/wishlist';
+    }
+
+    // Close modal when clicking outside
+    document.addEventListener('click', function(event) {
+        const modal = document.getElementById('successWishlistModal');
+        if (modal && event.target === modal) {
+            closeSuccessWishlistModal();
+        }
+    });
+</script>

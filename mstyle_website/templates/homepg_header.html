@@ -1,0 +1,1059 @@
+<header>
+    <div class="top-header">
+        <div class="logo-container">
+            <a href="/homepage">
+                <img src="{{ url_for('static', filename='images/MStyle Logos/MStyle_logo1.png') }}" alt="Fastique"
+                    class="brand-logo">
+                <span class="brand-text">Style</span>
+            </a>
+        </div>
+
+        <!-- Navigation Menu -->
+        <nav class="main-nav">
+            <ul class="nav-links">
+                <li><a href="/homepage" class="nav-link"><i class="fas fa-home"></i> Home</a></li>
+                <li class="dropdown">
+                    <a href="#" class="nav-link"><i class="fas fa-th-large"></i> Categories <i
+                            class="fas fa-chevron-down"></i></a>
+                    <div class="dropdown-menu">
+                        <a href="/suits">Suits & Blazers</a>
+                        <a href="/casual">Casual Shirts & Pants</a>
+                        <a href="/outerwear">Outerwear & Jackets</a>
+                        <a href="/activewear">Activewear & Fitness</a>
+                        <a href="/shoes">Shoes & Accessories</a>
+                        <a href="/grooming">Grooming Products</a>
+                    </div>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Integrated Search Bar -->
+        <div class="header-search-container">
+            <div class="search-wrapper">
+                <input type="text" id="search-input" placeholder="Search for premium menswear..."
+                    class="header-search-bar">
+                <button type="button" class="header-search-btn" onclick="performSearch()" title="Search">
+                    <i class="fas fa-search"></i>
+                </button>
+                <div class="search-suggestions" id="search-suggestions"></div>
+            </div>
+        </div>
+
+        <div class="right-controls">
+            <!-- Quick Actions -->
+
+            <!-- Notifications -->
+            <div class="notifications-dropdown" id="notificationsDropdown">
+                <button class="dropdown-btn notifications-btn" onclick="toggleNotificationsDropdown(event)"
+                    title="Order Updates">
+                    <i class="bi bi-bell"></i>
+                    <span class="notification-badge" id="notificationBadge">0</span>
+                </button>
+                <div class="dropdown-content notifications-content">
+                    <div class="dropdown-header">
+                        <h4>Notifications</h4>
+                        <div class="header-actions">
+                            <button class="mark-all-read" onclick="markAllAsRead()" title="Mark all as read">
+                                <i class="bi bi-check2-all"></i>
+                                Mark as read
+                            </button>
+                            <button class="delete-all-btn" onclick="deleteAllNotifications()"
+                                title="Delete all notifications">
+                                <i class="bi bi-trash"></i>
+                                Delete all
+                            </button>
+                        </div>
+                    </div>
+                    <div class="notifications-list" id="notificationsList">
+                        <div class="no-notifications">
+                            <i class="bi bi-bell-slash"></i>
+                            <p>No new notifications</p>
+                        </div>
+                    </div>
+                    <div class="dropdown-footer">
+                        <a href="{{ url_for('orders') }}" class="view-all-link">
+                            <i class="bi bi-bag"></i>
+                            View all orders
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Cart -->
+            <div class="cart-dropdown" id="cartDropdown">
+                <button class="dropdown-btn cart-btn" onclick="toggleCartDropdown(event)" title="Shopping Cart">
+                    <i class="fas fa-shopping-cart"></i>
+                    <span class="cart-badge" id="cartBadge">0</span>
+                </button>
+                <div class="dropdown-content cart-content">
+                    <div class="dropdown-header">
+                        <h4>Shopping Cart</h4>
+                        <div class="header-actions">
+                            <button class="clear-cart-btn" onclick="clearCart()" title="Clear cart">
+                                <i class="bi bi-trash"></i>
+                                Clear cart
+                            </button>
+                        </div>
+                    </div>
+                    <div class="cart-items-list" id="cartItemsList">
+                        <div class="no-cart-items">
+                            <i class="bi bi-cart-x"></i>
+                            <p>Your cart is empty</p>
+                        </div>
+                    </div>
+                    <div class="dropdown-footer">
+                        <div class="cart-total" id="cartTotal">
+                            <span class="total-label">Total: </span>
+                            <span class="total-amount">₱0.00</span>
+                        </div>
+                        <a href="{{ url_for('cart') }}" class="view-cart-link">
+                            <i class="bi bi-cart"></i>
+                            View Cart & Checkout
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            {% if session.get('user_id') %}
+            <!-- Logged-in user interface -->
+            <!-- Profile Dropdown -->
+            <div class="profile-dropdown" id="profileDropdown">
+                <button class="dropdown-btn" onclick="toggleProfileDropdown(event)">
+                    <i class="bi bi-person-circle"></i>
+                    <span id="user-name">{{ user_email or 'User' }}</span>
+                    <i class="bi bi-chevron-down dropdown-arrow"></i>
+                </button>
+                <div class="dropdown-content">
+                    <a href="{{ url_for('profile') }}">
+                        <i class="bi bi-person"></i>
+                        <span>My Profile</span>
+                    </a>
+                    <a href="{{ url_for('orders') }}">
+                        <i class="bi bi-bag"></i>
+                        <span>My Orders</span>
+                    </a>
+                    <a href="{{ url_for('cart') }}">
+                        <i class="bi bi-cart"></i>
+                        <span>Cart</span>
+                    </a>
+                    <a href="{{ url_for('wishlist') }}">
+                        <i class="bi bi-heart"></i>
+                        <span>Wishlist</span>
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a href="#" onclick="confirmLogout()">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span>Logout</span>
+                    </a>
+                </div>
+            </div>
+            {% else %}
+            <!-- Non-logged-in user interface -->
+            <div class="auth-buttons">
+                <a href="/login" class="auth-btn login-btn">
+                    <i class="fas fa-sign-in-alt"></i>
+                    <span>Sign In</span>
+                </a>
+                <a href="/register" class="auth-btn signup-btn">
+                    <i class="fas fa-user-plus"></i>
+                    <span>Sign Up</span>
+                </a>
+            </div>
+            {% endif %}
+
+            <!-- Mobile Menu Toggle -->
+            <button class="mobile-menu-toggle" id="mobile-menu-toggle" title="Open mobile menu">
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+                <span class="hamburger-line"></span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Mobile Navigation Menu -->
+    <div class="mobile-nav" id="mobile-nav">
+        <div class="mobile-nav-content">
+            <div class="mobile-search">
+                <input type="text" placeholder="Search products..." class="mobile-search-input">
+                <button class="mobile-search-btn" title="Search">
+                    <i class="fas fa-search"></i>
+                </button>
+            </div>
+            <nav class="mobile-nav-links">
+                <a href="/suits">Suits & Blazers</a>
+                <a href="/casual">Casual Shirts & Pants</a>
+                <a href="/outerwear">Outerwear & Jackets</a>
+                <a href="/activewear">Activewear & Fitness</a>
+                <a href="/shoes">Shoes & Accessories</a>
+                <a href="/grooming">Grooming Products</a>
+            </nav>
+            {% if session.get('user_id') %}
+            <div class="mobile-nav-footer">
+                <a href="/profile">My Account</a>
+                <a href="/orders">My Orders</a>
+                <a href="/wishlist">Wishlist</a>
+            </div>
+            {% else %}
+            <div class="mobile-nav-footer">
+                <a href="/login">Sign In</a>
+                <a href="/register">Sign Up</a>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</header>
+<script>
+    function toggleProfileDropdown(event) {
+        event.stopPropagation();
+        const dropdown = document.getElementById('profileDropdown');
+        const notificationsDropdown = document.getElementById('notificationsDropdown');
+        const cartDropdown = document.getElementById('cartDropdown');
+
+        // Close other dropdowns if open
+        if (notificationsDropdown) {
+            notificationsDropdown.classList.remove('active');
+        }
+        if (cartDropdown) {
+            cartDropdown.classList.remove('active');
+        }
+
+        dropdown.classList.toggle('active');
+    }
+
+    function toggleNotificationsDropdown(event) {
+        event.stopPropagation();
+        const dropdown = document.getElementById('notificationsDropdown');
+        const profileDropdown = document.getElementById('profileDropdown');
+        const cartDropdown = document.getElementById('cartDropdown');
+
+        // Close other dropdowns if open
+        if (profileDropdown) {
+            profileDropdown.classList.remove('active');
+        }
+        if (cartDropdown) {
+            cartDropdown.classList.remove('active');
+        }
+
+        dropdown.classList.toggle('active');
+
+        // Load notifications when opened
+        if (dropdown.classList.contains('active')) {
+            loadBuyerNotifications();
+        }
+    }
+
+    function toggleCartDropdown(event) {
+        event.stopPropagation();
+        const dropdown = document.getElementById('cartDropdown');
+        const profileDropdown = document.getElementById('profileDropdown');
+        const notificationsDropdown = document.getElementById('notificationsDropdown');
+
+        // Close other dropdowns if open
+        if (profileDropdown) {
+            profileDropdown.classList.remove('active');
+        }
+        if (notificationsDropdown) {
+            notificationsDropdown.classList.remove('active');
+        }
+
+        dropdown.classList.toggle('active');
+
+        // Load cart items when opened
+        if (dropdown.classList.contains('active')) {
+            loadCartItems();
+        }
+    }
+
+    function loadBuyerNotifications() {
+        console.log('🔔 Loading buyer notifications...');
+        fetch('/api/buyer/notifications')
+            .then(response => {
+                console.log('📡 Response status:', response.status);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                return response.json();
+            })
+            .then(data => {
+                console.log('📋 Buyer notifications data received:', data);
+                const notificationsList = document.getElementById('notificationsList');
+                const notificationBadge = document.getElementById('notificationBadge');
+
+                if (!notificationsList || !notificationBadge) {
+                    console.error('❌ Required DOM elements not found');
+                    return;
+                }
+
+                if (data.success && data.notifications && data.notifications.length > 0) {
+                    console.log(`✅ Found ${data.notifications.length} buyer notifications`);
+
+                    // Update badge count
+                    const unreadCount = data.notifications.filter(n => !n.read).length;
+                    console.log(`🔢 Unread count: ${unreadCount}`);
+
+                    notificationBadge.textContent = unreadCount;
+                    notificationBadge.style.display = unreadCount > 0 ? 'block' : 'none';
+
+                    // Populate notifications
+                    notificationsList.innerHTML = '';
+                    data.notifications.forEach((notification, index) => {
+                        console.log(`📝 Processing notification ${index + 1}:`, notification);
+                        const notificationItem = createBuyerNotificationItem(notification);
+                        notificationsList.appendChild(notificationItem);
+                    });
+
+                    console.log('✅ Buyer notifications displayed successfully');
+                } else {
+                    console.log('ℹ️ No buyer notifications found or API error');
+                    if (!data.success) {
+                        console.error('❌ API Error:', data.error);
+
+                        // Show error message in dropdown
+                        notificationsList.innerHTML = `
+                            <div class="no-notifications">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <p>Error: ${data.error}</p>
+                                <small>Check console for details</small>
+                            </div>
+                        `;
+                    } else {
+                        // No notifications
+                        notificationsList.innerHTML = `
+                            <div class="no-notifications">
+                                <i class="bi bi-bell-slash"></i>
+                                <p>No order updates</p>
+                            </div>
+                        `;
+                    }
+
+                    notificationBadge.textContent = '0';
+                    notificationBadge.style.display = 'none';
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error loading buyer notifications:', error);
+                const notificationsList = document.getElementById('notificationsList');
+                if (notificationsList) {
+                    notificationsList.innerHTML = `
+                        <div class="no-notifications">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <p>Error loading notifications</p>
+                            <small>${error.message}</small>
+                        </div>
+                    `;
+                }
+            });
+    }
+
+    function createBuyerNotificationItem(notification) {
+        console.log('🎨 Creating buyer notification item:', notification);
+
+        const item = document.createElement('div');
+        item.className = `notification-item ${notification.read ? '' : 'unread'}`;
+        item.setAttribute('data-type', notification.type || 'status_update');
+
+        const formattedTime = formatTime(notification.created_at);
+        console.log('⏰ Formatted time:', formattedTime);
+
+        // Determine notification type and set appropriate icon and title
+        let iconClass, title, iconColor;
+
+        switch (notification.type) {
+            case 'status_update':
+                iconClass = 'bi bi-truck';
+                title = 'Order Status Update';
+                iconColor = '#17a2b8'; // Blue color for status updates
+                break;
+            case 'delivered':
+                iconClass = 'bi bi-check-circle';
+                title = 'Order Delivered';
+                iconColor = '#28a745'; // Green color for delivered
+                break;
+            case 'shipped':
+                iconClass = 'bi bi-box-seam';
+                title = 'Order Shipped';
+                iconColor = '#007bff'; // Blue color for shipped
+                break;
+            case 'issue_update':
+                iconClass = 'bi bi-flag-fill';
+                title = 'Issue Report Update';
+                iconColor = '#e74c3c'; // Red color for issue updates
+                break;
+            default:
+                iconClass = 'bi bi-info-circle';
+                title = 'Order Update';
+                iconColor = '#6c757d'; // Gray color for general updates
+                break;
+        }
+
+        item.innerHTML = `
+            <div class="notification-icon" style="background: linear-gradient(135deg, ${iconColor}, ${iconColor}dd);">
+                <i class="${iconClass}"></i>
+            </div>
+            <div class="notification-content">
+                <div class="notification-title">${title}</div>
+                <div class="notification-message">${notification.message || 'No message'}</div>
+                <div class="notification-time">${formattedTime}</div>
+            </div>
+            <div class="notification-actions">
+                <button class="delete-notification-btn" onclick="deleteBuyerNotification(${notification.id}, event)" title="Delete notification">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            ${!notification.read ? '<div class="unread-indicator"></div>' : ''}
+        `;
+
+        // Mark as read when clicked
+        item.addEventListener('click', () => {
+            console.log('🖱️ Buyer notification clicked:', notification.id);
+            if (!notification.read) {
+                markBuyerNotificationAsRead(notification.id);
+            }
+            // Redirect to orders page
+            window.location.href = '/orders';
+        });
+
+        return item;
+    }
+
+    function formatTime(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+
+        if (diffInMinutes < 1) return 'Just now';
+        if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+        if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+        return `${Math.floor(diffInMinutes / 1440)}d ago`;
+    }
+
+    function markBuyerNotificationAsRead(notificationId) {
+        fetch('/api/buyer/notifications/mark-read', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ notification_id: notificationId })
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadBuyerNotifications(); // Refresh notifications
+                }
+            })
+            .catch(error => {
+                console.error('Error marking buyer notification as read:', error);
+            });
+    }
+
+    function markAllAsRead() {
+        fetch('/api/buyer/notifications/mark-all-read', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    loadBuyerNotifications(); // Refresh notifications
+                }
+            })
+            .catch(error => {
+                console.error('Error marking all buyer notifications as read:', error);
+            });
+    }
+
+    function deleteBuyerNotification(notificationId, event) {
+        // Prevent the notification click event from firing
+        event.stopPropagation();
+
+        console.log(`🗑️ Deleting buyer notification: ${notificationId}`);
+
+        // Add visual feedback
+        const notificationItem = event.target.closest('.notification-item');
+        if (notificationItem) {
+            notificationItem.style.opacity = '0.5';
+            notificationItem.style.pointerEvents = 'none';
+        }
+
+        fetch('/api/buyer/notifications/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ notification_id: notificationId })
+        })
+            .then(response => {
+                console.log('Delete response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Delete response data:', data);
+                if (data.success) {
+                    console.log(`✅ Buyer notification ${notificationId} deleted successfully`);
+                    loadBuyerNotifications(); // Refresh notifications
+                } else {
+                    console.error('Failed to delete buyer notification:', data.error);
+                    alert(`Failed to delete notification: ${data.error}`);
+                    // Restore visual state on error
+                    if (notificationItem) {
+                        notificationItem.style.opacity = '1';
+                        notificationItem.style.pointerEvents = 'auto';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting buyer notification:', error);
+                alert(`Error deleting notification: ${error.message}`);
+                // Restore visual state on error
+                if (notificationItem) {
+                    notificationItem.style.opacity = '1';
+                    notificationItem.style.pointerEvents = 'auto';
+                }
+            });
+    }
+
+    function deleteAllNotifications() {
+        // Show confirmation dialog
+        if (!confirm('Are you sure you want to delete all notifications? This action cannot be undone.')) {
+            return;
+        }
+
+        console.log('🗑️ Deleting all buyer notifications...');
+
+        fetch('/api/buyer/notifications/delete-all', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                console.log('Delete all response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Delete all response data:', data);
+                if (data.success) {
+                    console.log(`✅ ${data.deleted_count || 'All'} buyer notifications deleted successfully`);
+                    loadBuyerNotifications(); // Refresh notifications
+                    alert(`Successfully deleted ${data.deleted_count || 'all'} notifications`);
+                } else {
+                    console.error('Failed to delete all buyer notifications:', data.error);
+                    alert(`Failed to delete all notifications: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting all buyer notifications:', error);
+                alert(`Error deleting all notifications: ${error.message}`);
+            });
+    }
+
+    function loadCartItems() {
+        console.log('🛒 Loading cart items...');
+        fetch('/api/cart-items')
+            .then(response => {
+                console.log('📡 Cart items response status:', response.status);
+
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+
+                return response.json();
+            })
+            .then(data => {
+                console.log('📋 Cart items data received:', data);
+                const cartItemsList = document.getElementById('cartItemsList');
+                const cartTotal = document.getElementById('cartTotal');
+
+                if (!cartItemsList || !cartTotal) {
+                    console.error('❌ Required DOM elements not found');
+                    return;
+                }
+
+                if (data.success && data.items && data.items.length > 0) {
+                    console.log(`✅ Found ${data.items.length} cart items`);
+
+                    // Update total
+                    const totalAmount = cartTotal.querySelector('.total-amount');
+                    if (totalAmount) {
+                        totalAmount.textContent = `₱${data.total.toFixed(2)}`;
+                    }
+
+                    // Populate cart items
+                    cartItemsList.innerHTML = '';
+                    data.items.forEach((item, index) => {
+                        console.log(`📝 Processing cart item ${index + 1}:`, item);
+                        const cartItem = createCartItem(item);
+                        cartItemsList.appendChild(cartItem);
+                    });
+
+                    console.log('✅ Cart items displayed successfully');
+                } else {
+                    console.log('ℹ️ No cart items found or API error');
+                    if (!data.success) {
+                        console.error('❌ API Error:', data.error);
+
+                        // Show error message in dropdown
+                        cartItemsList.innerHTML = `
+                            <div class="no-cart-items">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                <p>Error: ${data.error}</p>
+                                <small>Check console for details</small>
+                            </div>
+                        `;
+                    } else {
+                        // No items
+                        cartItemsList.innerHTML = `
+                            <div class="no-cart-items">
+                                <i class="bi bi-cart-x"></i>
+                                <p>Your cart is empty</p>
+                            </div>
+                        `;
+                    }
+
+                    // Reset total
+                    const totalAmount = cartTotal.querySelector('.total-amount');
+                    if (totalAmount) {
+                        totalAmount.textContent = '₱0.00';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error loading cart items:', error);
+                const cartItemsList = document.getElementById('cartItemsList');
+                if (cartItemsList) {
+                    cartItemsList.innerHTML = `
+                        <div class="no-cart-items">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <p>Error loading cart</p>
+                            <small>${error.message}</small>
+                        </div>
+                    `;
+                }
+            });
+    }
+
+    function createCartItem(item) {
+        console.log('🎨 Creating cart item:', item);
+
+        const cartItem = document.createElement('div');
+        cartItem.className = 'cart-item';
+        cartItem.setAttribute('data-item-id', item.id);
+
+        // Construct image URL similar to cart template
+        let itemImage = '/static/images/cart-icon.svg'; // default fallback
+        if (item.image_url) {
+            // If image_url is provided, construct the full path
+            const imagePath = item.image_url.trim();
+            if (imagePath.startsWith('static/')) {
+                itemImage = `/${imagePath}`;
+            } else if (imagePath.startsWith('/')) {
+                itemImage = imagePath;
+            } else {
+                itemImage = `/static/images/uploads/${imagePath}`;
+            }
+        }
+        const itemPrice = parseFloat(item.price || 0);
+        const itemQuantity = parseInt(item.quantity || 1);
+        const itemTotal = itemPrice * itemQuantity;
+
+        cartItem.innerHTML = `
+            <div class="cart-item-image">
+                <img src="${itemImage}" alt="${item.name}" onerror="this.src='/static/images/cart-icon.svg'">
+            </div>
+            <div class="cart-item-content">
+                <div class="cart-item-name">${item.name || 'Unknown Product'}</div>
+                <div class="cart-item-details">
+                    ${item.color ? `<span class="item-color">Color: ${item.color}</span>` : ''}
+                    ${item.size ? `<span class="item-size">Size: ${item.size}</span>` : ''}
+                </div>
+                <div class="cart-item-price">₱${itemPrice.toFixed(2)} × ${itemQuantity}</div>
+                <div class="cart-item-total">₱${itemTotal.toFixed(2)}</div>
+            </div>
+            <div class="cart-item-actions">
+                <button class="remove-item-btn" onclick="removeFromCart(${item.id}, event)" title="Remove from cart">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+        `;
+
+        return cartItem;
+    }
+
+    function removeFromCart(itemId, event) {
+        // Prevent the cart item click event from firing
+        event.stopPropagation();
+
+        console.log(`🗑️ Removing cart item: ${itemId}`);
+
+        // Add visual feedback
+        const cartItem = event.target.closest('.cart-item');
+        if (cartItem) {
+            cartItem.style.opacity = '0.5';
+            cartItem.style.pointerEvents = 'none';
+        }
+
+        fetch('/remove_from_cart', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ item_id: itemId })
+        })
+            .then(response => {
+                console.log('Remove response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Remove response data:', data);
+                if (data.success) {
+                    console.log(`✅ Cart item ${itemId} removed successfully`);
+                    loadCartItems(); // Refresh cart items
+                    updateCartCount(); // Update cart count
+                    showCartUpdateFeedback('Item removed from cart!', 'success');
+                } else {
+                    console.error('Failed to remove cart item:', data.error);
+                    alert(`Failed to remove item: ${data.error}`);
+                    // Restore visual state on error
+                    if (cartItem) {
+                        cartItem.style.opacity = '1';
+                        cartItem.style.pointerEvents = 'auto';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error removing cart item:', error);
+                alert(`Error removing item: ${error.message}`);
+                // Restore visual state on error
+                if (cartItem) {
+                    cartItem.style.opacity = '1';
+                    cartItem.style.pointerEvents = 'auto';
+                }
+            });
+    }
+
+    function clearCart() {
+        // Show confirmation dialog
+        if (!confirm('Are you sure you want to clear your cart? This action cannot be undone.')) {
+            return;
+        }
+
+        console.log('🗑️ Clearing cart...');
+
+        fetch('/clear_cart', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                console.log('Clear cart response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Clear cart response data:', data);
+                if (data.success) {
+                    console.log('✅ Cart cleared successfully');
+                    loadCartItems(); // Refresh cart items
+                    updateCartCount(); // Update cart count
+                    showCartUpdateFeedback('Cart cleared successfully!', 'success');
+                } else {
+                    console.error('Failed to clear cart:', data.error);
+                    alert(`Failed to clear cart: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error clearing cart:', error);
+                alert(`Error clearing cart: ${error.message}`);
+            });
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function (event) {
+        const profileDropdown = document.getElementById('profileDropdown');
+        const notificationsDropdown = document.getElementById('notificationsDropdown');
+        const cartDropdown = document.getElementById('cartDropdown');
+
+        if (profileDropdown && !profileDropdown.contains(event.target)) {
+            profileDropdown.classList.remove('active');
+        }
+
+        if (notificationsDropdown && !notificationsDropdown.contains(event.target)) {
+            notificationsDropdown.classList.remove('active');
+        }
+
+        if (cartDropdown && !cartDropdown.contains(event.target)) {
+            cartDropdown.classList.remove('active');
+        }
+    });
+
+    // Close dropdowns when pressing Escape key
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            const profileDropdown = document.getElementById('profileDropdown');
+            const notificationsDropdown = document.getElementById('notificationsDropdown');
+            const cartDropdown = document.getElementById('cartDropdown');
+
+            if (profileDropdown) {
+                profileDropdown.classList.remove('active');
+            }
+            if (notificationsDropdown) {
+                notificationsDropdown.classList.remove('active');
+            }
+            if (cartDropdown) {
+                cartDropdown.classList.remove('active');
+            }
+        }
+    });
+
+    // Update cart count by fetching from backend
+    function updateCartCount() {
+        console.log('🛒 Updating cart count...');
+        fetch('/api/cart-count')
+            .then(response => response.json())
+            .then(data => {
+                console.log('🛒 Cart count response:', data);
+                const cartBadge = document.getElementById('cartBadge');
+                if (cartBadge) {
+                    const count = data.count || 0;
+                    cartBadge.textContent = count;
+
+                    // Show/hide badge based on count
+                    if (count > 0) {
+                        cartBadge.style.display = 'flex';
+                        cartBadge.style.opacity = '1';
+                    } else {
+                        cartBadge.style.display = 'none';
+                    }
+
+                    console.log(`✅ Cart count updated: ${count}`);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error fetching cart count:', error);
+                // On error, hide the badge
+                const cartBadge = document.getElementById('cartBadge');
+                if (cartBadge) {
+                    cartBadge.style.display = 'none';
+                }
+            });
+    }
+
+    // Global function to update cart count (can be called from other scripts)
+    window.updateCartCount = updateCartCount;
+
+    // Function to add item to cart and update count
+    window.addToCartAndUpdate = function (productId, quantity = 1, color = '', size = '') {
+        console.log(`🛒 Adding to cart: Product ${productId}, Qty: ${quantity}, Color: ${color}, Size: ${size}`);
+
+        const formData = new FormData();
+        formData.append('product_id', productId);
+        formData.append('quantity', quantity);
+        if (color) formData.append('color', color);
+        if (size) formData.append('size', size);
+
+        fetch('/add_to_cart', {
+            method: 'POST',
+            body: formData
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    console.log('✅ Item added to cart successfully');
+                    updateCartCount(); // Update cart count after adding
+
+                    // Show success feedback
+                    showCartUpdateFeedback('Item added to cart!', 'success');
+                } else {
+                    console.error('❌ Failed to add item to cart:', data.error);
+                    showCartUpdateFeedback(data.error || 'Failed to add item to cart', 'error');
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error adding to cart:', error);
+                showCartUpdateFeedback('Error adding item to cart', 'error');
+            });
+    };
+
+    // Function to show cart update feedback
+    function showCartUpdateFeedback(message, type = 'success') {
+        const feedback = document.createElement('div');
+        feedback.className = `cart-feedback ${type}`;
+        feedback.innerHTML = `
+            <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+            <span>${message}</span>
+        `;
+        feedback.style.cssText = `
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: ${type === 'success' ? '#d4edda' : '#f8d7da'};
+            color: ${type === 'success' ? '#155724' : '#721c24'};
+            padding: 12px 20px;
+            border-radius: 8px;
+            border: 1px solid ${type === 'success' ? '#c3e6cb' : '#f5c6cb'};
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            z-index: 3000;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-weight: 500;
+            animation: slideInRight 0.3s ease-out;
+        `;
+
+        document.body.appendChild(feedback);
+
+        setTimeout(() => {
+            feedback.style.opacity = '0';
+            setTimeout(() => feedback.remove(), 300);
+        }, 3000);
+    }
+
+    // Load notifications and cart count on page load (only if user is logged in)
+    document.addEventListener('DOMContentLoaded', function () {
+        // Check if user is logged in by looking for user name or other indicators
+        const userName = document.getElementById('user-name');
+        const isLoggedIn = userName && userName.textContent.trim() !== 'User';
+
+        if (isLoggedIn) {
+            console.log('📱 Homepage loaded, initializing for logged-in user...');
+
+            // Load notifications
+            loadBuyerNotifications();
+
+            // Load cart count
+            updateCartCount();
+
+            // Refresh notifications every 30 seconds
+            setInterval(() => {
+                console.log('🔄 Auto-refreshing buyer notifications...');
+                loadBuyerNotifications();
+            }, 30000);
+
+            // Refresh cart count every 60 seconds
+            setInterval(() => {
+                console.log('🔄 Auto-refreshing cart count...');
+                updateCartCount();
+            }, 60000);
+        } else {
+            console.log('👤 User not logged in, skipping initialization');
+
+            // Hide notification badge for non-logged-in users
+            const notificationBadge = document.getElementById('notificationBadge');
+            if (notificationBadge) {
+                notificationBadge.style.display = 'none';
+            }
+
+            // Hide cart badge for non-logged-in users
+            const cartBadge = document.getElementById('cartBadge');
+            if (cartBadge) {
+                cartBadge.style.display = 'none';
+            }
+        }
+    });
+
+    // Search functionality
+    function performSearch() {
+        const searchInput = document.getElementById('search-input');
+        const query = searchInput.value.trim();
+        
+        if (query) {
+            window.location.href = `/search?query=${encodeURIComponent(query)}`;
+        }
+    }
+
+    // Handle Enter key in search input
+    document.addEventListener('DOMContentLoaded', function() {
+        const searchInput = document.getElementById('search-input');
+        if (searchInput) {
+            searchInput.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') {
+                    performSearch();
+                }
+            });
+
+            // Search suggestions functionality
+            let searchTimeout;
+            searchInput.addEventListener('input', function() {
+                clearTimeout(searchTimeout);
+                const query = this.value.trim();
+                
+                if (query.length >= 2) {
+                    searchTimeout = setTimeout(() => {
+                        fetchSearchSuggestions(query);
+                    }, 300);
+                } else {
+                    hideSearchSuggestions();
+                }
+            });
+
+            // Hide suggestions when clicking outside
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.search-wrapper')) {
+                    hideSearchSuggestions();
+                }
+            });
+        }
+    });
+
+    function fetchSearchSuggestions(query) {
+        fetch(`/api/search-suggestions?query=${encodeURIComponent(query)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.suggestions.length > 0) {
+                    showSearchSuggestions(data.suggestions);
+                } else {
+                    hideSearchSuggestions();
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching search suggestions:', error);
+                hideSearchSuggestions();
+            });
+    }
+
+    function showSearchSuggestions(suggestions) {
+        const suggestionsContainer = document.getElementById('search-suggestions');
+        if (!suggestionsContainer) return;
+
+        suggestionsContainer.innerHTML = '';
+        
+        suggestions.forEach(suggestion => {
+            const item = document.createElement('div');
+            item.className = 'suggestion-item';
+            item.innerHTML = `
+                <i class="suggestion-icon fas fa-search"></i>
+                <span class="suggestion-text">${suggestion.name}</span>
+            `;
+            item.addEventListener('click', () => {
+                document.getElementById('search-input').value = suggestion.name;
+                performSearch();
+            });
+            suggestionsContainer.appendChild(item);
+        });
+
+        suggestionsContainer.classList.add('show');
+    }
+
+    function hideSearchSuggestions() {
+        const suggestionsContainer = document.getElementById('search-suggestions');
+        if (suggestionsContainer) {
+            suggestionsContainer.classList.remove('show');
+        }
+    }
+</script>

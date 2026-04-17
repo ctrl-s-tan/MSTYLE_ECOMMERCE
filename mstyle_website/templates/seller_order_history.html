@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order History</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/order_list.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+</head>
+
+<body>
+    {% include 'seller_header.html' %}
+    
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <div class="admin-dashboard-content">
+        <div class="dashboard-header">
+            <div class="dashboard-avatar">
+                <i class="bi bi-clock-history"></i>
+            </div>
+            <h1>Order History</h1>
+            <p>View your completed and cancelled orders</p>
+        </div>
+
+        <div class="dashboard-container">
+            <!-- Search and Filter Section -->
+            <div class="search-filter-section">
+                <div class="form-header">
+                    <div>
+                        <h3><i class="bi bi-funnel"></i> Filter & Search Order History</h3>
+                        <p>Find and filter your completed and cancelled orders</p>
+                    </div>
+                </div>
+
+                <div class="filter-container">
+                    <div class="filter-group">
+                        <label for="statusFilter" class="filter-label">
+                            <i class="bi bi-flag"></i> Status
+                        </label>
+                        <select id="statusFilter" class="filter-select" onchange="filterOrders()">
+                            <option value="all">All Status</option>
+                            <option value="completed">Completed</option>
+                            <option value="cancelled">Cancelled</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="sortBy" class="filter-label">
+                            <i class="bi bi-sort-down"></i> Sort By
+                        </label>
+                        <select id="sortBy" class="filter-select" onchange="sortOrders()">
+                            <option value="date_desc" selected>Date (Newest First)</option>
+                            <option value="date_asc">Date (Oldest First)</option>
+                            <option value="customer_asc">Customer A-Z</option>
+                            <option value="price_desc">Price (High to Low)</option>
+                            <option value="price_asc">Price (Low to High)</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="searchInput" class="filter-label">
+                            <i class="bi bi-search"></i> Search
+                        </label>
+                        <div class="search-input-container">
+                            <input type="text" id="searchInput" placeholder="Search by customer or product..." class="search-input">
+                            <button type="button" id="clearSearch" class="search-button" style="display: none;">
+                                <i class="bi bi-x"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-card">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th><i class="bi bi-hash"></i> No.</th>
+                                <th><i class="bi bi-person"></i> Customer Name</th>
+                                <th><i class="bi bi-box"></i> Product</th>
+                                <th><i class="bi bi-gear"></i> Specifications</th>
+                                <th><i class="bi bi-box-seam"></i> Quantity</th>
+                                <th><i class="bi bi-currency-exchange"></i> Original Price</th>
+                                <th><i class="bi bi-tag"></i> Promotion</th>
+                                <th><i class="bi bi-currency-dollar"></i> Total Price</th>
+                                <th><i class="bi bi-calendar3"></i> Date</th>
+                                <th><i class="bi bi-flag"></i> Status</th>
+                                <th><i class="bi bi-tools"></i> Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if orders %}
+                            {% for order in orders %}
+                            <tr data-status="{{ order.status.lower() }}"
+                                data-date="{{ order.date }}"
+                                data-price="{{ order.total_price }}"
+                                data-customer="{{ order.first_name }} {{ order.last_name }}"
+                                data-product="{{ order.name }}">
+                                <td>
+                                    <span class="sequence-badge">{{ loop.index }}</span>
+                                </td>
+                                <td class="customer-info">
+                                    <div>
+                                        <div class="customer-name">{{ order.first_name }} {{ order.last_name }}</div>
+                                        <div class="customer-email">{{ order.email }}</div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="product-info">
+                                        <img src="{{ url_for('static', filename='images/uploads/' + order.image) }}"
+                                            alt="{{ order.name }}" class="product-image">
+                                        <div class="product-name">{{ order.name }}</div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="specifications">
+                                        {% if order.variations and order.variations.strip() %}
+                                        <div class="spec-item color-spec">
+                                            <i class="bi bi-palette"></i>
+                                            <span>{{ order.variations }}</span>
+                                        </div>
+                                        {% endif %}
+                                        {% if order.size and order.size.strip() %}
+                                        <div class="spec-item size-spec">
+                                            <i class="bi bi-rulers"></i>
+                                            <span>{{ order.size }}</span>
+                                        </div>
+                                        {% else %}
+                                        <div class="spec-item size-spec no-spec one-size">
+                                            <i class="bi bi-rulers"></i>
+                                            <span>One Size</span>
+                                        </div>
+                                        {% endif %}
+                                        {% if (not order.variations or not order.variations.strip()) and (not order.size or not order.size.strip()) %}
+                                        <div class="spec-item no-spec">
+                                            <i class="bi bi-dash"></i>
+                                            <span>No specifications</span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>{{ order.quantity }}</td>
+                                <td>
+                                    {% set original_price = order.original_price|float if order.original_price else order.total_price|float %}
+                                    {% set total_price = order.total_price|float %}
+                                    {% if original_price and original_price != total_price %}
+                                    <div class="original-price-info">
+                                        <span class="original-amount">₱{{ "%.2f"|format(original_price) }}</span>
+                                        {% if order.promotion_type in ['percentage', 'fixed'] %}
+                                        <span class="discount-indicator">
+                                            <i class="bi bi-arrow-down"></i>
+                                            ₱{{ "%.2f"|format(original_price - total_price) }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <span class="no-discount">₱{{ "%.2f"|format(total_price) }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if order.promotion_type %}
+                                    <div class="promotion-info">
+                                        {% if order.promotion_type == 'free_shipping' %}
+                                        <span class="promotion-badge free-shipping">
+                                            <i class="bi bi-truck"></i>
+                                            Free Shipping
+                                        </span>
+                                        {% elif order.promotion_type == 'buy_one_get_one' %}
+                                        <span class="promotion-badge bogo">
+                                            <i class="bi bi-plus-circle"></i>
+                                            Buy One Get One
+                                        </span>
+                                        {% elif order.promotion_type == 'percentage' %}
+                                        <span class="promotion-badge percentage">
+                                            <i class="bi bi-percent"></i>
+                                            {{ order.discount_percentage|default(0) }}% OFF
+                                        </span>
+                                        {% elif order.promotion_type == 'fixed' %}
+                                        <span class="promotion-badge fixed">
+                                            <i class="bi bi-dash-circle"></i>
+                                            ₱{{ "%.0f"|format(order.discount_amount|default(0)) }} OFF
+                                        </span>
+                                        {% else %}
+                                        <span class="promotion-badge other">
+                                            <i class="bi bi-tag"></i>
+                                            {{ order.promotion_name or order.promotion_type }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <span class="no-promotion">
+                                        <i class="bi bi-dash"></i>
+                                        No Promotion
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% set original_price = order.original_price|float if order.original_price else order.total_price|float %}
+                                    {% set total_price = order.total_price|float %}
+                                    <div class="total-price-info">
+                                        <span class="total-amount">₱{{ "%.2f"|format(total_price) }}</span>
+                                        {% if order.promotion_type in ['percentage', 'fixed'] and original_price and original_price != total_price %}
+                                        <span class="savings-badge">
+                                            Save ₱{{ "%.2f"|format(original_price - total_price) }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if order.date %}
+                                    <div class="order-date">
+                                        <span class="date">{{ order.date }}</span>
+                                    </div>
+                                    {% else %}
+                                    <span class="no-date">Date not available</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ order.status.lower() }}">
+                                        {{ order.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        <div class="action-icons">
+                                            <button type="button" class="action-btn-icon view-btn-icon" onclick="viewOrderDetails({{ order.id }})" title="View Details">
+                                                <i class="bi bi-eye"></i>
+                                            </button>
+                                            <button type="button" class="action-btn-icon delete-btn-icon" onclick="confirmDeleteOrder({{ order.id }}, '{{ order.name|replace("'", "\\'") }}')" title="Delete Order">
+                                                <i class="bi bi-trash"></i>
+                                            </button>
+                                        </div>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="11" class="empty-message">
+                                    <div class="empty-state">
+                                        <i class="bi bi-clock-history"></i>
+                                        <h3>No Order History</h3>
+                                        <p>You don't have any completed or cancelled orders yet. Orders will appear here once they are completed or cancelled.</p>
+                                        <a href="{{ url_for('orders_list') }}" class="btn btn-primary">
+                                            <i class="bi bi-list-check"></i>
+                                            View Active Orders
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- Order Details Modal -->
+    <div id="orderDetailsModal" class="modal-overlay">
+        <div class="modal-content-details">
+            <div class="modal-header-details">
+                <h2><i class="bi bi-receipt"></i> Order Details</h2>
+                <button class="modal-close-btn" onclick="closeOrderModal()">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            <div class="modal-body-details">
+                <div class="order-details-grid">
+                    <!-- Customer Information -->
+                    <div class="details-section">
+                        <h3><i class="bi bi-person-circle"></i> Customer Information</h3>
+                        <div class="details-row">
+                            <span class="label">Name:</span>
+                            <span class="value" id="modal-customer-name"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Email:</span>
+                            <span class="value" id="modal-customer-email"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Address:</span>
+                            <span class="value address-value" id="modal-customer-address"></span>
+                        </div>
+                    </div>
+
+                    <!-- Order Information -->
+                    <div class="details-section">
+                        <h3><i class="bi bi-clipboard-data"></i> Order Information</h3>
+                        <div class="details-row">
+                            <span class="label">Order ID:</span>
+                            <span class="value" id="modal-order-id"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Date:</span>
+                            <span class="value" id="modal-order-date"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Status:</span>
+                            <span class="value status-value" id="modal-order-status"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Quantity:</span>
+                            <span class="value" id="modal-order-quantity"></span>
+                        </div>
+                    </div>
+
+                    <!-- Product Information -->
+                    <div class="details-section product-section">
+                        <h3><i class="bi bi-box-seam"></i> Product Information</h3>
+                        <div class="product-details">
+                            <div class="product-image-container">
+                                <img id="modal-product-image" class="modal-product-image" src="" alt="Product Image">
+                            </div>
+                            <div class="product-info-details">
+                                <div class="details-row">
+                                    <span class="label">Product Name:</span>
+                                    <span class="value" id="modal-product-name"></span>
+                                </div>
+                                <div class="details-row">
+                                    <span class="label">Color/Variation:</span>
+                                    <span class="value" id="modal-product-variation"></span>
+                                </div>
+                                <div class="details-row">
+                                    <span class="label">Size:</span>
+                                    <span class="value" id="modal-product-size"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pricing Information -->
+                    <div class="details-section">
+                        <h3><i class="bi bi-currency-dollar"></i> Pricing Information</h3>
+                        <div class="details-row">
+                            <span class="label">Unit Price:</span>
+                            <span class="value" id="modal-unit-price"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Quantity:</span>
+                            <span class="value" id="modal-quantity"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Subtotal:</span>
+                            <span class="value" id="modal-subtotal"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Shipping Fee:</span>
+                            <span class="value" id="modal-shipping-fee"></span>
+                        </div>
+                        <div class="details-row total-row">
+                            <span class="label">Total Price:</span>
+                            <span class="value" id="modal-total-price"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer-details">
+                <button class="btn-close-modal" onclick="closeOrderModal()">
+                    <i class="bi bi-x-circle"></i>
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/seller_order_history.js') }}"></script>
+</body>
+
+</html>

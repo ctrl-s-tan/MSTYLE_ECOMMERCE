@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M'STYLE Admin Analytics Report - Print</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/print_layout.css') }}">
+</head>
+<body>
+    <div class="print-container">
+        <!-- Header -->
+        <div class="print-header">
+            <div class="logo-section">
+                <h1>M'STYLE</h1>
+                <p class="tagline">Admin Analytics Report</p>
+            </div>
+            <div class="report-info">
+                <p><strong>Generated:</strong> <span id="printDate"></span></p>
+                <p><strong>Report Type:</strong> <span id="reportType"></span></p>
+            </div>
+        </div>
+
+        <!-- Summary Stats -->
+        <div class="summary-section" id="summarySection">
+            <h2>Summary Statistics</h2>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <span class="stat-label">Total Orders:</span>
+                    <span class="stat-value" id="printTotalOrders">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Platform Commission:</span>
+                    <span class="stat-value" id="printPlatformCommission">₱0.00</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Total Revenue:</span>
+                    <span class="stat-value" id="printTotalRevenue">₱0.00</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Total Users:</span>
+                    <span class="stat-value" id="printTotalUsers">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">Total Products:</span>
+                    <span class="stat-value" id="printTotalProducts">0</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Content Sections -->
+        <div id="printContent"></div>
+
+        <!-- Footer -->
+        <div class="print-footer">
+            <p>M'STYLE E-Commerce Platform | Confidential Report</p>
+            <p>Page <span class="page-number"></span></p>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/print_layout.js') }}"></script>
+</body>
+</html>

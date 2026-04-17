@@ -1,0 +1,730 @@
+﻿{% extends "admin_header.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modal-improvements.css') }}">
+<div class="admin-dashboard-content">
+    <div class="dashboard-header">
+        <div class="dashboard-avatar">
+            <i class="bi bi-person-check"></i>
+        </div>
+        <h1>Pending User Approvals</h1>
+        <p>Review and approve new user registrations</p>
+    </div>
+
+    <div class="dashboard-container">
+        <div class="table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-hashtag"></i> No.</th>
+                        <th><i class="fas fa-user"></i> Name</th>
+                        <th><i class="fas fa-envelope"></i> Email</th>
+                        <th><i class="fas fa-phone"></i> Phone</th>
+                        <th><i class="fas fa-tag"></i> User Type</th>
+                        <th><i class="fas fa-calendar"></i> Registered</th>
+                        <th><i class="fas fa-cogs"></i> Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if pending_users %}
+                        {% for user in pending_users %}
+                        <tr class="user-row">
+                            <td class="sequence-number">
+                                <span class="sequence-badge">{{ loop.index }}</span>
+                            </td>
+                            <td class="user-name">
+                                <div class="user-info">
+                                    <span class="name">{{ user.first_name }} {{ user.last_name }}</span>
+                                </div>
+                            </td>
+                            <td class="user-email">{{ user.email }}</td>
+                            <td>{{ user.phone_number or user.get('phone') or 'N/A' }}</td>
+                            <td class="user-type">
+                                {% set utype = (user.user_type or 'Buyer')|lower %}
+                                <span class="type-badge type-{{ utype }}">
+                                    <i class="fas fa-{% if utype == 'seller' %}store{% elif utype == 'rider' %}shipping-fast{% else %}user-tag{% endif %}"></i>
+                                    {{ user.user_type or 'Buyer' }}
+                                </span>
+                            </td>
+                            <td class="user-joined">
+                                {% if user.get('created_at') %}
+                                <span class="date">
+                                    {% if user.created_at is string %}
+                                        {{ user.created_at[:10] }}
+                                    {% else %}
+                                        {{ user.created_at.strftime('%b %d, %Y') }}
+                                    {% endif %}
+                                </span>
+                                {% else %}
+                                <span class="no-date">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="user-actions">
+                                <div class="action-buttons">
+                                    <button class="action-btn approve-btn"
+                                        onclick="approveUser('{{ user.id }}', '{{ user.first_name }}')"
+                                        title="Approve User">
+                                        <i class="fas fa-check"></i>
+                                    </button>
+                                    <button class="action-btn view-btn"
+                                        onclick="viewDocuments('{{ user.id }}')"
+                                        title="View Documents">
+                                        <i class="fas fa-file-alt"></i>
+                                    </button>
+                                    <button class="action-btn reject-btn"
+                                        onclick="showRejectModal('{{ user.id }}', '{{ user.first_name }}')"
+                                        title="Reject User">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="7">
+                            <div class="empty-state">
+                                <div class="empty-icon"><i class="fas fa-user-clock"></i></div>
+                                <h3>No Pending Approvals</h3>
+                                <p>All user registrations have been processed.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- User Documents Modal -->
+<div id="documentsModal" class="pu-overlay" style="display:none;">
+    <div class="pu-modal pu-modal--wide">
+        <div class="pu-modal__header pu-modal__header--docs">
+            <div class="pu-modal__header-left">
+                <div class="pu-modal__icon-wrap">
+                    <i class="fas fa-folder-open"></i>
+                </div>
+                <div>
+                    <h2 class="pu-modal__title">User Documents</h2>
+                    <p class="pu-modal__subtitle">Review submitted verification files</p>
+                </div>
+            </div>
+            <button class="pu-modal__close" onclick="closeDocumentsModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="pu-modal__body" id="documentsModalBody">
+            <div class="pu-loading">
+                <div class="pu-loading__spinner"></div>
+                <p>Loading documents…</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Lightbox Modal -->
+<div id="imageModal" class="pu-overlay pu-overlay--dark" style="display:none;">
+    <div class="pu-lightbox">
+        <button class="pu-lightbox__close" onclick="closeImageModal()">
+            <i class="fas fa-times"></i>
+        </button>
+        <img id="fullImage" src="" alt="Document" class="pu-lightbox__img">
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div id="rejectModal" class="pu-overlay" style="display:none;">
+    <div class="pu-modal pu-modal--sm">
+        <div class="pu-modal__header pu-modal__header--danger">
+            <div class="pu-modal__header-left">
+                <div class="pu-modal__icon-wrap pu-modal__icon-wrap--danger">
+                    <i class="fas fa-user-times"></i>
+                </div>
+                <div>
+                    <h2 class="pu-modal__title">Reject Registration</h2>
+                    <p class="pu-modal__subtitle" id="rejectMessage">Confirm rejection</p>
+                </div>
+            </div>
+            <button class="pu-modal__close" onclick="closeRejectModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="rejectForm">
+            <div class="pu-modal__body">
+                <div class="pu-reject-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>This action will notify the user via email and cannot be undone.</span>
+                </div>
+                <div class="pu-field">
+                    <label class="pu-field__label" for="rejectReason">
+                        <i class="fas fa-clipboard-list"></i> Reason for Rejection <span class="pu-required">*</span>
+                    </label>
+                    <textarea id="rejectReason" name="reject_reason" rows="4" required
+                        class="pu-field__textarea"
+                        placeholder="Provide a clear reason so the user understands why their registration was declined…"></textarea>
+                </div>
+            </div>
+            <div class="pu-modal__footer">
+                <button type="button" class="pu-btn pu-btn--ghost" onclick="closeRejectModal()">
+                    <i class="fas fa-arrow-left"></i> Cancel
+                </button>
+                <button type="submit" class="pu-btn pu-btn--danger" id="rejectSubmitBtn">
+                    <i class="fas fa-times-circle"></i> Reject Registration
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+/* ── Action buttons ─────────────────────────────────────────────────── */
+.approve-btn  { background: linear-gradient(135deg,#28a745,#20c997)!important; color:#fff!important; }
+.approve-btn:hover { background: linear-gradient(135deg,#218838,#1aab82)!important; transform:translateY(-1px); }
+.reject-btn   { background: linear-gradient(135deg,#dc3545,#c82333)!important; color:#fff!important; }
+.reject-btn:hover { background: linear-gradient(135deg,#c82333,#a71d2a)!important; transform:translateY(-1px); }
+
+/* ── Overlay ────────────────────────────────────────────────────────── */
+.pu-overlay {
+    position: fixed; inset: 0; z-index: 1050;
+    background: rgba(15,20,30,.65);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem;
+    animation: puFadeIn .18s ease;
+}
+.pu-overlay--dark { background: rgba(0,0,0,.88); }
+@keyframes puFadeIn { from { opacity:0 } to { opacity:1 } }
+
+/* ── Modal shell ────────────────────────────────────────────────────── */
+.pu-modal {
+    background: #fff;
+    border-radius: 20px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.22), 0 4px 16px rgba(0,0,0,.1);
+    width: 100%; max-height: 90vh;
+    display: flex; flex-direction: column;
+    animation: puSlideUp .22s cubic-bezier(.34,1.56,.64,1);
+    overflow: hidden;
+}
+.pu-modal--wide { max-width: 960px; }
+.pu-modal--sm   { max-width: 480px; }
+@keyframes puSlideUp { from { opacity:0; transform:translateY(24px) } to { opacity:1; transform:translateY(0) } }
+
+/* ── Modal header ───────────────────────────────────────────────────── */
+.pu-modal__header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid #f0f0f0;
+    flex-shrink: 0;
+}
+.pu-modal__header--docs {
+    background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%);
+}
+.pu-modal__header--danger {
+    background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%);
+}
+.pu-modal__header-left { display: flex; align-items: center; gap: 1rem; }
+
+.pu-modal__icon-wrap {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: rgba(255,255,255,.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: #d4af37; flex-shrink: 0;
+}
+.pu-modal__icon-wrap--danger { color: #fff; }
+
+.pu-modal__title {
+    font-size: 17px; font-weight: 700; color: #fff;
+    margin: 0; letter-spacing: -.3px;
+}
+.pu-modal__subtitle {
+    font-size: 12px; color: rgba(255,255,255,.65);
+    margin: 2px 0 0; font-weight: 400;
+}
+
+.pu-modal__close {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(255,255,255,.12); border: none;
+    color: rgba(255,255,255,.8); cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s; flex-shrink: 0;
+}
+.pu-modal__close:hover { background: rgba(255,255,255,.25); color: #fff; }
+
+/* ── Modal body ─────────────────────────────────────────────────────── */
+.pu-modal__body {
+    padding: 1.5rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* ── Modal footer ───────────────────────────────────────────────────── */
+.pu-modal__footer {
+    padding: 1rem 1.5rem;
+    border-top: 1px solid #f0f0f0;
+    display: flex; gap: .75rem; justify-content: flex-end;
+    flex-shrink: 0; background: #fafafa;
+}
+
+/* ── Loading spinner ────────────────────────────────────────────────── */
+.pu-loading {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 3rem; gap: 1rem; color: #6c757d; font-size: 14px;
+}
+.pu-loading__spinner {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 3px solid #f0f0f0;
+    border-top-color: #d4af37;
+    animation: puSpin .7s linear infinite;
+}
+@keyframes puSpin { to { transform: rotate(360deg) } }
+
+/* ── User info section ──────────────────────────────────────────────── */
+.pu-user-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+    border: 1px solid #e9ecef;
+    border-radius: 14px;
+    padding: 1.25rem 1.5rem;
+    margin-bottom: 1.5rem;
+    display: flex; gap: 1.5rem; flex-wrap: wrap;
+}
+.pu-user-card__avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: linear-gradient(135deg, #1a1a1a, #2c3e50);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; color: #d4af37; flex-shrink: 0;
+}
+.pu-user-card__info { flex: 1; min-width: 0; }
+.pu-user-card__name {
+    font-size: 17px; font-weight: 700; color: #1a1a1a;
+    margin: 0 0 4px; letter-spacing: -.3px;
+}
+.pu-user-card__meta {
+    display: flex; flex-wrap: wrap; gap: .5rem .75rem;
+    margin-top: .5rem;
+}
+.pu-meta-item {
+    display: flex; align-items: center; gap: 5px;
+    font-size: 12.5px; color: #495057;
+}
+.pu-meta-item i { color: #d4af37; width: 14px; text-align: center; }
+.pu-user-type-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .5px;
+}
+.pu-user-type-badge--buyer  { background: #e3f2fd; color: #1565c0; }
+.pu-user-type-badge--seller { background: #fff8e1; color: #f57f17; }
+.pu-user-type-badge--rider  { background: #e8f5e9; color: #2e7d32; }
+
+/* ── Vehicle info ───────────────────────────────────────────────────── */
+.pu-vehicle-card {
+    background: #fff;
+    border: 1px solid #e9ecef;
+    border-radius: 10px;
+    padding: .875rem 1rem;
+    margin-top: .75rem;
+    display: grid; grid-template-columns: repeat(auto-fill, minmax(140px,1fr));
+    gap: .5rem;
+}
+.pu-vehicle-card__title {
+    grid-column: 1/-1;
+    font-size: 12px; font-weight: 700; color: #2c3e50;
+    text-transform: uppercase; letter-spacing: .5px;
+    display: flex; align-items: center; gap: 6px;
+    margin-bottom: .25rem;
+}
+.pu-vehicle-card__title i { color: #d4af37; }
+.pu-vehicle-item { font-size: 12.5px; color: #495057; }
+.pu-vehicle-item strong { color: #1a1a1a; display: block; font-size: 11px; text-transform: uppercase; letter-spacing: .3px; margin-bottom: 1px; }
+
+/* ── Document grid ──────────────────────────────────────────────────── */
+.pu-doc-section-title {
+    font-size: 12px; font-weight: 700; color: #6c757d;
+    text-transform: uppercase; letter-spacing: .6px;
+    margin-bottom: 1rem; display: flex; align-items: center; gap: 6px;
+}
+.pu-doc-section-title::after {
+    content: ''; flex: 1; height: 1px; background: #e9ecef;
+}
+.pu-doc-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(240px,1fr));
+    gap: 1.25rem;
+}
+.pu-doc-card {
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid #e9ecef;
+    box-shadow: 0 2px 8px rgba(0,0,0,.05);
+    display: flex; flex-direction: column;
+    transition: box-shadow .2s, transform .2s;
+}
+.pu-doc-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.1); transform: translateY(-2px); }
+.pu-doc-card__label {
+    padding: .6rem 1rem;
+    background: linear-gradient(135deg, #1a1a1a, #2c3e50);
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; color: #d4af37;
+    text-transform: uppercase; letter-spacing: .5px;
+}
+.pu-doc-card__label i { font-size: 13px; }
+.pu-doc-img-wrap {
+    flex: 1; min-height: 190px; position: relative;
+    background: #f0f0f0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    overflow: hidden;
+}
+.pu-doc-img-wrap img {
+    width: 100%; height: 100%; object-fit: cover; display: block;
+    transition: transform .3s;
+}
+.pu-doc-img-wrap:hover img { transform: scale(1.04); }
+.pu-doc-img-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 60%);
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 14px; opacity: 0; transition: opacity .2s;
+}
+.pu-doc-img-wrap:hover .pu-doc-img-overlay { opacity: 1; }
+.pu-doc-img-overlay span {
+    color: #fff; font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; gap: 5px;
+    background: rgba(0,0,0,.4); padding: 4px 12px; border-radius: 20px;
+}
+
+/* ── Lightbox ───────────────────────────────────────────────────────── */
+.pu-lightbox {
+    position: relative; max-width: 90vw; max-height: 90vh;
+    animation: puSlideUp .2s ease;
+}
+.pu-lightbox__img {
+    max-width: 88vw; max-height: 88vh;
+    object-fit: contain; display: block;
+    border-radius: 10px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+.pu-lightbox__close {
+    position: absolute; top: -14px; right: -14px;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #d4af37; border: none; color: #fff;
+    font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,.3);
+    transition: background .15s, transform .15s;
+}
+.pu-lightbox__close:hover { background: #b8962e; transform: scale(1.1); }
+
+/* ── Reject modal specifics ─────────────────────────────────────────── */
+.pu-reject-warning {
+    display: flex; align-items: flex-start; gap: .75rem;
+    background: #fff5f5; border: 1px solid #fecaca;
+    border-radius: 10px; padding: .875rem 1rem;
+    margin-bottom: 1.25rem;
+    font-size: 13px; color: #b91c1c; line-height: 1.5;
+}
+.pu-reject-warning i { font-size: 16px; margin-top: 1px; flex-shrink: 0; }
+
+/* ── Form field ─────────────────────────────────────────────────────── */
+.pu-field__label {
+    display: block; font-size: 12.5px; font-weight: 700;
+    color: #374151; margin-bottom: .5rem;
+    text-transform: uppercase; letter-spacing: .4px;
+}
+.pu-field__label i { color: #d4af37; margin-right: 4px; }
+.pu-required { color: #dc3545; }
+.pu-field__textarea {
+    width: 100%; padding: .75rem 1rem;
+    border: 1.5px solid #e5e7eb; border-radius: 10px;
+    font-family: inherit; font-size: 13.5px; color: #1a1a1a;
+    resize: vertical; transition: border-color .15s, box-shadow .15s;
+    outline: none; background: #fafafa;
+}
+.pu-field__textarea:focus {
+    border-color: #d4af37;
+    box-shadow: 0 0 0 3px rgba(212,175,55,.15);
+    background: #fff;
+}
+
+/* ── Buttons ────────────────────────────────────────────────────────── */
+.pu-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: .6rem 1.25rem; border-radius: 10px;
+    font-size: 13.5px; font-weight: 700; cursor: pointer;
+    border: none; transition: all .15s; letter-spacing: .2px;
+}
+.pu-btn--ghost {
+    background: #f3f4f6; color: #374151;
+    border: 1.5px solid #e5e7eb;
+}
+.pu-btn--ghost:hover { background: #e5e7eb; }
+.pu-btn--danger {
+    background: linear-gradient(135deg, #dc3545, #c82333);
+    color: #fff; box-shadow: 0 4px 12px rgba(220,53,69,.3);
+}
+.pu-btn--danger:hover { background: linear-gradient(135deg, #c82333, #a71d2a); transform: translateY(-1px); }
+.pu-btn:disabled { opacity: .65; cursor: not-allowed; transform: none !important; }
+
+/* ── No docs placeholder ────────────────────────────────────────────── */
+.pu-no-docs {
+    text-align: center; padding: 2.5rem 1rem; color: #9ca3af;
+}
+.pu-no-docs i { font-size: 2.5rem; margin-bottom: .75rem; display: block; }
+.pu-no-docs p { font-size: 14px; margin: 0; }
+</style>
+
+<script>
+    // ── Approve ───────────────────────────────────────────────────────────
+    function approveUser(userId, firstName) {
+        if (!confirm(`Approve ${firstName}'s registration? They will be able to log in immediately.`)) return;
+
+        const btn = event.target.closest('.approve-btn');
+        const orig = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+        btn.disabled = true;
+
+        fetch(`/approve_user/${userId}`, {
+            method: 'POST',
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const row = btn.closest('tr');
+                    row.style.transition = 'all 0.4s';
+                    row.style.opacity = '0';
+                    row.style.transform = 'translateX(20px)';
+                    setTimeout(() => { row.remove(); }, 400);
+                } else {
+                    alert('Error: ' + (data.error || 'Approval failed'));
+                    btn.innerHTML = orig;
+                    btn.disabled = false;
+                }
+            })
+            .catch(() => {
+                alert('Network error. Please try again.');
+                btn.innerHTML = orig;
+                btn.disabled = false;
+            });
+    }
+
+
+    // ── View Documents ────────────────────────────────────────────────────
+    function viewDocuments(userId) {
+        document.getElementById('documentsModal').style.display = 'flex';
+        document.getElementById('documentsModalBody').innerHTML = `
+            <div class="pu-loading">
+                <div class="pu-loading__spinner"></div>
+                <p>Loading documents…</p>
+            </div>`;
+
+        fetch(`/api/user_documents/${userId}`)
+            .then(r => {
+                if (!r.ok) throw new Error(`HTTP ${r.status}`);
+                return r.json();
+            })
+            .then(data => {
+                if (data.success) {
+                    showDocumentsModal(data.user, data.documents);
+                } else {
+                    showErrorInModal('Error loading documents: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(err => {
+                showErrorInModal('Failed to load documents. Please try again.');
+                console.error(err);
+            });
+    }
+
+    function showDocumentsModal(user, documents) {
+        const modalBody = document.getElementById('documentsModalBody');
+
+        const utype = (user.user_type || 'buyer').toLowerCase();
+        const badgeClass = `pu-user-type-badge--${utype}`;
+        const typeIcon = utype === 'seller' ? 'store' : utype === 'rider' ? 'shipping-fast' : 'user-tag';
+
+        let html = `
+            <div class="pu-user-card">
+                <div class="pu-user-card__avatar"><i class="fas fa-user"></i></div>
+                <div class="pu-user-card__info">
+                    <p class="pu-user-card__name">${user.first_name} ${user.last_name}</p>
+                    <span class="pu-user-type-badge ${badgeClass}">
+                        <i class="fas fa-${typeIcon}"></i> ${user.user_type || 'Buyer'}
+                    </span>
+                    <div class="pu-user-card__meta">
+                        <span class="pu-meta-item"><i class="fas fa-envelope"></i>${user.email}</span>
+                        ${user.phone_number ? `<span class="pu-meta-item"><i class="fas fa-phone"></i>${user.phone_number}</span>` : ''}
+                        ${user.address ? `<span class="pu-meta-item"><i class="fas fa-map-marker-alt"></i>${user.address}</span>` : ''}
+                    </div>
+                    ${utype === 'rider' && user.vehicle_type ? `
+                    <div class="pu-vehicle-card">
+                        <div class="pu-vehicle-card__title"><i class="fas fa-motorcycle"></i> Vehicle Details</div>
+                        <div class="pu-vehicle-item"><strong>Type</strong>${user.vehicle_type}</div>
+                        <div class="pu-vehicle-item"><strong>Model</strong>${user.vehicle_model || 'N/A'}</div>
+                        <div class="pu-vehicle-item"><strong>Plate</strong>${user.vehicle_plate_number || 'N/A'}</div>
+                        <div class="pu-vehicle-item"><strong>Year</strong>${user.vehicle_year_model || 'N/A'}</div>
+                    </div>` : ''}
+                </div>
+            </div>`;
+
+        // Helper: prefer signed URL, fall back to path_variations[0]
+        function getUrl(urlField, variationsField) {
+            if (documents[urlField]) return documents[urlField];
+            const vars = documents[variationsField];
+            if (vars && vars.length > 0 && vars[0]) return vars[0];
+            return null;
+        }
+
+        const validIdUrl = getUrl('valid_id_url', 'path_variations');
+        const orCrUrl    = utype === 'rider' ? getUrl('or_cr_url', 'or_cr_variations') : null;
+        const nbiUrl     = utype === 'rider' ? getUrl('nbi_clearance_url', 'nbi_variations') : null;
+
+        const hasAny = validIdUrl || orCrUrl || nbiUrl;
+
+        if (hasAny) {
+            html += `<div class="pu-doc-section-title"><i class="fas fa-folder-open"></i> Submitted Documents</div>
+                     <div class="pu-doc-grid">`;
+            if (validIdUrl) html += docCard('Valid Government ID', 'fas fa-id-card', validIdUrl, documents.path_variations || [validIdUrl]);
+            if (orCrUrl)    html += docCard('OR / CR', 'fas fa-file-alt', orCrUrl, documents.or_cr_variations || [orCrUrl]);
+            if (nbiUrl)     html += docCard('NBI Clearance', 'fas fa-certificate', nbiUrl, documents.nbi_variations || [nbiUrl]);
+            html += `</div>`;
+        } else {
+            html += `<div class="pu-no-docs">
+                <i class="fas fa-folder-open"></i>
+                <p>No documents have been uploaded yet.</p>
+            </div>`;
+        }
+
+        modalBody.innerHTML = html;
+
+        // Attach click handlers for lightbox
+        modalBody.querySelectorAll('.pu-doc-img-wrap').forEach(wrap => {
+            wrap.addEventListener('click', () => {
+                const src = wrap.dataset.src;
+                if (src) openImageModal(src);
+            });
+        });
+    }
+
+    function docCard(title, iconClass, primaryUrl, variations) {
+        return `
+            <div class="pu-doc-card">
+                <div class="pu-doc-card__label"><i class="${iconClass}"></i>${title}</div>
+                <div class="pu-doc-img-wrap" data-src="${primaryUrl}">
+                    <img src="${primaryUrl}"
+                         alt="${title}"
+                         onerror="handleImageError(this, ${JSON.stringify(variations)}, 0)"
+                         loading="lazy">
+                    <div class="pu-doc-img-overlay">
+                        <span><i class="fas fa-expand-alt"></i> View Full Size</span>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    function handleImageError(img, variations, tried) {
+        if (tried < variations.length) {
+            img.src = variations[tried];
+            img.onerror = function() { handleImageError(img, variations, tried + 1); };
+        } else {
+            img.style.display = 'none';
+            img.parentElement.innerHTML = `<div style="padding:2rem; text-align:center; color:#6c757d;">
+                <i class="fas fa-image" style="font-size:2rem; margin-bottom:0.5rem; display:block;"></i>
+                <small>Image not available</small>
+            </div>`;
+        }
+    }
+
+    function showErrorInModal(msg) {
+        document.getElementById('documentsModalBody').innerHTML = `
+            <div class="pu-no-docs" style="color:#dc3545;">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>${msg}</p>
+            </div>`;
+    }
+
+    function closeDocumentsModal() {
+        document.getElementById('documentsModal').style.display = 'none';
+    }
+
+    function openImageModal(src) {
+        document.getElementById('fullImage').src = src;
+        document.getElementById('imageModal').style.display = 'flex';
+    }
+
+    function closeImageModal() {
+        document.getElementById('imageModal').style.display = 'none';
+        document.getElementById('fullImage').src = '';
+    }
+
+    // Close modals on overlay click
+    document.getElementById('documentsModal').addEventListener('click', function(e) {
+        if (e.target === this) closeDocumentsModal();
+    });
+    document.getElementById('imageModal').addEventListener('click', function(e) {
+        if (e.target === this) closeImageModal();
+    });
+
+    // ── Reject modal ──────────────────────────────────────────────────────
+    let rejectUserId = null;
+
+    function showRejectModal(userId, firstName) {
+        rejectUserId = userId;
+        document.getElementById('rejectMessage').textContent =
+            `Are you sure you want to reject ${firstName}'s registration?`;
+        document.getElementById('rejectModal').style.display = 'flex';
+    }
+
+    function closeRejectModal() {
+        document.getElementById('rejectModal').style.display = 'none';
+        document.getElementById('rejectForm').reset();
+        rejectUserId = null;
+    }
+
+    document.getElementById('rejectModal').addEventListener('click', function(e) {
+        if (e.target === this) closeRejectModal();
+    });
+
+    document.getElementById('rejectForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        if (!rejectUserId) return;
+
+        const reason = document.getElementById('rejectReason').value.trim();
+        if (!reason) { alert('Please provide a rejection reason.'); return; }
+
+        const btn = document.getElementById('rejectSubmitBtn');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rejecting...';
+        btn.disabled = true;
+
+        fetch(`/reject_user/${rejectUserId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+            body: JSON.stringify({ rejection_reason: reason })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    closeRejectModal();
+                    // Remove the row
+                    document.querySelectorAll('.user-row').forEach(row => {
+                        if (row.innerHTML.includes(`'${rejectUserId}'`)) {
+                            row.style.transition = 'all 0.4s';
+                            row.style.opacity = '0';
+                            setTimeout(() => { row.remove(); }, 400);
+                        }
+                    });
+                } else {
+                    alert('Error: ' + (data.error || 'Rejection failed'));
+                    btn.innerHTML = '<i class="fas fa-times-circle"></i> Reject Registration';
+                    btn.disabled = false;
+                }
+            })
+            .catch(() => {
+                alert('Network error. Please try again.');
+                btn.innerHTML = '<i class="fas fa-times-circle"></i> Reject Registration';
+                btn.disabled = false;
+            });
+    });
+</script>
+{% endblock %}

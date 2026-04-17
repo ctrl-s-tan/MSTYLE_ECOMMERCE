@@ -1,0 +1,1605 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Orders</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/orders.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/success_message_modal.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/buyer_seller_chat_order.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/buyer_seller_chat.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <script src="{{ url_for('static', filename='js/buyer_rider_chat.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/buyer_seller_chat_order.js') }}"></script>
+
+</head>
+
+<body data-buyer-email="{{ session.get('email', '') }}">
+    {% include 'buyer_header.html' %}
+
+    <!-- Toast Container (disabled - using modals only) -->
+    <!-- <div id="toast-container" class="toast-container"></div> -->
+
+    <div class="order-container">
+        <div class="order-header">
+            <div class="order-icon">
+                <i class="bi bi-bag-check"></i>
+            </div>
+            <h1>My Orders</h1>
+            <p>Track and manage your orders</p>
+        </div>
+
+        <!-- Status Filter Tabs -->
+        <div class="status-filters">
+            <button class="status-filter active" data-status="all">
+                <i class="bi bi-grid"></i> All Orders
+            </button>
+            <button class="status-filter" data-status="pending">
+                <i class="bi bi-hourglass"></i> Pending
+            </button>
+            <button class="status-filter" data-status="shipped">
+                <i class="bi bi-truck"></i> Shipped
+            </button>
+            <button class="status-filter" data-status="delivered">
+                <i class="bi bi-truck"></i> Delivered
+            </button>
+            <button class="status-filter" data-status="completed">
+                <i class="bi bi-check-circle"></i> Completed
+            </button>
+            <button class="status-filter" data-status="cancelled">
+                <i class="bi bi-x-circle"></i> Cancelled
+            </button>
+        </div>
+
+        {% if orders %}
+        {% for order in orders|reverse %}
+        <div class="order-card" data-status="{{ order.status|lower }}">
+            <div class="order-main">
+                <div class="order-image-section">
+                    {% if order.image_url %}
+                    <img src="{{ order.image_url }}"
+                        alt="{{ order['name'] }}" class="order-image"
+                        onerror="this.onerror=null;this.src='/static/images/placeholder.png';">
+                    {% elif order['image'] %}
+                    <img src="{{ order['image']|product_img }}"
+                        alt="{{ order['name'] }}" class="order-image"
+                        onerror="this.onerror=null;this.src='/static/images/placeholder.png';">
+                    {% else %}
+                    <div class="order-image" style="background:#f0f0f0;display:flex;align-items:center;justify-content:center;">
+                        <i class="bi bi-image" style="font-size:2rem;color:#adb5bd;"></i>
+                    </div>
+                    {% endif %}
+                </div>
+
+                <div class="order-details-section">
+                    <div class="order-header-info">
+                        <h3 class="product-name">{{ order['name'] }}</h3>
+                        <div class="order-meta">
+                            <span class="order-date">
+                                <i class="bi bi-calendar3"></i>
+                                {{ order.date.strftime('%B %d, %Y') if order.date else 'N/A' }}
+                            </span>
+                        </div>
+                    </div>
+
+                    <div class="order-specs">
+                        {% if order.variations or order.size %}
+                        <div class="specs-row">
+                            {% if order.variations %}
+                            <span class="spec-badge color-spec" data-color="{{ order.variations }}">
+                                <i class="bi bi-palette"></i>
+                                {{ order.variations }}
+                            </span>
+                            {% endif %}
+                            {% if order.size %}
+                            <span class="spec-badge size-spec">
+                                <i class="bi bi-rulers"></i>
+                                {{ order.size }}
+                            </span>
+                            {% else %}
+                            <span class="spec-badge size-spec" style="opacity: 0.5;">
+                                <i class="bi bi-rulers"></i>
+                                No size
+                            </span>
+                            {% endif %}
+                            <span class="spec-badge quantity-spec">
+                                <i class="bi bi-box"></i>
+                                Qty: {{ order.quantity }}
+                            </span>
+                        </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="order-bottom">
+                        <div class="price-section">
+                            <div class="price-breakdown">
+                                <div class="total-row">
+                                    <span class="price-label">Total</span>
+                                    <span class="price-value" id="total-{{ order.id }}" data-order-id="{{ order.id }}" data-total-price="{{ order.total_price }}" data-promotion-type="{{ order.promotion_type or '' }}">₱{{ "%.2f"|format(order.total_price|float) }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="status-section">
+                            <span class="status-badge status-{{ order.status|lower }}">
+                                <i class="bi 
+                                        {% if order.status == 'Pending' %}bi-hourglass
+                                        {% elif order.status == 'Confirmed' %}bi-check-circle
+                                        {% elif order.status == 'For Pickup' %}bi-box-seam
+                                        {% elif order.status == 'Heading to Seller' %}bi-arrow-right-circle
+                                        {% elif order.status == 'Shipped' %}bi-truck
+                                        {% elif order.status == 'Delivered' %}bi-check-circle-fill
+                                        {% elif order.status == 'Completed' %}bi-check-circle-fill
+                                        {% elif order.status == 'Cancelled' %}bi-x-circle-fill
+                                        {% else %}bi-question-circle{% endif %}">
+                                </i>
+                                {{ order.status }}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if order.status != 'Cancelled' %}
+            <div class="order-actions">
+                <!-- Seller Info Section - Left Side -->
+                <div class="order-seller-info-inline">
+                    <div class="seller-avatar" title="{{ order.seller_business_name or order.seller_full_name or 'Seller' }}">
+                        {% if order.seller_profile_picture %}
+                            <img src="{{ url_for('static', filename='uploads/' + order.seller_profile_picture) }}" 
+                                 alt="{{ order.seller_business_name or order.seller_full_name }}"
+                                 style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;"
+                                 onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                            <span style="display: none;">{{ (order.seller_business_name or order.seller_full_name or 'S')[0].upper() }}</span>
+                        {% else %}
+                            <span>{{ (order.seller_business_name or order.seller_full_name or 'S')[0].upper() }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="seller-buttons">
+                        {% if order.status in ['Pending', 'Confirmed', 'For Pickup', 'Heading to Seller', 'Shipped', 'Delivered'] %}
+                        <button class="btn-chat-inline" onclick="openSellerChatOrder('{{ order.id }}', '{{ order.seller_email }}')">
+                            <i class="bi bi-chat-dots"></i>
+                            <span>Contact Seller</span>
+                        </button>
+                        {% endif %}
+                        <button class="btn-view-shop-inline"
+                            onclick="window.location.href='{{ url_for('view_shop', seller_email=order.seller_email) }}'">
+                            <i class="bi bi-shop"></i>
+                            <span>View Shop</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Action Buttons - Right Side -->
+                <div class="order-action-buttons">
+                {% if order.status == 'Pending' %}
+                <button type="button" class="btn btn-danger" onclick="showCancelModal('{{ order.id }}')">
+                    <i class="bi bi-x-circle"></i> Cancel Order
+                </button>
+                {% endif %}
+                {% if order.status == 'Shipped' %}
+                <div class="shipped-actions">
+                    <p class="shipping-message">
+                        <i class="bi bi-truck"></i> Your order is on the way!
+                    </p>
+                    {% if order.rider_id %}
+                    <button 
+                        type="button" 
+                        class="btn btn-rider-contact" 
+                        onclick="openRiderChat('{{ order.id }}', '{{ order.rider_id }}')">
+                        <i class="bi bi-chat-dots"></i> Contact Rider
+                    </button>
+                    {% endif %}
+                </div>
+                {% endif %}
+                {% if order.status == 'Delivered' %}
+                <button type="button" class="btn btn-success" onclick="confirmReceipt('{{ order.id }}')">
+                    <i class="bi bi-check-circle"></i> Confirm Receipt
+                </button>
+                {% endif %}
+                {% if order.status == 'Completed' %}
+                    {% if order.has_review %}
+                    <button type="button" class="btn btn-secondary" disabled title="You have already reviewed this product">
+                        <i class="bi bi-check-circle"></i> Review Submitted
+                    </button>
+                    {% else %}
+                    <button type="button" class="btn btn-primary"
+                        onclick="showReviewModal('{{ order.id }}', '{{ order.name }}', '{{ order.image_url or order.image }}')">
+                        <i class="bi bi-star"></i> Leave Review
+                    </button>
+                    {% endif %}
+                {% endif %}
+                {% if order.status in ['Delivered', 'Completed'] %}
+                <button type="button" class="btn btn-warning"
+                    onclick="showReportModal('{{ order.id }}', '{{ order.name }}', '{{ order.image_url or order.image }}')">
+                    <i class="bi bi-exclamation-triangle"></i> Report Issue
+                </button>
+                {% endif %}
+                </div>
+            </div>
+            {% else %}
+            <div class="order-actions">
+                <div class="cancelled-info">
+                    <p class="cancellation-message">
+                        <i class="bi bi-info-circle"></i> This order has been cancelled
+                    </p>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+
+        <!-- No Orders Message -->
+        <div class="no-orders-message" style="display: none;">
+            <div class="empty-cart-message">
+                <div class="empty-cart-icon">
+                    <i class="bi bi-bag-x"></i>
+                </div>
+                <h2>No Orders Yet</h2>
+                <p>You haven't placed any orders yet. Start shopping to see your orders here!</p>
+                <a href="{{ url_for('homepage') }}" class="btn btn-primary">
+                    <i class="bi bi-arrow-left"></i> Continue Shopping
+                </a>
+            </div>
+        </div>
+
+        {% else %}
+        <!-- Empty State (when there are no orders) -->
+        <div class="empty-cart-message">
+            <div class="empty-cart-icon">
+                <i class="bi bi-bag-x"></i>
+            </div>
+            <h2>No Orders Yet</h2>
+            <p>You haven't placed any orders yet. Start shopping to see your orders here!</p>
+            <a href="{{ url_for('homepage') }}" class="btn btn-primary">
+                <i class="bi bi-arrow-left"></i> Continue Shopping
+            </a>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- Cancel Order Modal -->
+    <div id="cancelModal" class="modal">
+        <div class="modal-content">
+            <h2><i class="bi bi-x-circle"></i> Cancel Order</h2>
+            <form id="cancelForm" method="POST">
+                <label for="reason">Reason for Cancellation:</label>
+                <textarea name="reason" id="reason" required
+                    placeholder="Please let us know why you're canceling this order..."></textarea>
+                <div class="button-group">
+                    <button type="submit" class="btn btn-danger" id="confirmCancelBtn">
+                        <i class="bi bi-trash"></i> Confirm Cancel
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="hideCancelModal()">
+                        <i class="bi bi-x-lg"></i> Close
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Cancel Success Modal -->
+    <div id="cancelSuccessModal" class="success-modal" aria-hidden="true" role="dialog">
+        <div class="success-modal-content">
+            <div class="success-icon" style="background: linear-gradient(135deg, #dc3545, #c82333);">
+                <i class="bi bi-check success-checkmark" aria-hidden="true"></i>
+            </div>
+            <h2 style="color: #dc3545;">Order Cancelled Successfully!</h2>
+            <p class="thank-you-message">Your cancellation has been processed</p>
+            <p class="order-message" id="cancelSuccessMessage">
+                Your order has been cancelled. The cancellation will be reflected in your order history.
+            </p>
+        </div>
+    </div>
+
+    <!-- Receipt Confirmation Success Modal -->
+    <div id="receiptSuccessModal" class="success-modal" aria-hidden="true" role="dialog">
+        <div class="success-modal-content">
+            <div class="success-icon" style="background: linear-gradient(135deg, #28a745, #20c997);">
+                <i class="bi bi-check success-checkmark" aria-hidden="true"></i>
+            </div>
+            <h2 style="color: #28a745;">Receipt Confirmed!</h2>
+            <p class="thank-you-message">Thank you for confirming your order</p>
+            <p class="order-message" id="receiptSuccessMessage">
+                Your order has been marked as completed. You can now leave a review for this product.
+            </p>
+        </div>
+    </div>
+
+    <!-- Review Success Modal -->
+    <div id="reviewSuccessModal" class="success-modal" aria-hidden="true" role="dialog">
+        <div class="success-modal-content">
+            <div class="success-icon" style="background: linear-gradient(135deg, #ffc107, #ff9800);">
+                <i class="bi bi-check success-checkmark" aria-hidden="true"></i>
+            </div>
+            <h2 style="color: #ffc107;">Review Submitted!</h2>
+            <p class="thank-you-message">Thank you for your feedback</p>
+            <p class="order-message" id="reviewSuccessMessage">
+                Your review has been submitted successfully. It will help other customers make informed decisions.
+            </p>
+        </div>
+    </div>
+
+    <!-- Report Issue Success Modal -->
+    <div id="reportSuccessModal" class="success-modal" aria-hidden="true" role="dialog">
+        <div class="success-modal-content">
+            <div class="success-icon" style="background: linear-gradient(135deg, #ff6b35, #f7931e);">
+                <i class="bi bi-check success-checkmark" aria-hidden="true"></i>
+            </div>
+            <h2 style="color: #ff6b35;">Issue Reported!</h2>
+            <p class="thank-you-message">We've received your report</p>
+            <p class="order-message" id="reportSuccessMessage">
+                Your issue has been reported successfully. Our customer service team will review your case and contact you soon.
+            </p>
+        </div>
+    </div>
+
+    <!-- Review Modal -->
+    <div id="reviewModal" class="modal">
+        <div class="modal-content review-modal">
+            <h2><i class="bi bi-star-fill"></i> Leave a Review</h2>
+            <div class="review-product-info">
+                <img id="reviewProductImage" src="" alt="" class="review-product-image">
+                <div class="review-product-details">
+                    <h3 id="reviewProductName"></h3>
+                    <p>How was your experience with this product?</p>
+                </div>
+            </div>
+            <form id="reviewForm" method="POST">
+                <div class="rating-section">
+                    <label>Rating:</label>
+                    <div class="star-rating">
+                        <input type="radio" name="rating" value="5" id="star5">
+                        <label for="star5" class="star"><i class="bi bi-star-fill"></i></label>
+                        <input type="radio" name="rating" value="4" id="star4">
+                        <label for="star4" class="star"><i class="bi bi-star-fill"></i></label>
+                        <input type="radio" name="rating" value="3" id="star3">
+                        <label for="star3" class="star"><i class="bi bi-star-fill"></i></label>
+                        <input type="radio" name="rating" value="2" id="star2">
+                        <label for="star2" class="star"><i class="bi bi-star-fill"></i></label>
+                        <input type="radio" name="rating" value="1" id="star1">
+                        <label for="star1" class="star"><i class="bi bi-star-fill"></i></label>
+                    </div>
+                    <span class="rating-text">Please select a rating</span>
+                </div>
+                <div class="review-text-section">
+                    <label for="reviewText">Your Review:</label>
+                    <textarea name="review_text" id="reviewText" required
+                        placeholder="Share your thoughts about this product. What did you like? How was the quality?"></textarea>
+                </div>
+                <div class="button-group">
+                    <button type="submit" class="btn btn-success">
+                        <i class="bi bi-send"></i> Submit Review
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="hideReviewModal()">
+                        <i class="bi bi-x-lg"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Report Issue Modal -->
+    <div id="reportModal" class="modal">
+        <div class="modal-content report-modal">
+            <h2><i class="bi bi-exclamation-triangle-fill"></i> Report an Issue</h2>
+            <div class="report-product-info">
+                <img id="reportProductImage" src="" alt="" class="report-product-image">
+                <div class="report-product-details">
+                    <h3 id="reportProductName"></h3>
+                    <p>Please describe the issue you experienced with this order.</p>
+                </div>
+            </div>
+            <form id="reportForm" method="POST">
+                <div class="report-against-section">
+                    <label>
+                        <i class="bi bi-person-x"></i>
+                        Report Against:
+                    </label>
+                    <select name="report_against" id="reportAgainst" required onchange="updateBuyerIssueTypes()">
+                        <option value="">Select who to report</option>
+                        <option value="seller">Seller</option>
+                        <option value="delivery">Rider/Delivery</option>
+                        <option value="platform">Platform/System</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="issue-type-section">
+                    <label>
+                        <i class="bi bi-exclamation-triangle"></i>
+                        Issue Type:
+                    </label>
+                    <select name="issue_type" id="issueType" required>
+                        <option value="">Select issue type</option>
+                        <option value="damaged_product">Damaged Product</option>
+                        <option value="wrong_item">Wrong Item Received</option>
+                        <option value="missing_parts">Missing Parts/Accessories</option>
+                        <option value="quality_issue">Quality Issue</option>
+                        <option value="size_issue">Size/Fit Issue</option>
+                        <option value="delivery_issue">Delivery Issue</option>
+                        <option value="seller_unresponsive">Seller Unresponsive</option>
+                        <option value="rider_issue">Rider Issue</option>
+                        <option value="late_delivery">Late Delivery</option>
+                        <option value="communication_issue">Communication Issue</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="issue-description-section">
+                    <label for="issueDescription">
+                        <i class="bi bi-file-text"></i>
+                        Describe the Issue:
+                    </label>
+                    <textarea name="issue_description" id="issueDescription" required
+                        placeholder="Please provide detailed information about the issue you experienced. Include any relevant details that will help us resolve your concern."></textarea>
+                </div>
+                <div class="button-group">
+                    <button type="submit" class="btn btn-warning">
+                        <i class="bi bi-send"></i> Submit Report
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="hideReportModal()">
+                        <i class="bi bi-x-lg"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <style>
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* Order Actions with Inline Seller Info */
+        .order-actions {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        /* Seller Info Inline - Left Side */
+        .order-seller-info-inline {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 10px 14px;
+            background: #fff;
+            border: 1px solid #e5e5e5;
+            border-radius: 10px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+            transition: all 0.3s ease;
+            width: fit-content;
+        }
+
+        .order-seller-info-inline:hover {
+            box-shadow: 0 3px 12px rgba(0, 0, 0, 0.08);
+            border-color: #d4af37;
+        }
+
+        .order-seller-info-inline .seller-avatar {
+            width: 40px;
+            height: 40px;
+            background: linear-gradient(135deg, #d4af37, #f4d03f);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            box-shadow: 0 2px 6px rgba(212, 175, 55, 0.3);
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: transform 0.3s ease;
+        }
+
+        .order-seller-info-inline .seller-avatar:hover {
+            transform: scale(1.05);
+        }
+
+        .order-seller-info-inline .seller-avatar img {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+        }
+
+        .order-seller-info-inline .seller-buttons {
+            display: flex;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .btn-chat-inline,
+        .btn-view-shop-inline {
+            padding: 8px 14px;
+            border: 1px solid #e5e5e5;
+            background: white;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            color: #666;
+            white-space: nowrap;
+        }
+
+        .btn-chat-inline:hover {
+            border-color: #d4af37;
+            color: #d4af37;
+            background: rgba(212, 175, 55, 0.05);
+        }
+
+        .btn-view-shop-inline {
+            background: #d4af37;
+            color: white;
+            border-color: #d4af37;
+        }
+
+        .btn-view-shop-inline:hover {
+            background: #c19b26;
+            border-color: #c19b26;
+            transform: translateY(-1px);
+            box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+        }
+
+        .btn-chat-inline i,
+        .btn-view-shop-inline i {
+            font-size: 12px;
+        }
+
+        /* Action Buttons - Right Side */
+        .order-action-buttons {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1024px) {
+            .btn-chat-inline span,
+            .btn-view-shop-inline span {
+                display: none;
+            }
+
+            .btn-chat-inline,
+            .btn-view-shop-inline {
+                padding: 8px 12px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .order-actions {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .order-seller-info-inline {
+                width: 100%;
+            }
+
+            .order-action-buttons {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .btn-chat-inline span,
+            .btn-view-shop-inline span {
+                display: inline;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .order-seller-info-inline .seller-buttons {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .btn-chat-inline,
+            .btn-view-shop-inline {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Report Issue Modal Styles - Consistent with existing design system */
+        .report-modal {
+            max-width: 600px;
+            width: 90%;
+            max-height: 90vh;
+            overflow-y: auto;
+        }
+
+        .report-modal h2 {
+            color: #e74c3c;
+            font-size: 1.75rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            text-align: center;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+        }
+
+        .report-modal h2 i {
+            color: #e74c3c;
+            font-size: 1.5rem;
+        }
+
+        .report-product-info {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1.5rem;
+            padding: 1rem;
+            background: var(--bg-light);
+            border-radius: 8px;
+            border-left: 4px solid #e74c3c;
+        }
+
+        .report-product-image {
+            width: 60px;
+            height: 60px;
+            object-fit: cover;
+            border-radius: 8px;
+            border: 2px solid var(--border-color);
+        }
+
+        .report-product-details h3 {
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--primary-color);
+            margin: 0 0 0.25rem 0;
+        }
+
+        .report-product-details p {
+            font-size: 0.9rem;
+            color: var(--text-light);
+            margin: 0;
+        }
+
+        .report-against-section,
+        .issue-type-section,
+        .issue-description-section {
+            margin-bottom: 1.5rem;
+        }
+
+        .report-against-section label,
+        .issue-type-section label,
+        .issue-description-section label {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            font-weight: 500;
+            color: var(--text-color);
+            margin-bottom: 0.75rem;
+        }
+
+        .report-against-section label i,
+        .issue-type-section label i,
+        .issue-description-section label i {
+            color: #e74c3c;
+            font-size: 1rem;
+        }
+
+        .report-against-section select,
+        .issue-type-section select {
+            width: 100%;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            background-color: white;
+            color: var(--text-color);
+            transition: var(--transition);
+            font-family: inherit;
+        }
+
+        .report-against-section select:focus,
+        .issue-type-section select:focus {
+            outline: none;
+            border-color: #e74c3c;
+            box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.2);
+        }
+
+        .issue-description-section textarea {
+            width: 100%;
+            min-height: 120px;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-family: inherit;
+            resize: vertical;
+            transition: var(--transition);
+            background-color: white;
+        }
+
+        .issue-description-section textarea:focus {
+            outline: none;
+            border-color: #e74c3c;
+            box-shadow: 0 0 0 3px rgba(231, 76, 60, 0.2);
+        }
+
+        .issue-description-section textarea::placeholder {
+            color: var(--text-light);
+            font-style: italic;
+        }
+
+        /* Button styling for report modal - consistent with existing buttons */
+        .report-modal .button-group {
+            display: flex;
+            gap: 0.75rem;
+            justify-content: flex-end;
+            margin-top: 2rem;
+            padding-top: 1rem;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .report-modal .btn-warning {
+            background: linear-gradient(135deg, #e74c3c, #c0392b);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+            box-shadow: 0 4px 12px rgba(231, 76, 60, 0.3);
+        }
+
+        .report-modal .btn-warning:hover {
+            background: linear-gradient(135deg, #c0392b, #a93226);
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(231, 76, 60, 0.4);
+        }
+
+        .report-modal .btn-warning:active {
+            transform: translateY(0);
+        }
+
+        .report-modal .btn-secondary {
+            background: var(--text-light);
+            color: white;
+            border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 8px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: var(--transition);
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            text-decoration: none;
+        }
+
+        .report-modal .btn-secondary:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+
+        /* Responsive design for report modal */
+        @media (max-width: 768px) {
+            .report-modal {
+                width: 95%;
+                margin: 1rem;
+                max-height: 85vh;
+            }
+
+            .report-product-info {
+                flex-direction: column;
+                text-align: center;
+                gap: 0.75rem;
+            }
+
+            .report-modal .button-group {
+                flex-direction: column;
+                gap: 0.5rem;
+            }
+
+            .report-modal .btn-warning,
+            .report-modal .btn-secondary {
+                width: 100%;
+                justify-content: center;
+            }
+        }
+
+        /* Loading state for submit button */
+        .report-modal .btn:disabled {
+            opacity: 0.7;
+            cursor: not-allowed;
+            transform: none !important;
+        }
+
+        .report-modal .btn:disabled:hover {
+            transform: none !important;
+        }
+
+        /* Review submitted button styling */
+        .btn-secondary[disabled] {
+            background: #6c757d;
+            color: white;
+            border: 1px solid #6c757d;
+            opacity: 0.8;
+            cursor: not-allowed;
+        }
+
+        .btn-secondary[disabled]:hover {
+            background: #6c757d;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .btn-secondary[disabled] i {
+            color: #28a745;
+        }
+    </style>
+
+    <script>
+        // Display total price as stored in database (already includes shipping fee)
+        function calculateTotalPrices() {
+            document.querySelectorAll('.price-value[data-order-id]').forEach(function(totalElement) {
+                const totalPrice = parseFloat(totalElement.getAttribute('data-total-price')) || 0;
+                totalElement.textContent = '₱' + totalPrice.toFixed(2);
+            });
+        }
+
+        // Order Status Filtering
+        document.addEventListener('DOMContentLoaded', function () {
+            calculateTotalPrices();
+            setColorCircles();
+            const filterButtons = document.querySelectorAll('.status-filter');
+            const orderCards = document.querySelectorAll('.order-card');
+            const statusMap = {
+                'all': 'all',
+                'pending': 'pending',
+                'shipped': 'shipped',
+                'delivered': 'delivered',
+                'completed': 'completed',
+                'cancelled': 'cancelled'
+            };
+
+            // Function to normalize status text
+            function normalizeStatus(status) {
+                return status.trim().toLowerCase();
+            }
+
+            // Function to filter orders
+            function filterOrders(status) {
+                const normalizedStatus = statusMap[status] || 'all';
+                let hasMatches = false;
+
+                orderCards.forEach(card => {
+                    const cardStatus = normalizeStatus(card.querySelector('.status-badge').textContent);
+                    const statusMatch = normalizedStatus === 'all' || cardStatus === normalizedStatus;
+
+                    if (statusMatch) {
+                        card.style.display = 'block';
+                        card.style.animation = 'fadeIn 0.3s ease-out';
+                        hasMatches = true;
+                    } else {
+                        card.style.display = 'none';
+                    }
+                });
+
+                // Show no orders message if no matches
+                const noOrdersMessage = document.querySelector('.no-orders-message');
+                if (noOrdersMessage) {
+                    noOrdersMessage.style.display = hasMatches ? 'none' : 'block';
+                }
+
+                // Update URL without page reload
+                const newUrl = window.location.pathname + (status === 'all' ? '' : `?status=${status}`);
+                window.history.pushState({ status }, '', newUrl);
+            }
+
+            // Add click event listeners to filter buttons
+            filterButtons.forEach(button => {
+                button.addEventListener('click', function () {
+                    // Update active state
+                    filterButtons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+
+                    // Get the status to filter by
+                    const status = this.getAttribute('data-status');
+
+                    // Apply the filter
+                    filterOrders(status);
+                });
+            });
+
+            // Check URL for initial filter
+            const urlParams = new URLSearchParams(window.location.search);
+            const statusParam = urlParams.get('status') || 'all';
+            const initialButton = document.querySelector(`.status-filter[data-status="${statusParam}"]`);
+
+            if (initialButton) {
+                initialButton.click();
+            } else {
+                // If no valid status in URL, show all
+                document.querySelector('.status-filter[data-status="all"]').click();
+            }
+
+            // Handle browser back/forward buttons
+            window.addEventListener('popstate', function (event) {
+                const status = (event.state?.status || 'all').toLowerCase();
+                const button = document.querySelector(`.status-filter[data-status="${status}"]`);
+                if (button) {
+                    button.click();
+                } else {
+                    document.querySelector('.status-filter[data-status="all"]').click();
+                }
+            });
+        });
+
+        // Function to set color circles based on color names
+        function setColorCircles() {
+            document.querySelectorAll('.color-spec').forEach(function (colorElement) {
+                const colorName = colorElement.getAttribute('data-color');
+                const colorCircle = colorElement.querySelector('.color-circle');
+
+                if (colorName && colorCircle) {
+                    const colorCode = getColorCode(colorName);
+                    colorCircle.style.backgroundColor = colorCode;
+
+                    // Add appropriate text color class
+                    if (isLightColor(colorName)) {
+                        colorElement.classList.add('light-color');
+                    } else {
+                        colorElement.classList.add('dark-color');
+                    }
+                }
+            });
+        }
+
+        // Helper function to get color codes
+        function getColorCode(colorName) {
+            const colorMap = {
+                'red': '#dc3545',
+                'blue': '#0d6efd',
+                'green': '#198754',
+                'black': '#212529',
+                'white': '#f8f9fa',
+                'gray': '#6c757d',
+                'grey': '#6c757d',
+                'yellow': '#ffc107',
+                'orange': '#fd7e14',
+                'purple': '#6f42c1',
+                'pink': '#d63384',
+                'brown': '#8b4513',
+                'navy': '#000080',
+                'maroon': '#800000',
+                'beige': '#f5f5dc',
+                'coral': '#ff7f50',
+                'gold': '#ffd700',
+                'silver': '#c0c0c0',
+                'lime': '#32cd32',
+                'teal': '#008080',
+                'indigo': '#4b0082',
+                'violet': '#8a2be2',
+                'cyan': '#00ffff',
+                'magenta': '#ff00ff',
+                'light brown': '#d2b48c',
+                'sky blue': '#87ceeb',
+                'light gray': '#d3d3d3',
+                'khaki': '#f0e68c',
+                'white and green': 'linear-gradient(45deg, #ffffff 50%, #198754 50%)'
+            };
+
+            const lowerColor = colorName.toLowerCase();
+            return colorMap[lowerColor] || '#6c757d'; // Default to gray if color not found
+        }
+
+        // Helper function to determine if color is light
+        function isLightColor(colorName) {
+            const lightColors = ['white', 'yellow', 'beige', 'lime', 'cyan', 'silver', 'gold', 'light gray'];
+            return lightColors.includes(colorName.toLowerCase());
+        }
+
+        // Cancel Order Modal Functions
+        function showCancelModal(orderId) {
+            const modal = document.getElementById('cancelModal');
+            const form = document.getElementById('cancelForm');
+
+            // Set the form action with the correct order ID
+            form.action = '/delete_order/' + orderId;
+
+            // Show the modal with animation
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+
+            // Focus on the textarea when modal opens
+            setTimeout(() => {
+                document.getElementById('reason').focus();
+            }, 100);
+        }
+
+        function hideCancelModal() {
+            const modal = document.getElementById('cancelModal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                // Reset the form
+                document.getElementById('cancelForm').reset();
+            }, 300);
+        }
+
+        function showCancelSuccessModal(message) {
+            const modal = document.getElementById('cancelSuccessModal');
+            const messageEl = document.getElementById('cancelSuccessMessage');
+            
+            if (message) {
+                messageEl.textContent = message;
+            }
+            
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+            
+            // Auto-close after 5 seconds
+            setTimeout(() => {
+                closeCancelSuccessModal();
+            }, 5000);
+        }
+
+        function closeCancelSuccessModal() {
+            const modal = document.getElementById('cancelSuccessModal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                // Reload the page to show updated orders
+                window.location.reload();
+            }, 300);
+        }
+
+        function showReceiptSuccessModal(message) {
+            const modal = document.getElementById('receiptSuccessModal');
+            const messageEl = document.getElementById('receiptSuccessMessage');
+            
+            if (message) {
+                messageEl.textContent = message;
+            }
+            
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+            
+            // Auto-close after 5 seconds
+            setTimeout(() => {
+                closeReceiptSuccessModal();
+            }, 5000);
+        }
+
+        function closeReceiptSuccessModal() {
+            const modal = document.getElementById('receiptSuccessModal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                // Reload the page to show updated orders
+                window.location.reload();
+            }, 300);
+        }
+
+        function showReviewSuccessModal(message) {
+            const modal = document.getElementById('reviewSuccessModal');
+            const messageEl = document.getElementById('reviewSuccessMessage');
+            
+            if (message) {
+                messageEl.textContent = message;
+            }
+            
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+            
+            // Auto-close after 5 seconds
+            setTimeout(() => {
+                closeReviewSuccessModal();
+            }, 5000);
+        }
+
+        function closeReviewSuccessModal() {
+            const modal = document.getElementById('reviewSuccessModal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                // Reload the page to show updated orders
+                window.location.reload();
+            }, 300);
+        }
+
+        // Handle confirm receipt
+        function confirmReceipt(orderId) {
+            // Find the button and show loading state
+            const button = event.target.closest('button');
+            const originalHTML = button.innerHTML;
+            
+            button.disabled = true;
+            button.innerHTML = '<i class="bi bi-hourglass-split" style="animation: spin 1s linear infinite;"></i> Processing...';
+            
+            // Submit the form via fetch
+            fetch('/mark_as_received/' + orderId, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                }
+            })
+            .then(response => {
+                if (response.ok) {
+                    return response.text();
+                }
+                throw new Error('Network response was not ok');
+            })
+            .then(data => {
+                // Show success modal
+                showReceiptSuccessModal('Your order has been marked as completed. You can now leave a review for this product.');
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                
+                // Reset button state
+                button.disabled = false;
+                button.innerHTML = originalHTML;
+                
+                // Show error toast
+                showToast('Failed to confirm receipt. Please try again.', 'error');
+            });
+        }
+
+        // Handle cancel form submission
+        document.addEventListener('DOMContentLoaded', function() {
+            const cancelForm = document.getElementById('cancelForm');
+            
+            cancelForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(this);
+                const actionUrl = this.action;
+                const submitBtn = document.getElementById('confirmCancelBtn');
+                
+                // Disable button and show loading state
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="bi bi-hourglass-split" style="animation: spin 1s linear infinite;"></i> Cancelling...';
+                
+                // Submit the form via fetch
+                fetch(actionUrl, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.text();
+                    }
+                    throw new Error('Network response was not ok');
+                })
+                .then(data => {
+                    // Hide cancel modal
+                    hideCancelModal();
+                    
+                    // Show success modal
+                    showCancelSuccessModal('Your order has been cancelled successfully. The cancellation will be reflected in your order history.');
+                    
+                    // Reset button state
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-trash"></i> Confirm Cancel';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    
+                    // Show error toast
+                    showToast('Failed to cancel order. Please try again.', 'error');
+                    
+                    // Reset button state
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-trash"></i> Confirm Cancel';
+                });
+            });
+        });
+
+        // Review Modal Functions
+        function showReviewModal(orderId, productName, productImage) {
+            console.log('📝 Opening review modal for order:', orderId, 'Product:', productName);
+            
+            const modal = document.getElementById('reviewModal');
+            const form = document.getElementById('reviewForm');
+            const productNameEl = document.getElementById('reviewProductName');
+            const productImageEl = document.getElementById('reviewProductImage');
+
+            // Set the form action with the correct order ID
+            form.action = '/submit_review/' + orderId;
+            console.log('Form action set to:', form.action);
+
+            // Set product information
+            productNameEl.textContent = productName;
+            productImageEl.src = productImage.startsWith('http') ? productImage : "{{ url_for('static', filename='images/uploads/') }}" + productImage;
+            productImageEl.alt = productName;
+
+            // Show the modal with animation
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+
+            // Focus on the review textarea when modal opens
+            setTimeout(() => {
+                document.getElementById('reviewText').focus();
+            }, 100);
+        }
+
+        function hideReviewModal() {
+            const modal = document.getElementById('reviewModal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                // Reset the form
+                document.getElementById('reviewForm').reset();
+                // Reset star rating
+                document.querySelectorAll('.star-rating input').forEach(input => {
+                    input.checked = false;
+                });
+                document.querySelector('.rating-text').textContent = 'Please select a rating';
+            }, 300);
+        }
+
+        // Report Issue Modal Functions
+        function showReportModal(orderId, productName, productImage) {
+            const modal = document.getElementById('reportModal');
+            const form = document.getElementById('reportForm');
+            const productNameEl = document.getElementById('reportProductName');
+            const productImageEl = document.getElementById('reportProductImage');
+
+            // Set the form action with the correct order ID
+            form.action = '/report_issue/' + orderId;
+
+            // Set product information
+            productNameEl.textContent = productName;
+            productImageEl.src = productImage.startsWith('http') ? productImage : "{{ url_for('static', filename='images/uploads/') }}" + productImage;
+            productImageEl.alt = productName;
+
+            // Reset the report against and issue type dropdowns
+            document.getElementById('reportAgainst').value = '';
+            document.getElementById('issueType').innerHTML = '<option value="">Select issue type</option>';
+
+            // Show the modal with animation
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+
+            // Focus on the report against dropdown when modal opens
+            setTimeout(() => {
+                document.getElementById('reportAgainst').focus();
+            }, 100);
+        }
+
+        function hideReportModal() {
+            const modal = document.getElementById('reportModal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                // Reset the form
+                document.getElementById('reportForm').reset();
+            }, 300);
+        }
+
+        // Update issue types based on who is being reported (for buyer side)
+        function updateBuyerIssueTypes() {
+            const reportAgainst = document.getElementById('reportAgainst').value;
+            const issueTypeSelect = document.getElementById('issueType');
+            
+            // Clear existing options
+            issueTypeSelect.innerHTML = '<option value="">Select issue type</option>';
+            
+            let issueTypes = [];
+            
+            if (reportAgainst === 'seller') {
+                // Issues when reporting a seller
+                issueTypes = [
+                    { value: 'damaged_product', label: 'Damaged Product' },
+                    { value: 'wrong_item', label: 'Wrong Item Received' },
+                    { value: 'missing_parts', label: 'Missing Parts/Accessories' },
+                    { value: 'quality_issue', label: 'Quality Issue' },
+                    { value: 'size_issue', label: 'Size/Fit Issue' },
+                    { value: 'seller_unresponsive', label: 'Seller Unresponsive' },
+                    { value: 'late_preparation', label: 'Late Order Preparation' },
+                    { value: 'wrong_product', label: 'Wrong Product Description' },
+                    { value: 'communication_issue', label: 'Communication Issue' },
+                    { value: 'other', label: 'Other' }
+                ];
+            } else if (reportAgainst === 'delivery') {
+                // Issues when reporting rider/delivery
+                issueTypes = [
+                    { value: 'delivery_delay', label: 'Delivery Delay' },
+                    { value: 'late_delivery', label: 'Late Delivery' },
+                    { value: 'rider_issue', label: 'Rider Issue' },
+                    { value: 'damaged_product', label: 'Damaged Product (During Delivery)' },
+                    { value: 'wrong_delivery', label: 'Wrong Delivery Location' },
+                    { value: 'rider_unresponsive', label: 'Rider Unresponsive' },
+                    { value: 'delivery_issue', label: 'Delivery Issue' },
+                    { value: 'communication_issue', label: 'Communication Issue' },
+                    { value: 'rude_behavior', label: 'Rude/Inappropriate Behavior' },
+                    { value: 'other', label: 'Other' }
+                ];
+            } else if (reportAgainst === 'platform') {
+                // Issues when reporting the platform
+                issueTypes = [
+                    { value: 'technical_issue', label: 'Technical Issue' },
+                    { value: 'payment_issue', label: 'Payment Issue' },
+                    { value: 'app_bug', label: 'App/Website Bug' },
+                    { value: 'feature_request', label: 'Feature Request' },
+                    { value: 'account_issue', label: 'Account Issue' },
+                    { value: 'notification_issue', label: 'Notification Issue' },
+                    { value: 'checkout_issue', label: 'Checkout Issue' },
+                    { value: 'other', label: 'Other' }
+                ];
+            } else {
+                // Default/Other - general issues
+                issueTypes = [
+                    { value: 'communication_issue', label: 'Communication Issue' },
+                    { value: 'delivery_issue', label: 'Delivery Issue' },
+                    { value: 'payment_issue', label: 'Payment Issue' },
+                    { value: 'quality_issue', label: 'Quality Issue' },
+                    { value: 'other', label: 'Other' }
+                ];
+            }
+            
+            // Add options to select
+            issueTypes.forEach(type => {
+                const option = document.createElement('option');
+                option.value = type.value;
+                option.textContent = type.label;
+                issueTypeSelect.appendChild(option);
+            });
+            
+            console.log('Updated buyer issue types for:', reportAgainst, '- Total options:', issueTypes.length);
+        }
+
+        function showReportSuccessModal(message) {
+            const modal = document.getElementById('reportSuccessModal');
+            const messageEl = document.getElementById('reportSuccessMessage');
+            
+            if (message) {
+                messageEl.textContent = message;
+            }
+            
+            modal.style.display = 'flex';
+            setTimeout(() => {
+                modal.classList.add('show');
+            }, 10);
+            
+            // Auto-close after 5 seconds
+            setTimeout(() => {
+                closeReportSuccessModal();
+            }, 5000);
+        }
+
+        function closeReportSuccessModal() {
+            const modal = document.getElementById('reportSuccessModal');
+            modal.classList.remove('show');
+            setTimeout(() => {
+                modal.style.display = 'none';
+                // Reload the page to show updated orders
+                window.location.reload();
+            }, 300);
+        }
+
+        // Toast Notification System (DISABLED - using modals only)
+        function showToast(message, type = 'success', duration = 5000) {
+            // Toasts are disabled on this page - all notifications use modals
+            console.log('Toast disabled:', message, type);
+            return;
+        }
+
+        function closeToast(closeButton) {
+            // Toasts are disabled
+            return;
+        }
+
+        // Star Rating Functionality and Form Handlers
+        document.addEventListener('DOMContentLoaded', function () {
+            // Don't convert flash messages to toasts on this page
+            // We handle all notifications with modals instead
+            // Flash messages are only kept for backend compatibility
+
+            const starInputs = document.querySelectorAll('.star-rating input');
+            const ratingText = document.querySelector('.rating-text');
+
+            const ratingTexts = {
+                '1': 'Poor - Not satisfied',
+                '2': 'Fair - Below expectations',
+                '3': 'Good - Meets expectations',
+                '4': 'Very Good - Exceeds expectations',
+                '5': 'Excellent - Outstanding!'
+            };
+
+            starInputs.forEach(input => {
+                input.addEventListener('change', function () {
+                    const rating = this.value;
+                    ratingText.textContent = ratingTexts[rating];
+                    ratingText.className = 'rating-text rating-' + rating;
+                });
+            });
+
+            // Handle review form submission
+            const reviewForm = document.getElementById('reviewForm');
+            
+            reviewForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                // Check if rating is selected
+                const ratingSelected = document.querySelector('.star-rating input:checked');
+                if (!ratingSelected) {
+                    alert('Please select a rating before submitting your review.');
+                    return;
+                }
+                
+                const formData = new FormData(this);
+                const actionUrl = this.action;
+                const submitBtn = this.querySelector('button[type="submit"]');
+                
+                // Disable button and show loading state
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="bi bi-hourglass-split" style="animation: spin 1s linear infinite;"></i> Submitting...';
+                
+                // Submit the form via fetch
+                fetch(actionUrl, {
+                    method: 'POST',
+                    body: formData,
+                    redirect: 'follow'
+                })
+                .then(response => {
+                    console.log('Review submission response:', response.status, response.statusText);
+                    
+                    // Check if response is ok (status 200-299) or redirect (300-399)
+                    if (response.ok || response.redirected) {
+                        // Hide review modal
+                        hideReviewModal();
+                        
+                        // Show success modal
+                        showReviewSuccessModal('Your review has been submitted successfully. It will help other customers make informed decisions.');
+                        
+                        console.log('✅ Review submitted successfully');
+                        return;
+                    }
+                    
+                    throw new Error('Failed to submit review: ' + response.statusText);
+                })
+                .catch(error => {
+                    console.error('❌ Review submission error:', error);
+                    
+                    // Reset button state
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-send"></i> Submit Review';
+                    
+                    // Show error alert
+                    alert('Failed to submit review. Please try again. Error: ' + error.message);
+                });
+            });
+
+            // Handle report form submission
+            const reportForm = document.getElementById('reportForm');
+            
+            reportForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const formData = new FormData(this);
+                const actionUrl = this.action;
+                const submitBtn = this.querySelector('button[type="submit"]');
+                
+                // Disable button and show loading state
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="bi bi-hourglass-split" style="animation: spin 1s linear infinite;"></i> Submitting...';
+                
+                // Submit the form via fetch
+                fetch(actionUrl, {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (response.ok) {
+                        return response.text();
+                    }
+                    throw new Error('Network response was not ok');
+                })
+                .then(data => {
+                    // Hide report modal
+                    hideReportModal();
+                    
+                    // Show success modal
+                    showReportSuccessModal('Your issue has been reported successfully. Our customer service team will review your case and contact you soon.');
+                    
+                    // Reset button state
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-send"></i> Submit Report';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    
+                    // Show error toast
+                    showToast('Failed to submit report. Please try again.', 'error');
+                    
+                    // Reset button state
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="bi bi-send"></i> Submit Report';
+                });
+            });
+        });
+
+        // Close modal if user clicks outside of it
+        window.onclick = function (event) {
+            const cancelModal = document.getElementById('cancelModal');
+            const reviewModal = document.getElementById('reviewModal');
+            const reportModal = document.getElementById('reportModal');
+            const cancelSuccessModal = document.getElementById('cancelSuccessModal');
+            const reviewSuccessModal = document.getElementById('reviewSuccessModal');
+            const reportSuccessModal = document.getElementById('reportSuccessModal');
+
+            if (event.target === cancelModal) {
+                hideCancelModal();
+            } else if (event.target === reviewModal) {
+                hideReviewModal();
+            } else if (event.target === reportModal) {
+                hideReportModal();
+            } else if (event.target === cancelSuccessModal) {
+                closeCancelSuccessModal();
+            } else if (event.target === reviewSuccessModal) {
+                closeReviewSuccessModal();
+            } else if (event.target === reportSuccessModal) {
+                closeReportSuccessModal();
+            }
+        }
+
+        // Close modal with Escape key
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape') {
+                const cancelModal = document.getElementById('cancelModal');
+                const reviewModal = document.getElementById('reviewModal');
+                const reportModal = document.getElementById('reportModal');
+                const cancelSuccessModal = document.getElementById('cancelSuccessModal');
+                const reviewSuccessModal = document.getElementById('reviewSuccessModal');
+                const reportSuccessModal = document.getElementById('reportSuccessModal');
+
+                if (cancelModal.style.display === 'flex') {
+                    hideCancelModal();
+                } else if (reviewModal.style.display === 'flex') {
+                    hideReviewModal();
+                } else if (reportModal.style.display === 'flex') {
+                    hideReportModal();
+                } else if (cancelSuccessModal.style.display === 'flex') {
+                    closeCancelSuccessModal();
+                } else if (reviewSuccessModal.style.display === 'flex') {
+                    closeReviewSuccessModal();
+                } else if (reportSuccessModal.style.display === 'flex') {
+                    closeReportSuccessModal();
+                }
+            }
+        });
+    </script>
+    <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+
+    
+    {% include 'buyer_rider_chat.html' %}
+    {% include 'buyer_seller_chat_order.html' %}
+</body>
+
+</html>

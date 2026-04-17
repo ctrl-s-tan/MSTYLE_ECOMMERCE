@@ -1,0 +1,56 @@
+<!-- Buyer-Seller Chat Modal -->
+<div class="buyer-seller-chat-modal" id="buyerSellerChatModal" style="display: none;">
+    <div class="chat-modal-container">
+        <div class="chat-modal-header">
+            <div class="chat-header-info">
+                <div class="seller-avatar-chat" id="chatSellerAvatar">
+                    <i class="fas fa-store"></i>
+                </div>
+                <div class="seller-details-chat">
+                    <h3 id="chatSellerName">Seller Name</h3>
+                    <span class="online-status-chat">
+                        <i class="fas fa-circle"></i> Online
+                    </span>
+                </div>
+            </div>
+            <button class="close-chat-modal" onclick="closeBuyerSellerChat()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <div class="chat-modal-body">
+            <!-- Product Context (if applicable) -->
+            <div class="chat-product-context" id="chatProductContext" style="display: none;">
+                <img id="chatProductImage" src="" alt="Product">
+                <div class="product-context-info">
+                    <span class="product-context-label">Inquiring about:</span>
+                    <span class="product-context-name" id="chatProductName"></span>
+                </div>
+            </div>
+
+            <!-- Messages Container -->
+            <div class="chat-messages-area" id="buyerSellerMessages">
+                <!-- Messages will be loaded here -->
+            </div>
+        </div>
+
+        <div class="chat-modal-footer">
+            <div class="chat-input-wrapper">
+                <textarea 
+                    id="buyerSellerMessageInput" 
+                    placeholder="Type your message..." 
+                    rows="1"
+                    maxlength="1000"></textarea>
+                <button class="send-message-btn" onclick="sendBuyerSellerMessage()">
+                    <i class="fas fa-paper-plane"></i>
+                </button>
+            </div>
+            <div class="message-info">
+                <span class="char-count"><span id="charCount">0</span>/1000</span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Chat Support JavaScript -->
+<script src="{{ url_for('static', filename='js/buyer_seller_chat.js') }}"></script>

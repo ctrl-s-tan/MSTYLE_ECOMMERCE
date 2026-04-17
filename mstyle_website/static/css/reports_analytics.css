@@ -1,0 +1,1784 @@
+/* Reports & Analytics Page Styles */
+:root {
+  --primary-color: #2c3e50;
+  --secondary-color: #d4af37;
+  --text-color: #333;
+  --text-light: #6c757d;
+  --border-color: #e9ecef;
+  --bg-light: #f8f9fa;
+  --card-shadow: 0 10px 30px rgba(0, 0, 0, 0.08);
+  --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+  --premium-gradient: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  --gold-gradient: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+  --success-gradient: linear-gradient(135deg, #27ae60 0%, #2ecc71 100%);
+  --warning-gradient: linear-gradient(135deg, #f39c12 0%, #f4d03f 100%);
+}
+
+body {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  color: var(--text-color);
+  font-family: 'Poppins', sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+.container {
+  width: 100%;
+  min-height: 100vh;
+}
+
+.content {
+  padding: 2rem 1.5rem;
+  max-width: 1800px;
+  margin: 0 auto;
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Admin Dashboard Content - Wide Layout with Padding */
+.admin-dashboard-content {
+  width: 100%;
+  min-height: 100vh;
+  padding: 2rem 3rem;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@media (max-width: 1200px) {
+  .admin-dashboard-content {
+    padding: 2rem 2rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .admin-dashboard-content {
+    padding: 1.5rem 1rem;
+  }
+}
+
+/* Dashboard Header */
+.dashboard-header {
+  margin-bottom: 2rem;
+  text-align: center;
+  position: relative;
+  padding-bottom: 1.5rem;
+}
+
+.dashboard-header h1 {
+  color: var(--primary-color);
+  margin-bottom: 0.5rem;
+  font-size: 2.2rem;
+  font-weight: 600;
+  background: linear-gradient(135deg, var(--primary-color), #34495e);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.dashboard-header p {
+  color: var(--text-light);
+  font-size: 1.05rem;
+}
+
+.dashboard-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 100px;
+  height: 4px;
+  background: linear-gradient(90deg, var(--secondary-color), #f4d03f);
+  border-radius: 2px;
+}
+
+/* Dashboard Avatar (matches profile avatar style) */
+.dashboard-avatar {
+  width: 100px;
+  height: 100px;
+  background: linear-gradient(135deg, var(--primary-color), #34495e);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.5rem;
+  box-shadow: var(--card-shadow);
+}
+
+.dashboard-avatar i {
+  font-size: 3rem;
+  color: white;
+}
+
+.dashboard-container {
+  width: 100%;
+}
+
+/* Stats Summary - Matching Admin Issue Reports */
+.stats-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 2rem;
+  margin-bottom: 2.5rem;
+}
+
+.stat-card {
+  background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+  border-radius: 20px;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.08);
+  border: 1px solid rgba(212, 175, 55, 0.15);
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+}
+
+.stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gold-gradient);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.stat-card:hover::before {
+  opacity: 1;
+}
+
+.stat-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 60px rgba(212, 175, 55, 0.2);
+  border-color: rgba(212, 175, 55, 0.3);
+}
+
+.stat-card.stat-card-warning::before {
+  background: linear-gradient(90deg, #f39c12, #f4d03f);
+}
+
+.stat-card.stat-card-info::before {
+  background: linear-gradient(90deg, #3498db, #5dade2);
+}
+
+.stat-card.stat-card-success::before {
+  background: linear-gradient(90deg, #27ae60, #2ecc71);
+}
+
+.stat-icon {
+  width: 80px;
+  height: 80px;
+  background: var(--gold-gradient);
+  border-radius: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  color: white;
+  flex-shrink: 0;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 8px 25px rgba(212, 175, 55, 0.3);
+  transition: all 0.3s ease;
+}
+
+.stat-card:hover .stat-icon {
+  transform: scale(1.1) rotate(5deg);
+  box-shadow: 0 12px 35px rgba(212, 175, 55, 0.4);
+}
+
+.stat-card.stat-card-warning .stat-icon {
+  background: linear-gradient(135deg, #f39c12, #f4d03f);
+  box-shadow: 0 8px 25px rgba(243, 156, 18, 0.3);
+}
+
+.stat-card.stat-card-info .stat-icon {
+  background: linear-gradient(135deg, #3498db, #5dade2);
+  box-shadow: 0 8px 25px rgba(52, 152, 219, 0.3);
+}
+
+.stat-card.stat-card-success .stat-icon {
+  background: linear-gradient(135deg, #27ae60, #2ecc71);
+  box-shadow: 0 8px 25px rgba(39, 174, 96, 0.3);
+}
+
+.stat-icon i {
+  font-size: 2.2rem;
+  color: white;
+  z-index: 1;
+  transition: var(--transition);
+}
+
+.stat-value {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: var(--primary-color);
+  margin-bottom: 0.5rem;
+  line-height: 1;
+  background: linear-gradient(135deg, var(--primary-color), #34495e);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.stat-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-color);
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.stat-description {
+  font-size: 0.8rem;
+  color: var(--text-light);
+  font-weight: 500;
+}
+
+/* Top Products Card */
+.card {
+  background: rgba(255, 255, 255, 0.95);
+  border: none;
+  border-radius: 20px;
+  box-shadow: var(--card-shadow);
+  transition: var(--transition);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overflow: hidden;
+}
+
+.card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.12);
+}
+
+.card-header {
+  background: var(--premium-gradient);
+  border: none;
+  padding: 1.5rem 2rem;
+  position: relative;
+}
+
+.card-header::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: var(--gold-gradient);
+}
+
+.card-header .card-title {
+  color: white;
+  font-size: 1.3rem;
+  font-weight: 600;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.card-header .card-title i {
+  font-size: 1.5rem;
+  color: var(--secondary-color);
+}
+
+.card-body {
+  padding: 2rem;
+}
+
+/* Table Styles */
+.table {
+  margin: 0;
+  border-collapse: separate;
+  border-spacing: 0;
+  min-width: 100%;
+  width: max-content;
+}
+
+.table thead th {
+  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  border: none;
+  color: var(--primary-color);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-size: 0.85rem;
+  padding: 1.2rem 1rem;
+  position: relative;
+}
+
+.table thead th:first-child {
+  border-top-left-radius: 12px;
+}
+
+.table thead th:last-child {
+  border-top-right-radius: 12px;
+}
+
+.table tbody tr {
+  transition: var(--transition);
+  border: none;
+}
+
+.table tbody tr:hover {
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.05) 0%, rgba(212, 175, 55, 0.1) 100%);
+  transform: scale(1.01);
+}
+
+.table tbody td {
+  border: none;
+  padding: 1.2rem 1rem;
+  vertical-align: middle;
+  font-weight: 500;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+  white-space: nowrap;
+}
+
+.table tbody td:first-child {
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  min-width: 150px;
+  max-width: 200px;
+  overflow: hidden;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+.table tbody tr:last-child td:first-child {
+  border-bottom-left-radius: 12px;
+}
+
+.table tbody tr:last-child td:last-child {
+  border-bottom-right-radius: 12px;
+}
+
+.badge {
+  padding: 0.6rem 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  border-radius: 25px;
+  background: var(--premium-gradient);
+  border: none;
+}
+
+/* Empty State */
+.text-center.py-4 {
+  padding: 4rem 2rem !important;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.03) 0%, rgba(212, 175, 55, 0.08) 100%);
+  border-radius: 15px;
+  margin: 1rem 0;
+}
+
+.text-center.py-4 i {
+  animation: pulse 2s infinite;
+}
+
+.text-center.py-4 h5 {
+  color: var(--primary-color);
+  font-weight: 600;
+  margin-top: 1.5rem;
+}
+
+.text-center.py-4 p {
+  color: var(--text-light);
+  font-size: 1.05rem;
+}
+
+/* Row Spacing */
+.row.mb-4 {
+    margin-bottom: 2rem !important;
+}
+
+.row.mt-4 {
+    margin-top: 2rem !important;
+}
+
+/* Animations */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  50% {
+    transform: scale(1.1);
+    opacity: 1;
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 992px) {
+  .col-md-3 {
+    flex: 0 0 50%;
+    max-width: 50%;
+  }
+  
+  .stats-card .card-title {
+    font-size: 2rem;
+  }
+  
+  .stats-icon {
+    width: 70px;
+    height: 70px;
+    margin-bottom: 1.2rem;
+  }
+  
+  .stats-icon i {
+    font-size: 2rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .container-fluid {
+    padding: 1rem;
+  }
+
+  .dashboard-header {
+    padding: 1.5rem 1rem;
+    margin-bottom: 2rem;
+  }
+
+  .dashboard-header h1 {
+    font-size: 2rem;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+
+  .stats-card .card-body {
+    padding: 2rem 1.3rem;
+  }
+
+  .stats-card .card-title {
+    font-size: 1.8rem;
+  }
+
+  .stats-icon {
+    width: 65px;
+    height: 65px;
+    margin-bottom: 1rem;
+  }
+
+  .stats-icon i {
+    font-size: 1.8rem;
+  }
+
+  .card-body {
+    padding: 1.5rem;
+  }
+
+  .table tbody td,
+  .table thead th {
+    padding: 0.8rem 0.5rem;
+    font-size: 0.8rem;
+  }
+  
+  .table tbody td:first-child {
+    max-width: 150px;
+  }
+  
+  .badge {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.75rem;
+  }
+
+  /* Order Status Cards */
+  .order-status-card {
+    padding: 1rem;
+  }
+
+  .order-status-card .status-icon {
+    width: 50px;
+    height: 50px;
+    font-size: 1.5rem;
+  }
+
+  .order-status-card .status-info h3 {
+    font-size: 1.5rem;
+  }
+
+  /* Date Time Cell */
+  .date-time-cell .date-part {
+    font-size: 0.8rem;
+  }
+  
+  .date-time-cell .time-part {
+    font-size: 0.7rem;
+  }
+
+  /* Specific Tables */
+  #top-products-table tbody td:nth-child(2),
+  #orders-analytics-table tbody td:nth-child(1),
+  #promotion-performance-table tbody td:nth-child(1),
+  #financial-summary-table tbody td:nth-child(3) {
+    max-width: 150px;
+    font-size: 0.85rem;
+  }
+  
+  #financial-summary-table tfoot td {
+    font-size: 0.9rem;
+    padding: 1rem 0.5rem;
+  }
+
+  /* Filter Card */
+  .filter-card .card-body {
+    padding: 1.5rem;
+  }
+
+  .filter-card .form-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1rem;
+  }
+
+  .filter-card .form-header h3 {
+    font-size: 1.25rem;
+  }
+
+  .filter-card .col-md-3,
+  .filter-card .col-md-2 {
+    margin-bottom: 1rem;
+  }
+
+  .filter-card .btn {
+    width: 100%;
+    margin-bottom: 0.5rem;
+  }
+
+  .filter-card .d-flex {
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 576px) {
+  .col-md-3 {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+  
+  .dashboard-header h1 {
+    font-size: 1.8rem;
+  }
+
+  .stats-card .card-title {
+    font-size: 1.8rem;
+  }
+  
+  .stats-card .card-body {
+    padding: 2rem 1.2rem;
+  }
+  
+  .stats-icon {
+    width: 60px;
+    height: 60px;
+    margin-bottom: 1rem;
+  }
+  
+  .stats-icon i {
+    font-size: 1.6rem;
+  }
+  
+  .stats-card small {
+    font-size: 0.65rem;
+  }
+}
+
+/* Additional hover effects for better interactivity */
+.stats-card .d-flex {
+  position: relative;
+  z-index: 1;
+}
+
+.stats-card::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(212, 175, 55, 0.02) 0%, rgba(212, 175, 55, 0.05) 100%);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.stats-card:hover::after {
+  opacity: 1;
+}
+
+/* Rating Display */
+.rating-display {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.rating-display i {
+  font-size: 1rem;
+}
+
+.rating-display .fw-bold {
+  color: var(--primary-color);
+  font-size: 0.95rem;
+}
+
+.rating-display small {
+  font-size: 0.8rem;
+}
+
+/* Stock Badge Styles */
+.badge.bg-success {
+  background: var(--success-gradient) !important;
+}
+
+.badge.bg-warning {
+  background: var(--warning-gradient) !important;
+  color: white !important;
+}
+
+.badge.bg-danger {
+  background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%) !important;
+}
+
+/* ===== TOP SELLING PRODUCTS TABLE - Column Widths ===== */
+#top-products-table thead th:nth-child(1) { width: 8%; }  /* Rank */
+#top-products-table thead th:nth-child(2) { width: 30%; } /* Product Name */
+#top-products-table thead th:nth-child(3) { width: 12%; } /* Units Sold */
+#top-products-table thead th:nth-child(4) { width: 15%; } /* Revenue */
+#top-products-table thead th:nth-child(5) { width: 12%; } /* Stock Left */
+#top-products-table thead th:nth-child(6) { width: 23%; } /* Rating */
+
+#top-products-table tbody td:nth-child(2) {
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  min-width: 180px;
+  max-width: 250px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* ===== ORDERS ANALYTICS TABLE - Column Widths ===== */
+#orders-analytics-table thead th:nth-child(1) { width: 5%; }  /* No. */
+#orders-analytics-table thead th:nth-child(2) { width: 22%; } /* Product Name */
+#orders-analytics-table thead th:nth-child(3) { width: 8%; }  /* Quantity */
+#orders-analytics-table thead th:nth-child(4) { width: 12%; } /* Order Status */
+#orders-analytics-table thead th:nth-child(5) { width: 13%; } /* Order Date */
+#orders-analytics-table thead th:nth-child(6) { width: 13%; } /* Completion Date */
+#orders-analytics-table thead th:nth-child(7) { width: 12%; } /* Total Amount */
+#orders-analytics-table thead th:nth-child(8) { width: 15%; } /* Buyer Name */
+
+#orders-analytics-table tbody td:nth-child(1) {
+  text-align: center;
+}
+
+#orders-analytics-table tbody td:nth-child(2) {
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  min-width: 200px;
+  max-width: 300px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* ===== PROMOTION PERFORMANCE TABLE - Column Widths ===== */
+#promotion-performance-table thead th:nth-child(1) { width: 5%; }  /* No. */
+#promotion-performance-table thead th:nth-child(2) { width: 18%; } /* Promo Name */
+#promotion-performance-table thead th:nth-child(3) { width: 11%; } /* Promo Type */
+#promotion-performance-table thead th:nth-child(4) { width: 11%; } /* Discount Value */
+#promotion-performance-table thead th:nth-child(5) { width: 16%; } /* Start & End Date */
+#promotion-performance-table thead th:nth-child(6) { width: 10%; } /* Number of Uses */
+#promotion-performance-table thead th:nth-child(7) { width: 15%; } /* Revenue Generated */
+#promotion-performance-table thead th:nth-child(7) { width: 13%; } /* Status */
+
+#promotion-performance-table tbody td:nth-child(1) {
+  text-align: center;
+}
+
+#promotion-performance-table tbody td:nth-child(2) {
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  min-width: 150px;
+  max-width: 220px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* ===== FINANCIAL SUMMARY TABLE - Column Widths ===== */
+#financial-summary-table thead th:nth-child(1) { width: 5%; }  /* No. */
+#financial-summary-table thead th:nth-child(2) { width: 8%; }  /* Order ID */
+#financial-summary-table thead th:nth-child(3) { width: 12%; } /* Date Completed */
+#financial-summary-table thead th:nth-child(4) { width: 16%; } /* Product Name */
+#financial-summary-table thead th:nth-child(5) { width: 10%; } /* Product Sales */
+#financial-summary-table thead th:nth-child(6) { width: 9%; }  /* Discounts */
+#financial-summary-table thead th:nth-child(7) { width: 9%; }  /* Net Sales */
+#financial-summary-table thead th:nth-child(8) { width: 9%; }  /* Shipping Fee */
+#financial-summary-table thead th:nth-child(9) { width: 11%; } /* Platform Fee */
+#financial-summary-table thead th:nth-child(10) { width: 11%; } /* Net Earnings */
+
+#financial-summary-table tbody td:nth-child(1) {
+  text-align: center;
+}
+
+#financial-summary-table tbody td:nth-child(4) {
+  white-space: normal;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  min-width: 180px;
+  max-width: 250px;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
+/* Order Status Cards */
+.order-status-card {
+    background: white;
+    border-radius: 12px;
+    padding: 1.5rem;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    height: 100%;
+}
+
+.order-status-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.12);
+}
+
+.order-status-card .status-icon {
+    width: 60px;
+    height: 60px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.8rem;
+    color: white;
+}
+
+.order-status-card .status-info {
+    flex: 1;
+}
+
+.order-status-card .status-info h6 {
+    margin: 0;
+    font-size: 0.85rem;
+    color: var(--text-light);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.order-status-card .status-info h3 {
+    margin: 0.25rem 0;
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-color);
+}
+
+.order-status-card .status-info small {
+    color: var(--text-light);
+    font-size: 0.85rem;
+    font-weight: 500;
+}
+
+/* Status Card Colors */
+.pending-card .status-icon {
+    background: linear-gradient(135deg, #f39c12, #f4d03f);
+}
+
+.confirmed-card .status-icon {
+    background: linear-gradient(135deg, #3498db, #5dade2);
+}
+
+.preparing-card .status-icon {
+    background: linear-gradient(135deg, #9b59b6, #bb8fce);
+}
+
+.ready-card .status-icon {
+    background: linear-gradient(135deg, #16a085, #1abc9c);
+}
+
+.delivery-card .status-icon {
+    background: linear-gradient(135deg, #2980b9, #3498db);
+}
+
+.delivered-card .status-icon {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+}
+
+.completed-card .status-icon {
+    background: linear-gradient(135deg, #27ae60, #52be80);
+}
+
+.cancelled-card .status-icon {
+    background: linear-gradient(135deg, #e74c3c, #ec7063);
+}
+
+
+
+/* Table Responsive */
+.table-responsive {
+    overflow-x: auto;
+    overflow-y: visible;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+    max-width: 100%;
+    display: block;
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+/* Scroll indicator shadow */
+.table-responsive::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    width: 30px;
+    background: linear-gradient(to left, rgba(0, 0, 0, 0.1), transparent);
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.table-responsive:not(:hover)::after {
+    opacity: 0;
+}
+
+/* Status Badge Colors */
+.badge.bg-secondary {
+    background: linear-gradient(135deg, #2c3e50, #34495e) !important;
+    color: white !important;
+}
+
+.badge.bg-info {
+    background: linear-gradient(135deg, #2c3e50, #34495e)  !important;
+    color: white !important;
+}
+
+.badge.bg-primary {
+    background: linear-gradient(135deg, #2c3e50, #34495e) !important;
+    color: white !important;
+}
+
+/* Date-Time Cell Styling */
+.date-time-cell {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.date-time-cell .date-part {
+    font-weight: 600;
+    color: var(--primary-color);
+    font-size: 0.9rem;
+}
+
+.date-time-cell .time-part {
+    font-size: 0.8rem;
+    color: var(--text-light);
+    font-weight: 500;
+}
+
+
+
+/* Financial Summary Table Footer */
+.table tfoot tr {
+    border-top: 3px solid var(--secondary-color);
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+}
+
+.table tfoot td {
+    padding: 1.5rem 1rem;
+    font-size: 1rem;
+    font-weight: 700;
+    border: none;
+}
+
+.table tfoot tr:hover {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%) !important;
+    transform: none;
+}
+
+/* Financial Summary Specific Styles */
+.table .text-danger {
+    color: #e74c3c !important;
+}
+
+.table .fw-bold {
+    font-weight: 700 !important;
+}
+
+/* Badge Styling for Order ID in Financial Summary */
+#financial-summary-table .badge.bg-secondary {
+    background: linear-gradient(135deg, #2c3e50, #34495e)  !important;
+    padding: 0.5rem 0.8rem;
+    font-size: 0.8rem;
+    color: white !important;
+}
+
+/* Improve table readability */
+.table tbody td {
+    font-size: 0.9rem;
+}
+
+/* Card Badge in Header */
+.card-header .badge {
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+    border: 1px solid rgba(255, 255, 255, 0.3);
+    font-weight: 600;
+}
+
+/* Scrollbar Styling for Tables */
+.table-responsive::-webkit-scrollbar {
+    height: 12px;
+}
+
+.table-responsive::-webkit-scrollbar-track {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    border-radius: 10px;
+    margin: 0 10px;
+}
+
+.table-responsive::-webkit-scrollbar-thumb {
+    background: linear-gradient(135deg, var(--secondary-color) 0%, #f4d03f 100%);
+    border-radius: 10px;
+    border: 2px solid #f8f9fa;
+    transition: all 0.3s ease;
+}
+
+.table-responsive::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(135deg, #c19b2e 0%, #d4af37 100%);
+    transform: scaleY(1.2);
+}
+
+/* Promotion Type Badges */
+#promotion-performance-table .badge.bg-info {
+    background: linear-gradient(135deg, #2c3e50, #34495e)  !important;
+    color: white !important;
+}
+
+#promotion-performance-table .badge.bg-primary {
+    background: linear-gradient(135deg, #2c3e50, #34495e)  !important;
+    color: white !important;
+}
+
+#promotion-performance-table .badge.bg-success {
+    background: linear-gradient(135deg, #28a745, #1e7e34) !important;
+    color: white !important;
+}
+
+#promotion-performance-table .badge.bg-secondary {
+    background: linear-gradient(135deg, #2c3e50, #34495e)  !important;
+    color: white !important;
+}
+
+
+
+/* Specific Table Styling */
+
+/* Top Products Table */
+#top-products-table thead th:nth-child(1) { width: 8%; }  /* Rank */
+#top-products-table thead th:nth-child(2) { width: 30%; } /* Product Name */
+#top-products-table thead th:nth-child(3) { width: 12%; } /* Units Sold */
+#top-products-table thead th:nth-child(4) { width: 15%; } /* Revenue */
+#top-products-table thead th:nth-child(5) { width: 12%; } /* Stock Left */
+#top-products-table thead th:nth-child(6) { width: 23%; } /* Rating */
+
+#top-products-table tbody td:nth-child(1) {
+    text-align: center;
+}
+
+#top-products-table tbody td:nth-child(2) {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+#top-products-table tbody tr:hover {
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.08) 0%, rgba(212, 175, 55, 0.15) 100%);
+}
+
+/* Orders Analytics Table */
+#orders-analytics-table tbody td:nth-child(2) {
+    min-width: 200px;
+    max-width: 250px;
+}
+
+#orders-analytics-table tbody td:nth-child(7) {
+    font-weight: 700;
+}
+
+#orders-analytics-table tbody tr:hover {
+    background: linear-gradient(135deg, rgba(52, 152, 219, 0.05) 0%, rgba(52, 152, 219, 0.1) 100%);
+}
+
+/* Promotion Performance Table */
+#promotion-performance-table tbody td:nth-child(2) {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+#promotion-performance-table tbody td:nth-child(6) {
+    text-align: center;
+}
+
+#promotion-performance-table tbody td:nth-child(7) {
+    font-weight: 700;
+}
+
+#promotion-performance-table tbody tr:hover {
+    background: linear-gradient(135deg, rgba(155, 89, 182, 0.05) 0%, rgba(155, 89, 182, 0.1) 100%);
+}
+
+/* Financial Summary Table */
+#financial-summary-table tbody td:nth-child(2) {
+    text-align: center;
+}
+
+#financial-summary-table tbody td:nth-child(4) {
+    min-width: 180px;
+    max-width: 220px;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+#financial-summary-table tbody td:nth-child(5),
+#financial-summary-table tbody td:nth-child(7),
+#financial-summary-table tbody td:nth-child(10) {
+    font-weight: 700;
+}
+
+#financial-summary-table tbody tr:hover {
+    background: linear-gradient(135deg, rgba(39, 174, 96, 0.05) 0%, rgba(39, 174, 96, 0.1) 100%);
+}
+
+#financial-summary-table tbody tr:nth-child(even) {
+    background: rgba(248, 249, 250, 0.5);
+}
+
+#financial-summary-table tbody tr:nth-child(even):hover {
+    background: linear-gradient(135deg, rgba(39, 174, 96, 0.05) 0%, rgba(39, 174, 96, 0.1) 100%);
+}
+
+#financial-summary-table tfoot td {
+    font-size: 1.05rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+#financial-summary-table tfoot td:nth-child(1) {
+    text-align: right;
+    padding-right: 2rem;
+}
+
+/* Filter Card Styling - Similar to Seller Order History */
+.filter-card {
+    background: white;
+    border: none;
+    border-radius: 15px;
+    box-shadow: var(--card-shadow);
+    border: 1px solid rgba(212, 175, 55, 0.1);
+    margin-bottom: 2rem;
+}
+
+.filter-card .card-body {
+    padding: 2rem;
+}
+
+/* Form Header */
+.filter-card .form-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid var(--border-color);
+}
+
+.filter-card .form-header h3 {
+    color: var(--primary-color);
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.filter-card .form-header h3 i {
+    color: var(--secondary-color);
+    font-size: 1.4rem;
+}
+
+.filter-card .form-header p {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    margin: 0.3rem 0 0 0;
+}
+
+/* Filter Container */
+.filter-card .row.align-items-end {
+    gap: 0;
+}
+
+/* Form Labels */
+.filter-card .form-label {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.filter-card .form-label i {
+    color: var(--secondary-color);
+    font-size: 0.9rem;
+}
+
+/* Form Controls */
+.filter-card .form-control,
+.filter-card .form-select {
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 0.9rem;
+    background-color: var(--bg-light);
+    transition: var(--transition);
+}
+
+.filter-card .form-control:focus,
+.filter-card .form-select:focus {
+    outline: none;
+    border-color: var(--secondary-color);
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+    background-color: white;
+}
+
+/* Buttons */
+.filter-card .btn {
+    border-radius: 8px;
+    padding: 0.75rem 1.2rem;
+    font-weight: 600;
+    font-size: 0.9rem;
+    transition: var(--transition);
+    border: none;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.filter-card .btn i {
+    font-size: 1rem;
+}
+
+.filter-card .btn-primary {
+    background: linear-gradient(135deg, var(--primary-color), #34495e);
+    color: white;
+}
+
+.filter-card .btn-primary:hover {
+    background: #1a2a3a;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+.filter-card .btn-secondary {
+    background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+    color: white;
+}
+
+.filter-card .btn-secondary:hover {
+    background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(212, 175, 55, 0.4);
+}
+
+.filter-card .btn-success {
+    background: linear-gradient(135deg, #27ae60, #2ecc71);
+    color: white;
+}
+
+.filter-card .btn-success:hover {
+    background: linear-gradient(135deg, #229954, #27ae60);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(39, 174, 96, 0.3);
+}
+
+.filter-card .btn-info {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+}
+
+.filter-card .btn-info:hover {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.15);
+}
+
+
+
+/* Status Badge Styles - Updated with Unique Colors */
+.status-badge {
+    padding: 0.5rem 1rem !important;
+    border-radius: 25px !important;
+    font-size: 0.85rem !important;
+    font-weight: 600 !important;
+    text-align: center !important;
+    white-space: nowrap !important;
+    letter-spacing: 0.3px !important;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+    transition: all 0.3s ease !important;
+    display: inline-block !important;
+    border: none !important;
+}
+
+.status-badge:hover {
+    transform: translateY(-1px) !important;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Pending - Orange */
+.status-pending {
+    background: linear-gradient(135deg, #ff9800, #f57c00) !important;
+    color: white !important;
+}
+
+/* Confirmed - Blue */
+.status-confirmed {
+    background: linear-gradient(135deg, #2196f3, #1976d2) !important;
+    color: white !important;
+}
+
+/* Preparing - Purple */
+.status-preparing {
+    background: linear-gradient(135deg, #9c27b0, #7b1fa2) !important;
+    color: white !important;
+}
+
+/* Ready for Pickup - Teal */
+.status-for-pickup {
+    background: linear-gradient(135deg, #00bcd4, #0097a7) !important;
+    color: white !important;
+}
+
+/* Shipped/Out for Delivery - Indigo */
+.status-shipped {
+    background: linear-gradient(135deg, #3f51b5, #303f9f) !important;
+    color: white !important;
+}
+
+/* Delivered - Light Green */
+.status-delivered {
+    background: linear-gradient(135deg, #8bc34a, #689f38) !important;
+    color: white !important;
+}
+
+/* Completed - Dark Green */
+.status-completed {
+    background: linear-gradient(135deg, #4caf50, #388e3c) !important;
+    color: white !important;
+}
+
+/* Cancelled - Red */
+.status-cancelled {
+    background: linear-gradient(135deg, #f44336, #d32f2f) !important;
+    color: white !important;
+}
+
+/* Sequence Number Column Styling */
+.sequence-number {
+    text-align: center !important;
+    vertical-align: middle !important;
+    padding: 1rem 0.5rem !important;
+}
+
+.sequence-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 35px;
+    height: 35px;
+    padding: 0.4rem 0.6rem;
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: white;
+    border-radius: 8px;
+    font-weight: 700;
+    font-size: 0.9rem;
+    box-shadow: 0 2px 8px rgba(44, 62, 80, 0.2);
+    transition: all 0.3s ease;
+}
+
+.sequence-badge:hover {
+    transform: scale(1.1);
+    box-shadow: 0 4px 12px rgba(44, 62, 80, 0.3);
+}
+
+/* Filter Empty State */
+.filter-empty-state {
+    padding: 4rem 2rem !important;
+    background: linear-gradient(135deg, rgba(212, 175, 55, 0.03) 0%, rgba(212, 175, 55, 0.08) 100%);
+    border-radius: 15px;
+    margin: 1rem 0;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.filter-empty-state i {
+    animation: pulse 2s infinite;
+}
+
+.filter-empty-state h5 {
+    color: var(--primary-color);
+    font-weight: 600;
+    margin-top: 1.5rem;
+}
+
+.filter-empty-state p {
+    color: var(--text-light);
+    font-size: 1.05rem;
+}
+
+.filter-empty-state .btn {
+    margin-top: 1rem;
+}
+
+/* Print-specific styles */
+/* Table Totals - Hidden on screen, shown in print */
+.table-totals-print {
+    display: none;
+}
+
+@media print {
+    /* Print Styles */
+    @page {
+        size: A4 landscape;
+        margin: 1.5cm 1cm;
+    }
+
+    * {
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+        color-adjust: exact !important;
+    }
+
+    body {
+        background: white !important;
+        font-size: 9pt;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        color: #000 !important;
+    }
+
+    /* Hide unnecessary elements */
+    .filter-card,
+    .btn,
+    .card-header .badge,
+    header,
+    .sidebar,
+    nav,
+    .dashboard-avatar,
+    .stats-icon,
+    .stats-summary,
+    .stats-card,
+    .view-toggle-container,
+    .filter-section,
+    .search-filter-section {
+        display: none !important;
+    }
+
+    /* Print Header */
+    .dashboard-header {
+        text-align: center;
+        margin-bottom: 25px;
+        padding: 20px 0 15px;
+        border-bottom: 4px double #2c3e50;
+        background: linear-gradient(to bottom, #f8f9fa 0%, #ffffff 100%) !important;
+        page-break-after: avoid;
+    }
+
+    .dashboard-header::before {
+        content: "M'STYLE";
+        display: block;
+        font-size: 32pt;
+        font-weight: 900;
+        color: #2c3e50;
+        letter-spacing: 3px;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+    }
+
+    .dashboard-header h1 {
+        color: #2c3e50 !important;
+        font-size: 20pt;
+        margin-bottom: 8px;
+        font-weight: 600;
+        -webkit-text-fill-color: #2c3e50 !important;
+        letter-spacing: 1px;
+    }
+
+    .dashboard-header p {
+        color: #6c757d !important;
+        font-size: 10pt;
+        margin-bottom: 10px;
+    }
+
+    .dashboard-header::after {
+        content: "Generated on " attr(data-date);
+        display: block;
+        font-size: 8pt;
+        color: #95a5a6;
+        margin-top: 10px;
+        font-style: italic;
+    }
+
+    /* Cards */
+    .card {
+        page-break-inside: avoid;
+        box-shadow: none !important;
+        border: 1px solid #dee2e6 !important;
+        margin-bottom: 25px;
+        background: white !important;
+        border-radius: 0 !important;
+    }
+
+    .card-header {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%) !important;
+        color: white !important;
+        padding: 14px 18px !important;
+        border-bottom: 3px solid #d4af37 !important;
+        page-break-after: avoid;
+    }
+
+    .card-header .card-title {
+        color: white !important;
+        font-size: 13pt;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+        margin: 0 !important;
+    }
+
+    .card-header i {
+        color: #d4af37 !important;
+        margin-right: 8px;
+        font-size: 14pt;
+    }
+
+    .card-body {
+        padding: 18px !important;
+    }
+
+    /* Tables */
+    .table-responsive {
+        overflow: visible !important;
+        border: 1px solid #dee2e6 !important;
+    }
+
+    .table {
+        font-size: 8.5pt;
+        border-collapse: collapse;
+        width: 100%;
+        margin: 0 !important;
+    }
+
+    .table thead th {
+        background: linear-gradient(to bottom, #2c3e50 0%, #1a252f 100%) !important;
+        color: white !important;
+        font-weight: 700;
+        padding: 12px 8px !important;
+        border: 1px solid #1a252f !important;
+        font-size: 8.5pt;
+        text-align: left;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
+    }
+
+    .table thead th i {
+        color: #d4af37 !important;
+        margin-right: 4px;
+    }
+
+    .table tbody td {
+        padding: 10px 8px !important;
+        border: 1px solid #dee2e6 !important;
+        font-size: 8pt;
+        vertical-align: middle;
+        line-height: 1.4;
+    }
+
+    .table tbody tr:nth-child(even) {
+        background: #f8f9fa !important;
+    }
+
+    .table tbody tr:nth-child(odd) {
+        background: white !important;
+    }
+
+    .table tbody tr:hover {
+        background: inherit !important;
+        transform: none !important;
+    }
+
+    /* Sequence Badge */
+    .sequence-badge {
+        background: #2c3e50 !important;
+        color: white !important;
+        padding: 4px 8px;
+        border-radius: 3px;
+        font-weight: 600;
+        font-size: 8pt;
+    }
+
+    /* Badges */
+    .badge {
+        border: 1px solid #333 !important;
+        padding: 4px 8px !important;
+        font-size: 8pt;
+        font-weight: bold;
+    }
+
+    .badge.bg-success {
+        background: #27ae60 !important;
+        color: white !important;
+    }
+
+    .badge.bg-warning {
+        background: #f39c12 !important;
+        color: white !important;
+    }
+
+    .badge.bg-danger {
+        background: #e74c3c !important;
+        color: white !important;
+    }
+
+    .badge.bg-info {
+        background: #3498db !important;
+        color: white !important;
+    }
+
+    .badge.bg-primary {
+        background: #2c3e50 !important;
+        color: white !important;
+    }
+
+    .badge.bg-secondary {
+        background: #95a5a6 !important;
+        color: white !important;
+    }
+
+    /* Text Colors */
+    .text-success {
+        color: #27ae60 !important;
+    }
+
+    .text-warning {
+        color: #f39c12 !important;
+    }
+
+    .text-danger {
+        color: #e74c3c !important;
+    }
+
+    .text-info {
+        color: #3498db !important;
+    }
+
+    .text-primary {
+        color: #2c3e50 !important;
+    }
+
+    .fw-bold {
+        font-weight: bold !important;
+    }
+
+    /* Date Time Cell */
+    .date-time-cell {
+        display: block;
+    }
+
+    .date-time-cell .date-part {
+        font-weight: bold;
+        color: #2c3e50 !important;
+    }
+
+    .date-time-cell .time-part {
+        color: #6c757d !important;
+        font-size: 8pt;
+    }
+
+    /* Rating Display */
+    .rating-display {
+        display: inline-flex;
+        align-items: center;
+        gap: 3px;
+    }
+
+    .rating-display i {
+        color: #f39c12 !important;
+    }
+
+    /* Page Breaks */
+    .row.mt-4 {
+        page-break-before: always;
+    }
+
+    .row.mb-4:first-child {
+        page-break-before: avoid;
+    }
+
+    /* Print Footer */
+    @page {
+        @bottom-right {
+            content: "Page " counter(page) " of " counter(pages);
+        }
+    }
+
+    /* Container */
+    .container {
+        width: 100% !important;
+        max-width: 100% !important;
+        padding: 0 !important;
+    }
+
+    .content {
+        padding: 0 !important;
+        max-width: 100% !important;
+    }
+
+    /* Empty States */
+    .text-center.py-4 {
+        padding: 20px !important;
+        background: #f8f9fa !important;
+        border: 1px dashed #6c757d !important;
+    }
+
+    .text-center.py-4 i {
+        color: #6c757d !important;
+    }
+
+    .text-center.py-4 h5,
+    .text-center.py-4 p {
+        color: #6c757d !important;
+    }
+
+    /* Table Totals for Print */
+    .table-totals-print {
+        display: block !important;
+        margin-top: 18px;
+        padding: 15px 18px;
+        background: linear-gradient(to right, #f8f9fa 0%, #ffffff 100%) !important;
+        border: 2px solid #2c3e50 !important;
+        border-left: 5px solid #d4af37 !important;
+        page-break-inside: avoid;
+    }
+
+    .table-totals-print h4 {
+        color: #2c3e50 !important;
+        font-size: 11pt;
+        font-weight: 700;
+        margin-bottom: 12px;
+        border-bottom: 2px solid #d4af37;
+        padding-bottom: 8px;
+        letter-spacing: 0.5px;
+        text-transform: uppercase;
+    }
+
+    .table-totals-print h4 i {
+        color: #d4af37 !important;
+        margin-right: 6px;
+    }
+
+    .table-totals-print .total-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 6px 0;
+        font-size: 9.5pt;
+        border-bottom: 1px dotted #dee2e6;
+    }
+
+    .table-totals-print .total-row:last-child {
+        border-bottom: none;
+    }
+
+    .table-totals-print .total-row.grand-total {
+        font-weight: 700;
+        font-size: 11pt;
+        color: #2c3e50 !important;
+        border-top: 3px double #2c3e50;
+        border-bottom: 3px double #2c3e50;
+        padding: 10px 0;
+        margin-top: 8px;
+        background: #f8f9fa !important;
+        padding-left: 5px;
+        padding-right: 5px;
+    }
+
+    .table-totals-print .total-label {
+        color: #495057 !important;
+        font-weight: 500;
+    }
+
+    .table-totals-print .total-value {
+        color: #27ae60 !important;
+        font-weight: 700;
+    }
+
+    .table-totals-print .grand-total .total-value {
+        font-size: 12pt;
+    }
+
+    /* Page Footer */
+    @page {
+        @bottom-center {
+            content: "Page " counter(page) " of " counter(pages);
+            font-size: 8pt;
+            color: #6c757d;
+        }
+        @bottom-right {
+            content: "M'STYLE Reports & Analytics";
+            font-size: 8pt;
+            color: #6c757d;
+            font-style: italic;
+        }
+    }
+
+    /* Print Watermark */
+    body::before {
+        content: "";
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%) rotate(-45deg);
+        font-size: 120pt;
+        color: rgba(44, 62, 80, 0.03);
+        z-index: -1;
+        font-weight: 900;
+        letter-spacing: 10px;
+    }
+}

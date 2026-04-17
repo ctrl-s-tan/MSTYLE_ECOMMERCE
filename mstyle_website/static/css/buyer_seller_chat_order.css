@@ -1,0 +1,616 @@
+/* Buyer-Rider Chat Modal - Matching Buyer-Seller Chat Style */
+.buyer-rider-chat-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 10000;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.buyer-rider-chat-modal.show {
+    display: flex !important;
+    opacity: 1;
+}
+
+.rider-chat-modal-container {
+    width: 90%;
+    max-width: 600px;
+    height: 80vh;
+    max-height: 700px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    transform: translateY(50px);
+    opacity: 0;
+    transition: transform 0.3s ease, opacity 0.3s ease;
+}
+
+.buyer-rider-chat-modal.show .rider-chat-modal-container {
+    transform: translateY(0);
+    opacity: 1;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Chat Header */
+.rider-chat-modal-header {
+    background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+    color: white;
+    padding: 20px;
+    border-radius: 20px 20px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.rider-chat-header-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.rider-avatar-chat {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    position: relative;
+    flex-shrink: 0;
+}
+
+.rider-avatar-chat-img {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid #d4af37;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.rider-avatar-chat-icon {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #d4af37, #f4d03f);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    color: #1a1a1a;
+}
+
+.rider-details-chat h3 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.online-status-chat {
+    font-size: 12px;
+    color: #4caf50;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.online-status-chat i {
+    font-size: 8px;
+    animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.close-rider-chat-modal {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+}
+
+.close-rider-chat-modal:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: rotate(90deg);
+}
+
+/* Chat Body */
+.rider-chat-modal-body {
+    flex: 1;
+    overflow-y: auto;
+    background: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Order Context */
+.rider-chat-order-context {
+    background: white;
+    padding: 15px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.order-context-icon {
+    width: 60px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: linear-gradient(135deg, #d4af37, #f4d03f);
+    color: #1a1a1a;
+    font-size: 24px;
+}
+
+.order-context-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.order-context-label {
+    font-size: 12px;
+    color: #666;
+}
+
+.order-context-id {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+/* Messages Area */
+.rider-chat-messages-area {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    overflow-y: auto;
+}
+
+.rider-chat-message-item {
+    display: flex;
+    gap: 10px;
+    animation: slideInMessage 0.3s ease;
+}
+
+@keyframes slideInMessage {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Rider messages on the LEFT (received messages with avatar) */
+.rider-chat-message-item.rider {
+    flex-direction: row;
+}
+
+/* Buyer messages on the RIGHT (sent messages, no avatar) */
+.rider-chat-message-item.buyer {
+    flex-direction: row-reverse;
+}
+
+.rider-message-avatar-small {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.rider-message-avatar-small img {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid #d4af37;
+}
+
+.rider-message-avatar-small .avatar-icon {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #d4af37, #f4d03f);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1a1a1a;
+    font-size: 16px;
+}
+
+/* Show avatar on left side for rider messages */
+.rider-chat-message-item.rider .rider-message-avatar-small {
+    display: flex;
+}
+
+/* Hide avatar on right side (buyer messages) */
+.rider-chat-message-item.buyer .rider-message-avatar-small {
+    display: none;
+}
+
+.rider-message-content-wrapper {
+    max-width: 70%;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.rider-message-bubble-chat {
+    padding: 12px 15px;
+    border-radius: 18px;
+    background: white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    font-size: 14px;
+    line-height: 1.4;
+}
+
+/* Rider messages on LEFT - white background */
+.rider-chat-message-item.rider .rider-message-bubble-chat {
+    background: white;
+    color: #1a1a1a;
+    border-bottom-left-radius: 5px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+/* Buyer messages on RIGHT - gold gradient background */
+.rider-chat-message-item.buyer .rider-message-bubble-chat {
+    background: linear-gradient(135deg, #d4af37, #f4d03f);
+    color: #1a1a1a;
+    border-bottom-right-radius: 5px;
+    box-shadow: 0 2px 8px rgba(212, 175, 55, 0.3);
+}
+
+.rider-message-time-chat {
+    font-size: 11px;
+    color: #999;
+    padding: 0 5px;
+}
+
+.rider-chat-message-item.rider .rider-message-time-chat {
+    text-align: left;
+}
+
+.rider-chat-message-item.buyer .rider-message-time-chat {
+    text-align: right;
+}
+
+.rider-message-status {
+    font-size: 11px;
+    color: #4caf50;
+    padding: 0 5px;
+    display: flex;
+    align-items: center;
+    gap: 3px;
+}
+
+.rider-chat-message-item.buyer .rider-message-status {
+    justify-content: flex-end;
+}
+
+/* Empty State */
+.rider-chat-empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    padding: 40px 20px;
+}
+
+.rider-chat-empty-state i {
+    font-size: 48px;
+    color: #d4af37;
+    margin-bottom: 15px;
+}
+
+.rider-chat-empty-state h4 {
+    margin: 0 0 10px 0;
+    color: #666;
+}
+
+.rider-chat-empty-state p {
+    margin: 0;
+    font-size: 14px;
+}
+
+/* Chat Footer */
+.rider-chat-modal-footer {
+    background: white;
+    padding: 15px 20px;
+    border-top: 1px solid #e9ecef;
+    border-radius: 0 0 20px 20px;
+}
+
+.rider-chat-input-wrapper {
+    display: flex;
+    gap: 10px;
+    align-items: flex-end;
+}
+
+.rider-chat-input-wrapper textarea {
+    flex: 1;
+    padding: 12px 15px;
+    border: 2px solid #d4af37;
+    border-radius: 20px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    resize: none;
+    max-height: 100px;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.rider-chat-input-wrapper textarea:focus {
+    border-color: #d4af37;
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.15);
+}
+
+.rider-chat-input-wrapper textarea::placeholder {
+    color: #999;
+}
+
+.send-rider-message-btn {
+    background: linear-gradient(135deg, #d4af37, #f4d03f);
+    border: none;
+    color: #1a1a1a;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.send-rider-message-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 5px 15px rgba(212, 175, 55, 0.4);
+}
+
+.send-rider-message-btn:active {
+    transform: scale(0.95);
+}
+
+.send-rider-message-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.rider-message-info {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: 5px;
+}
+
+.rider-char-count {
+    font-size: 11px;
+    color: #999;
+}
+
+/* Scrollbar Styling */
+.rider-chat-messages-area::-webkit-scrollbar {
+    width: 6px;
+}
+
+.rider-chat-messages-area::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.rider-chat-messages-area::-webkit-scrollbar-thumb {
+    background: #d4af37;
+    border-radius: 3px;
+}
+
+.rider-chat-messages-area::-webkit-scrollbar-thumb:hover {
+    background: #c49d2f;
+}
+
+/* Typing Indicator */
+.rider-typing-indicator-chat {
+    display: flex;
+    gap: 10px;
+    padding: 10px 0;
+}
+
+.rider-typing-indicator-chat .rider-message-bubble-chat {
+    display: flex;
+    gap: 5px;
+    padding: 15px;
+}
+
+.rider-typing-dot-chat {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #999;
+    animation: typing 1.4s infinite;
+}
+
+.rider-typing-dot-chat:nth-child(2) {
+    animation-delay: 0.2s;
+}
+
+.rider-typing-dot-chat:nth-child(3) {
+    animation-delay: 0.4s;
+}
+
+@keyframes typing {
+    0%, 60%, 100% {
+        transform: translateY(0);
+        opacity: 0.7;
+    }
+    30% {
+        transform: translateY(-10px);
+        opacity: 1;
+    }
+}
+
+
+
+/* Loading and No Messages States */
+.chat-loading,
+.no-messages {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    padding: 40px 20px;
+}
+
+.chat-loading i,
+.no-messages i {
+    font-size: 48px;
+    color: #d4af37;
+    margin-bottom: 15px;
+}
+
+.chat-loading p,
+.no-messages p {
+    margin: 0;
+    font-size: 14px;
+    color: #666;
+}
+
+/* Date Divider */
+.chat-date-divider {
+    text-align: center;
+    margin: 15px 0 20px 0;
+    position: relative;
+}
+
+.chat-date-divider::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: #e0e0e0;
+}
+
+.chat-date-divider span {
+    background: #f8f9fa;
+    padding: 4px 16px;
+    font-size: 12px;
+    color: #999;
+    position: relative;
+    z-index: 1;
+    font-weight: 500;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .rider-chat-modal-container {
+        width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+
+    .rider-chat-modal-header {
+        border-radius: 0;
+    }
+
+    .rider-chat-modal-footer {
+        border-radius: 0;
+    }
+
+    .rider-message-content-wrapper {
+        max-width: 80%;
+    }
+
+    .shipped-actions {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.75rem;
+    }
+
+    .btn-rider-contact {
+        width: 100%;
+        justify-content: center;
+    }
+}
+
+@media (max-width: 480px) {
+    .rider-avatar-chat,
+    .rider-avatar-chat-img,
+    .rider-avatar-chat-icon {
+        width: 40px;
+        height: 40px;
+    }
+    
+    .rider-avatar-chat-icon {
+        font-size: 20px;
+    }
+
+    .rider-details-chat h3 {
+        font-size: 16px;
+    }
+
+    .order-context-icon {
+        width: 50px;
+        height: 50px;
+        font-size: 20px;
+    }
+}

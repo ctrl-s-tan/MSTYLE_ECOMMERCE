@@ -1,0 +1,534 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MStyle — Become a Seller</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/register.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seller_register.css') }}">
+    <style>
+        /* Seller register overrides — form-card uses register.css input-group */
+        .form-card .form-panel { padding: 0; }
+        .form-card .form-inner { max-width: 100%; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+        .spin { animation: spin .8s linear infinite; }
+    </style>
+</head>
+
+<body>
+<div class="seller-page">
+
+    <!-- ── Hero banner ── -->
+    <div class="seller-hero">
+        <div>
+            <a href="/" class="hero-back">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"/></svg>
+                Back to Homepage
+            </a>
+        </div>
+        <div class="seller-badge">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+            Become a Seller
+        </div>
+        <h1>Start Your Premium Fashion Business</h1>
+        <p>Join our exclusive network of premium fashion sellers and reach discerning customers worldwide.</p>
+    </div>
+
+    <!-- ── Two-column content ── -->
+    <div class="seller-content">
+
+        <!-- ── Benefits card ── -->
+        <div class="benefits-card">
+            <h2>Why Choose MStyle?</h2>
+            <div class="benefit-item">
+                <div class="benefit-icon">📈</div>
+                <div class="benefit-content">
+                    <h3>Growth Analytics</h3>
+                    <p>Access detailed sales reports and customer insights to optimize your business performance.</p>
+                </div>
+            </div>
+            <div class="benefit-item">
+                <div class="benefit-icon">👥</div>
+                <div class="benefit-content">
+                    <h3>Premium Customers</h3>
+                    <p>Connect with quality-conscious customers who value premium fashion.</p>
+                </div>
+            </div>
+            <div class="benefit-item">
+                <div class="benefit-icon">🤝</div>
+                <div class="benefit-content">
+                    <h3>Business Support</h3>
+                    <p>Get dedicated support from our team to help you succeed.</p>
+                </div>
+            </div>
+            <div class="benefit-item">
+                <div class="benefit-icon">🛡️</div>
+                <div class="benefit-content">
+                    <h3>Secure Platform</h3>
+                    <p>Safe and secure transactions with buyer and seller protection.</p>
+                </div>
+            </div>
+        </div><!-- /benefits-card -->
+
+            <!-- Form card -->
+            <div class="form-card">
+                <div class="form-logo">
+                    <img src="{{ url_for('static', filename='images/MStyle Logos/MStyle_logo1.png') }}"
+                        alt="MStyle Logo">
+                </div>
+
+                <!-- ── Step 1: Email ── -->
+                <div id="step1" class="form-step active">
+                    <h3 class="form-title">Start Your Seller Journey</h3>
+                    <div class="title-bar"></div>
+                    <p class="form-subtitle">Enter your email to begin the seller registration process</p>
+                    <div id="step1-error" class="error-banner" style="display:none"></div>
+                    <div class="field-wrap">
+                        <span class="field-icon">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/><polyline points="22,6 12,13 2,6"/></svg>
+                        </span>
+                        <input type="email" id="email" name="email" placeholder=" " required autocomplete="email">
+                        <label for="email">Email Address</label>
+                    </div>
+                    <button type="button" class="auth-button" id="sendOtpBtn" onclick="sendOTP()">
+                        <span class="btn-text">SEND OTP</span>
+                        <span class="btn-spinner" style="display:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="spin"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></span>
+                    </button>
+                    <div class="auth-links">Already have an account? <a href="/login">Login here</a></div>
+                </div>
+
+                <!-- ── Step 2: OTP ── -->
+                <div id="step2" class="form-step">
+                    <h3 class="form-title">Verify Your Email</h3>
+                    <div class="title-bar"></div>
+                    <p class="form-subtitle">We've sent a 6-digit code to <strong id="email-display"></strong></p>
+                    <div id="otp-error" class="error-banner" style="display:none"></div>
+                    <div class="otp-input" id="otp-form">
+                        <input type="text" maxlength="1" inputmode="numeric" pattern="\d" autocomplete="off">
+                        <input type="text" maxlength="1" inputmode="numeric" pattern="\d" autocomplete="off">
+                        <input type="text" maxlength="1" inputmode="numeric" pattern="\d" autocomplete="off">
+                        <input type="text" maxlength="1" inputmode="numeric" pattern="\d" autocomplete="off">
+                        <input type="text" maxlength="1" inputmode="numeric" pattern="\d" autocomplete="off">
+                        <input type="text" maxlength="1" inputmode="numeric" pattern="\d" autocomplete="off">
+                    </div>
+                    <button type="button" class="auth-button" id="verifyBtn" onclick="verifyOTP()">
+                        <span class="btn-text">VERIFY &amp; CONTINUE</span>
+                        <span class="btn-spinner" style="display:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="spin"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></span>
+                    </button>
+                    <p class="resend-otp">Didn't receive the code? <a href="#" onclick="resendOTP(); return false;">Resend OTP</a></p>
+                </div>
+
+                <!-- ── Step 3: Seller Form ── -->
+                <form id="step3" action="/seller_register" method="POST" enctype="multipart/form-data" class="form-step">
+                    <h3 class="form-title">Complete Your Seller Application</h3>
+                    <div class="title-bar"></div>
+                    <p class="form-subtitle">Fill in your business details to complete registration</p>
+                    {% if error %}<div class="message error">{{ error }}</div>{% endif %}
+                    <div id="form-error" class="error-banner" style="display:none"></div>
+                    <input type="hidden" id="form-email" name="email">
+                    <input type="hidden" id="form-otp" name="otp">
+
+                    <div class="form-row">
+                        <div class="input-group has-icon">
+                            <span class="ig-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+                            <input type="text" id="first_name" name="first_name" placeholder=" " required>
+                            <label for="first_name">First Name</label>
+                        </div>
+                        <div class="input-group has-icon">
+                            <span class="ig-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></span>
+                            <input type="text" id="last_name" name="last_name" placeholder=" " required>
+                            <label for="last_name">Last Name</label>
+                        </div>
+                    </div>
+
+                    <div class="input-group has-icon">
+                        <span class="ig-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+                        <input type="text" id="business_name" name="business_name" placeholder=" " required>
+                        <label for="business_name">Business Name</label>
+                    </div>
+
+                    <div class="phone-input">
+                        <span class="phone-prefix" style="display:flex;align-items:center;gap:8px;">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#d4af37" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 13a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.56 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 9.91a16 16 0 0 0 6.18 6.18l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z"/></svg>
+                            +63
+                        </span>
+                        <input type="text" id="phone_number" name="phone_number" placeholder="Phone Number" maxlength="10" inputmode="numeric" oninput="this.value=this.value.replace(/[^0-9]/g,'')">
+                    </div>
+
+                    <div class="input-group has-icon">
+                        <span class="ig-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg></span>
+                        <input type="text" id="house_no_street" name="house_no_street" placeholder=" " required>
+                        <label for="house_no_street">House No. &amp; Street Name</label>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group has-icon">
+                            <span class="ig-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg></span>
+                            <select id="region" name="region" required class="address-select" onchange="updateProvinces()">
+                                <option value="">Select Region</option>
+                            </select>
+                        </div>
+                        <div class="input-group has-icon">
+                            <span class="ig-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                            <select id="province" name="province" required class="address-select" onchange="updateMunicipalities()" disabled>
+                                <option value="">Select Province</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group has-icon">
+                            <span class="ig-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                            <select id="municipality" name="municipality" required class="address-select" onchange="updateBarangays()" disabled>
+                                <option value="">Select City/Municipality</option>
+                            </select>
+                        </div>
+                        <div class="input-group has-icon">
+                            <span class="ig-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg></span>
+                            <select id="barangay" name="barangay" required class="address-select" disabled>
+                                <option value="">Select Barangay</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="input-group has-icon">
+                        <span class="ig-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg></span>
+                        <input type="text" id="zip_code" name="zip_code" placeholder=" " required>
+                        <label for="zip_code">ZIP Code</label>
+                    </div>
+
+                    <div class="form-row">
+                        <div class="input-group password-group has-icon">
+                            <span class="ig-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+                            <input type="password" id="password" name="password" placeholder=" " required>
+                            <label for="password">Password</label>
+                            <button type="button" class="toggle-password" onclick="togglePasswordField('password')">
+                                <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                        <div class="input-group password-group has-icon">
+                            <span class="ig-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg></span>
+                            <input type="password" id="confirm_password" name="confirm_password" placeholder=" " required>
+                            <label for="confirm_password">Confirm Password</label>
+                            <button type="button" class="toggle-password" onclick="togglePasswordField('confirm_password')">
+                                <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <div class="input-group has-icon">
+                        <span class="ig-icon"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg></span>
+                        <select id="business_type" name="business_type" required onchange="toggleDocumentUploads()">
+                            <option value="">Select Business Type</option>
+                            <option value="individual">Individual Seller</option>
+                            <option value="business">Business Seller</option>
+                        </select>
+                    </div>
+
+                    <!-- Individual Seller Documents -->
+                    <div id="individual-documents" style="display:none">
+                        <div class="section-label-banner">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                            Individual Seller Documents
+                        </div>
+                        <label for="valid_id" class="document-group" id="doc-tile-valid-id">
+                            <div class="doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+                            <div><label for="valid_id">Valid Government ID</label><small>Driver's License, Passport, UMID, etc.</small></div>
+                            <input type="file" name="valid_id" id="valid_id" accept="image/*" onchange="markDocUploaded('doc-tile-valid-id', this)">
+                        </label>
+                    </div>
+
+                    <!-- Business Seller Documents -->
+                    <div id="business-documents" style="display:none">
+                        <div class="section-label-banner">
+                            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                            Business Seller Documents
+                        </div>
+                        <label for="dti" class="document-group" id="doc-tile-dti">
+                            <div class="doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                            <div><label for="dti">DTI Certificate</label><small>Department of Trade and Industry Certificate</small></div>
+                            <input type="file" name="dti" id="dti" accept="image/*" onchange="markDocUploaded('doc-tile-dti', this)">
+                        </label>
+                        <label for="bir" class="document-group" id="doc-tile-bir">
+                            <div class="doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
+                            <div><label for="bir">BIR Certificate</label><small>Bureau of Internal Revenue Certificate</small></div>
+                            <input type="file" name="bir" id="bir" accept="image/*" onchange="markDocUploaded('doc-tile-bir', this)">
+                        </label>
+                        <label for="business_permit" class="document-group" id="doc-tile-permit">
+                            <div class="doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg></div>
+                            <div><label for="business_permit">Business Permit</label><small>Business Permit from your local government</small></div>
+                            <input type="file" name="business_permit" id="business_permit" accept="image/*" onchange="markDocUploaded('doc-tile-permit', this)">
+                        </label>
+                        <label for="valid_id_business" class="document-group" id="doc-tile-valid-id-biz">
+                            <div class="doc-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>
+                            <div><label for="valid_id_business">Valid Government ID</label><small>Driver's License, Passport, UMID, etc.</small></div>
+                            <input type="file" name="valid_id_business" id="valid_id_business" accept="image/*" onchange="markDocUploaded('doc-tile-valid-id-biz', this)">
+                        </label>
+                    </div>
+
+                    <!-- Terms and Conditions Agreement -->
+                    <div class="terms-agreement">
+                        <div class="checkbox-container">
+                            <input type="checkbox" id="terms_agreement" name="terms_agreement" required>
+                            <label for="terms_agreement" class="checkbox-label">
+                                <span class="checkmark"></span>
+                                <span class="checkbox-text">
+                                    I agree to the <a href="/terms_conditions" target="_blank" class="terms-link">Terms
+                                        and Conditions</a>
+                                    and <a href="/privacy_policy" target="_blank" class="terms-link">Privacy Policy</a>
+                                </span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="auth-button" onclick="return validateForm(event)">
+                        <span class="btn-text">SUBMIT APPLICATION</span>
+                        <span class="btn-spinner" style="display:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="spin"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></span>
+                    </button>
+                </form>
+            </div><!-- /form-card -->
+        </div><!-- /seller-content -->
+    </div><!-- /seller-page -->
+
+    <script>
+        let userEmail = '';
+        const emailInput   = document.getElementById('email');
+        const emailDisplay = document.getElementById('email-display');
+        const formEmail    = document.getElementById('form-email');
+        const formOtp      = document.getElementById('form-otp');
+        const otpInputs    = document.querySelectorAll('#otp-form input');
+
+        // ── Error banner helpers ──────────────────────────────────────────
+        function showError(id, msg) {
+            const el = document.getElementById(id);
+            if (!el) return;
+            el.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ${msg}`;
+            el.style.display = 'flex';
+        }
+        function hideError(id) {
+            const el = document.getElementById(id);
+            if (el) el.style.display = 'none';
+        }
+
+        // ── Button loading state ──────────────────────────────────────────
+        function setBtnLoading(btnId, loading) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            btn.querySelector('.btn-text').style.display    = loading ? 'none' : '';
+            btn.querySelector('.btn-spinner').style.display = loading ? 'flex' : 'none';
+            btn.disabled = loading;
+        }
+
+        // ── OTP navigation ────────────────────────────────────────────────
+        otpInputs.forEach((input, i) => {
+            input.addEventListener('input', e => {
+                input.value = input.value.replace(/\D/g, '').slice(-1);
+                input.classList.toggle('filled', input.value.length > 0);
+                if (input.value && i < otpInputs.length - 1) otpInputs[i + 1].focus();
+            });
+            input.addEventListener('keydown', e => {
+                if (e.key === 'Backspace' && !input.value && i > 0) {
+                    otpInputs[i - 1].focus();
+                    otpInputs[i - 1].classList.remove('filled');
+                }
+            });
+            input.addEventListener('paste', e => {
+                e.preventDefault();
+                const digits = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+                digits.split('').forEach((d, j) => { if (otpInputs[i + j]) { otpInputs[i + j].value = d; otpInputs[i + j].classList.add('filled'); } });
+                otpInputs[Math.min(i + digits.length, otpInputs.length - 1)].focus();
+            });
+        });
+
+        // ── Step navigation ───────────────────────────────────────────────
+        function changeStep(n) {
+            document.querySelectorAll('.form-step').forEach(s => s.classList.remove('active'));
+            if (n === 1) document.getElementById('step1').classList.add('active');
+            else if (n === 2) { document.getElementById('step2').classList.add('active'); emailDisplay.textContent = userEmail; }
+            else if (n === 3) { document.getElementById('step3').classList.add('active'); formEmail.value = userEmail; }
+        }
+
+        // ── Send OTP ──────────────────────────────────────────────────────
+        async function sendOTP() {
+            const email = emailInput.value.trim();
+            hideError('step1-error');
+            if (!email) { showError('step1-error', 'Please enter your email address.'); return; }
+            setBtnLoading('sendOtpBtn', true);
+            try {
+                const res  = await fetch('/api/send-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }) });
+                const data = await res.json();
+                if (data.success) { userEmail = email; changeStep(2); }
+                else showError('step1-error', data.message || 'Failed to send OTP. Please try again.');
+            } catch { showError('step1-error', 'An error occurred. Please try again.'); }
+            finally { setBtnLoading('sendOtpBtn', false); }
+        }
+
+        // ── Verify OTP ────────────────────────────────────────────────────
+        async function verifyOTP() {
+            const otp = Array.from(otpInputs).map(i => i.value).join('');
+            hideError('otp-error');
+            if (otp.length !== 6) {
+                showError('otp-error', 'Please enter the complete 6-digit code.');
+                otpInputs.forEach(b => { b.style.borderColor = '#dc3545'; setTimeout(() => b.style.borderColor = '', 1500); });
+                return;
+            }
+            setBtnLoading('verifyBtn', true);
+            try {
+                const res  = await fetch('/api/verify-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: userEmail, otp }) });
+                const data = await res.json();
+                if (data.success) { formOtp.value = otp; changeStep(3); loadRegions(); }
+                else {
+                    showError('otp-error', data.message || 'Invalid or expired OTP. Please try again.');
+                    otpInputs.forEach(b => { b.style.borderColor = '#dc3545'; setTimeout(() => b.style.borderColor = '', 1500); });
+                }
+            } catch { showError('otp-error', 'An error occurred. Please try again.'); }
+            finally { setBtnLoading('verifyBtn', false); }
+        }
+
+        // ── Resend OTP ────────────────────────────────────────────────────
+        async function resendOTP() {
+            if (!userEmail) return;
+            hideError('otp-error');
+            otpInputs.forEach(i => { i.value = ''; i.classList.remove('filled'); });
+            otpInputs[0].focus();
+            try {
+                const res = await fetch('/api/send-otp', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: userEmail }) });
+                const data = await res.json();
+                if (!data.success) showError('otp-error', data.message || 'Failed to resend OTP.');
+            } catch { showError('otp-error', 'Failed to resend OTP. Please try again.'); }
+        }
+
+        // ── Toggle document sections ──────────────────────────────────────
+        function toggleDocumentUploads() {
+            const bt = document.getElementById('business_type').value;
+            document.getElementById('individual-documents').style.display = bt === 'individual' ? 'block' : 'none';
+            document.getElementById('business-documents').style.display   = bt === 'business'   ? 'block' : 'none';
+        }
+
+        // ── Address API ───────────────────────────────────────────────────
+        const PHILIPPINES_API = 'https://psgc.gitlab.io/api';
+        const addressCache = { regions: [], provinces: {}, municipalities: {}, barangays: {} };
+
+        async function loadRegions() {
+            try {
+                const regions = await (await fetch(`${PHILIPPINES_API}/regions`)).json();
+                const sel = document.getElementById('region');
+                sel.innerHTML = '<option value="">Select Region</option>';
+                regions.forEach(r => { const o = document.createElement('option'); o.value = r.name; o.setAttribute('data-code', r.code); o.textContent = r.name; sel.appendChild(o); });
+                sel.disabled = false;
+                addressCache.regions = regions;
+            } catch(e) { console.error(e); }
+        }
+
+        async function updateProvinces() {
+            const rSel = document.getElementById('region');
+            const pSel = document.getElementById('province');
+            const mSel = document.getElementById('municipality');
+            const bSel = document.getElementById('barangay');
+            const code = rSel.selectedOptions[0]?.getAttribute('data-code');
+            pSel.innerHTML = '<option value="">Select Province</option>';
+            mSel.innerHTML = '<option value="">Select City/Municipality</option>';
+            bSel.innerHTML = '<option value="">Select Barangay</option>';
+            if (!code) { pSel.disabled = mSel.disabled = bSel.disabled = true; return; }
+            try {
+                const data = addressCache.provinces[code] || await (await fetch(`${PHILIPPINES_API}/regions/${code}/provinces`)).json();
+                addressCache.provinces[code] = data;
+                data.forEach(p => { const o = document.createElement('option'); o.value = p.name; o.setAttribute('data-code', p.code); o.textContent = p.name; pSel.appendChild(o); });
+                pSel.disabled = false; mSel.disabled = bSel.disabled = true;
+            } catch(e) { console.error(e); }
+        }
+
+        async function updateMunicipalities() {
+            const pSel = document.getElementById('province');
+            const mSel = document.getElementById('municipality');
+            const bSel = document.getElementById('barangay');
+            const code = pSel.selectedOptions[0]?.getAttribute('data-code');
+            mSel.innerHTML = '<option value="">Select City/Municipality</option>';
+            bSel.innerHTML = '<option value="">Select Barangay</option>';
+            if (!code) { mSel.disabled = bSel.disabled = true; return; }
+            try {
+                const data = addressCache.municipalities[code] || await (await fetch(`${PHILIPPINES_API}/provinces/${code}/cities-municipalities`)).json();
+                addressCache.municipalities[code] = data;
+                data.forEach(m => { const o = document.createElement('option'); o.value = m.name; o.setAttribute('data-code', m.code); o.textContent = m.name; mSel.appendChild(o); });
+                mSel.disabled = false; bSel.disabled = true;
+            } catch(e) { console.error(e); }
+        }
+
+        async function updateBarangays() {
+            const mSel = document.getElementById('municipality');
+            const bSel = document.getElementById('barangay');
+            const code = mSel.selectedOptions[0]?.getAttribute('data-code');
+            bSel.innerHTML = '<option value="">Select Barangay</option>';
+            if (!code) { bSel.disabled = true; return; }
+            try {
+                const data = addressCache.barangays[code] || await (await fetch(`${PHILIPPINES_API}/cities-municipalities/${code}/barangays`)).json();
+                addressCache.barangays[code] = data;
+                data.forEach(b => { const o = document.createElement('option'); o.value = b.name; o.setAttribute('data-code', b.code); o.textContent = b.name; bSel.appendChild(o); });
+                bSel.disabled = false;
+            } catch(e) { console.error(e); }
+        }
+
+        // ── Password toggle ───────────────────────────────────────────────
+        const eyeOpenPath   = '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>';
+        const eyeClosedPath = '<path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/>';
+
+        function togglePasswordField(fieldId) {
+            const input = document.getElementById(fieldId);
+            const btn   = input.parentElement.querySelector('.toggle-password');
+            const show  = input.type === 'password';
+            input.type  = show ? 'text' : 'password';
+            btn.querySelector('.eye-icon').innerHTML = show ? eyeClosedPath : eyeOpenPath;
+        }
+
+        // ── Doc tile upload feedback ──────────────────────────────────────
+        function markDocUploaded(tileId, input) {
+            if (input.files && input.files.length > 0) {
+                const tile = document.getElementById(tileId);
+                if (tile) { tile.classList.add('uploaded'); const s = tile.querySelector('small'); if (s) s.textContent = 'Uploaded successfully ✓'; }
+            }
+        }
+
+        // ── Select label animation ────────────────────────────────────────
+        document.addEventListener('DOMContentLoaded', () => {
+            document.querySelectorAll('.input-group select').forEach(sel => {
+                function update() {
+                    sel.setAttribute('data-selected', sel.value ? 'true' : '');
+                    sel.classList.toggle('has-value', !!sel.value);
+                }
+                sel.addEventListener('change', update);
+                update();
+            });
+        });
+
+        // ── Form validation ───────────────────────────────────────────────
+        function validateForm(event) {
+            hideError('form-error');
+            const pw  = document.getElementById('password').value;
+            const cpw = document.getElementById('confirm_password').value;
+            if (pw.length < 6) { showError('form-error', 'Password must be at least 6 characters.'); if (event) event.preventDefault(); return false; }
+            if (pw !== cpw)    { showError('form-error', 'Passwords do not match.'); if (event) event.preventDefault(); return false; }
+            const bt = document.getElementById('business_type').value;
+            if (!bt) { showError('form-error', 'Please select a business type.'); if (event) event.preventDefault(); return false; }
+            if (!document.getElementById('terms_agreement').checked) { showError('form-error', 'You must agree to the Terms and Conditions and Privacy Policy.'); if (event) event.preventDefault(); return false; }
+            if (bt === 'individual') {
+                const f = document.getElementById('valid_id');
+                if (!f.files || !f.files.length) { showError('form-error', 'Valid Government ID is required.'); if (event) event.preventDefault(); return false; }
+            } else if (bt === 'business') {
+                for (const [id, label] of [['dti','DTI Certificate'],['bir','BIR Certificate'],['business_permit','Business Permit'],['valid_id_business','Valid Government ID']]) {
+                    const f = document.getElementById(id);
+                    if (!f.files || !f.files.length) { showError('form-error', `${label} is required.`); if (event) event.preventDefault(); return false; }
+                }
+            }
+            return true;
+        }
+    </script>
+</body>
+</html>

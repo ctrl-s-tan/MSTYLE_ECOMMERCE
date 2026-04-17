@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Profile</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+</head>
+
+<body>
+    {% if session.get('user_type') == 'Seller' %}
+    {% include 'seller_header.html' %}
+    {% elif session.get('user_type') == 'rider' or session.get('user_type') == 'Rider' %}
+    {% include 'rider_header.html' %}
+    {% else %}
+    {% include 'buyer_header.html' %}
+    {% endif %}
+
+    <div class="container">
+        <div class="content">
+            <div class="profile-header">
+                <div class="profile-avatar">
+                    {% if user_data.profile_picture %}
+                    <img src="{{ url_for('static', filename='uploads/' + user_data.profile_picture) }}"
+                        alt="Profile Picture" id="profileImage">
+                    {% else %}
+                    <i class="fas fa-user-circle" id="defaultAvatar"></i>
+                    {% endif %}
+                    <div class="avatar-overlay">
+                        <i class="fas fa-camera"></i>
+                        <span>Change Photo</span>
+                    </div>
+                    <input type="file" id="profilePictureInput" accept="image/*" style="display: none;">
+                </div>
+                <h1>Profile Information</h1>
+                <p>Manage your personal information and preferences</p>
+            </div>
+
+            <div class="profile-form-container">
+                <form id="profileForm" onsubmit="return false;" class="profile-main-form" enctype="multipart/form-data">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="firstName"><i class="fas fa-user"></i> First Name</label>
+                            <input type="text" id="firstName" name="first_name" class="editable"
+                                value="{{ user_data.first_name }}" disabled>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="lastName"><i class="fas fa-user"></i> Last Name</label>
+                            <input type="text" id="lastName" name="last_name" class="editable"
+                                value="{{ user_data.last_name }}" disabled>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="email"><i class="fas fa-envelope"></i> Email Address</label>
+                            <input type="email" id="email" name="email" class="editable" value="{{ user_data.email }}"
+                                disabled>
+                        </div>
+
+                        <div class="form-group">
+                            <label for="phone"><i class="fas fa-phone"></i> Phone Number</label>
+                            <input type="tel" id="phone" name="phone_number" class="editable"
+                                value="{{ user_data.phone_number or '' }}" disabled>
+                        </div>
+
+        {% if session.get('user_type') == 'Seller' %}
+                        <div class="form-group">
+                            <label for="businessName"><i class="fas fa-store"></i> Business Name</label>
+                            <input type="text" id="businessName" name="business_name" class="editable"
+                                value="{{ user_data.business_name or '' }}" disabled>
+                        </div>
+                        {% elif session.get('user_type') == 'Rider' or session.get('user_type') == 'rider' %}
+                        <!-- Vehicle Information Section for Riders -->
+                        <div class="form-group full-width vehicle-section-header">
+                            <div class="section-divider">
+                                <i class="fas fa-motorcycle"></i>
+                                <span>Vehicle Information</span>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="vehicleType"><i class="fas fa-car"></i> Vehicle Type</label>
+                            <select id="vehicleType" name="vehicle_type" class="editable" disabled>
+                                <option value="">Select Vehicle Type</option>
+                                <option value="motorcycle" {{ 'selected' if user_data.vehicle_type=='motorcycle' else ''
+                                    }}>Motorcycle</option>
+                                <option value="bicycle" {{ 'selected' if user_data.vehicle_type=='bicycle' else '' }}>
+                                    Bicycle</option>
+                                <option value="car" {{ 'selected' if user_data.vehicle_type=='car' else '' }}>Car
+                                </option>
+                                <option value="scooter" {{ 'selected' if user_data.vehicle_type=='scooter' else '' }}>
+                                    Scooter</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="vehicleModel"><i class="fas fa-cogs"></i> Vehicle Model</label>
+                            <input type="text" id="vehicleModel" name="vehicle_model" class="editable"
+                                value="{{ user_data.vehicle_model or '' }}" placeholder="e.g., Honda Click, Yamaha Mio"
+                                disabled>
+                        </div>
+                        <div class="form-group">
+                            <label for="vehiclePlateNumber"><i class="fas fa-id-badge"></i> Plate Number</label>
+                            <input type="text" id="vehiclePlateNumber" name="vehicle_plate_number" class="editable"
+                                value="{{ user_data.vehicle_plate_number or '' }}" placeholder="e.g., ABC-1234"
+                                title="Enter your vehicle's license plate number" disabled>
+                        </div>
+                        <div class="form-group">
+                            <label for="vehicleYearModel"><i class="fas fa-calendar-alt"></i> Year Model</label>
+                            <input type="number" id="vehicleYearModel" name="vehicle_year_model" class="editable"
+                                value="{{ user_data.vehicle_year_model or '' }}" min="1990" max="2025"
+                                placeholder="e.g., 2020" title="Enter the year your vehicle was manufactured" disabled>
+                        </div>
+                        {% endif %}
+
+                        <div class="form-group full-width">
+                            <label for="address"><i class="fas fa-map-marker-alt"></i> Address</label>
+                            <input type="text" id="address" name="address" class="editable"
+                                value="{{ user_data.address or '' }}" disabled>
+                        </div>
+
+                        <div class="form-group full-width">
+                            <div class="form-note">
+                                <i class="fas fa-info-circle"></i>
+                                <span>Make sure to save your changes before leaving this page.</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="button-group">
+                        <button type="button" id="editButton" onclick="enableEditing()">
+                            <i class="fas fa-edit"></i> Edit Profile
+                        </button>
+                        <button type="submit" id="updateButton" class="hidden">
+                            <i class="fas fa-save"></i> Save Changes
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Password Change Section -->
+                <div class="password-change-section">
+                    <div class="section-header">
+                        <h3><i class="fas fa-key"></i> Change Password</h3>
+                        <div class="header-underline"></div>
+                    </div>
+
+                    <!-- Password Change Form -->
+                    <div id="passwordChangeForm">
+                        <div class="form-grid">
+                            <div class="form-group full-width">
+                                <label for="old_password"><i class="fas fa-lock"></i> Current Password</label>
+                                <input type="password" id="old_password" name="old_password" class="editable">
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label for="new_password"><i class="fas fa-key"></i> New Password</label>
+                                <input type="password" id="new_password" name="new_password" class="editable">
+                            </div>
+
+                            <div class="form-group full-width">
+                                <label for="confirm_password"><i class="fas fa-check-circle"></i> Confirm New
+                                    Password</label>
+                                <input type="password" id="confirm_password" name="confirm_password" class="editable">
+                            </div>
+                        </div>
+
+                        <div class="button-group">
+                            <button type="button" id="updatePasswordButton" class="btn btn-edit">
+                                <i class="fas fa-save"></i> Update Password
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <style>
+        /* Vehicle Information Section Styles */
+        .vehicle-section-header {
+            margin-top: 2rem !important;
+            margin-bottom: 1rem !important;
+        }
+
+        .section-divider {
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            padding: 1rem 0;
+            border-bottom: 2px solid rgba(212, 175, 55, 0.3);
+            color: var(--primary-color, #2c3e50);
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+
+        .section-divider i {
+            color: #d4af37;
+            font-size: 1.3rem;
+        }
+
+        /* Enhanced form labels with icons */
+        .form-group label i {
+            color: #d4af37;
+            margin-right: 0.5rem;
+            width: 16px;
+            text-align: center;
+            font-size: 0.9rem;
+        }
+
+        /* Keep password section icons with different color */
+        .form-group label i.fa-lock,
+        .form-group label i.fa-key,
+        .form-group label i.fa-check-circle {
+            color: #34495e;
+        }
+
+
+
+        /* Placeholder styling for vehicle inputs */
+        #vehicleModel::placeholder,
+        #vehiclePlateNumber::placeholder,
+        #vehicleYearModel::placeholder {
+            color: #adb5bd;
+            font-style: italic;
+        }
+
+        /* Vehicle information note */
+        .vehicle-note {
+            background: rgba(212, 175, 55, 0.1);
+            border-left: 4px solid #d4af37;
+            color: #856404;
+        }
+
+        .vehicle-note i {
+            color: #d4af37;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 768px) {
+            .section-divider {
+                font-size: 1rem;
+            }
+
+            .section-divider i {
+                font-size: 1.1rem;
+            }
+        }
+    </style>
+
+    <script>
+        function enableEditing() {
+            // Show loading state
+            const editBtn = document.getElementById('editButton');
+            const originalText = editBtn.innerHTML;
+            editBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Preparing...';
+            editBtn.disabled = true;
+
+            // Simulate loading (remove in production)
+            setTimeout(() => {
+                var inputs = document.querySelectorAll('.editable');
+                inputs.forEach(function (input) {
+                    input.disabled = false;
+                    input.classList.add('editing');
+                });
+
+                document.getElementById('editButton').classList.add('hidden');
+                document.getElementById('updateButton').classList.remove('hidden');
+
+                // Focus on first editable field (but not select elements)
+                var firstInput = document.querySelector('.editable:not(select)');
+                if (firstInput) {
+                    firstInput.focus();
+                }
+
+                // Reset button state
+                editBtn.innerHTML = originalText;
+                editBtn.disabled = false;
+            }, 500);
+        }
+
+        // Form submission handler
+        document.getElementById('profileForm').addEventListener('submit', async function (e) {
+            e.preventDefault();
+
+            // Validate rider vehicle information if user is a rider
+            const userType = '{{ session.get("user_type", "") | lower }}';
+            if (userType === 'rider') {
+                const vehicleType = document.getElementById('vehicleType').value;
+                const vehicleModel = document.getElementById('vehicleModel').value;
+                const vehiclePlateNumber = document.getElementById('vehiclePlateNumber').value;
+                const vehicleYearModel = document.getElementById('vehicleYearModel').value;
+
+                // Basic validation for rider fields
+                if (vehicleType && !vehicleModel.trim()) {
+                    showNotification('Please enter your vehicle model.', 'error');
+                    document.getElementById('vehicleModel').focus();
+                    return;
+                }
+
+                if (vehicleType && !vehiclePlateNumber.trim()) {
+                    showNotification('Please enter your vehicle plate number.', 'error');
+                    document.getElementById('vehiclePlateNumber').focus();
+                    return;
+                }
+
+                if (vehicleType && (!vehicleYearModel || vehicleYearModel < 1990 || vehicleYearModel > 2025)) {
+                    showNotification('Please enter a valid year model (1990-2025).', 'error');
+                    document.getElementById('vehicleYearModel').focus();
+                    return;
+                }
+
+                // Validate plate number format (basic validation)
+                if (vehiclePlateNumber && vehiclePlateNumber.length < 3) {
+                    showNotification('Please enter a valid plate number.', 'error');
+                    document.getElementById('vehiclePlateNumber').focus();
+                    return;
+                }
+            }
+
+            const updateBtn = document.getElementById('updateButton');
+            const originalText = updateBtn.innerHTML;
+            updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            updateBtn.disabled = true;
+
+            try {
+                // Get form data
+                const formData = new FormData(this);
+
+                // Send data to server
+                const response = await fetch('/profile', {
+                    method: 'POST',
+                    body: formData,
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                let result;
+                const contentType = response.headers.get('content-type');
+
+                if (contentType && contentType.includes('application/json')) {
+                    result = await response.json();
+                } else {
+                    // Handle non-JSON response (likely a redirect or HTML)
+                    const text = await response.text();
+                    if (response.ok) {
+                        result = { success: true, message: 'Profile updated successfully!' };
+                    } else {
+                        result = { success: false, message: 'Failed to update profile' };
+                    }
+                }
+
+                if (result.success) {
+                    // Disable all inputs and selects
+                    const inputs = document.querySelectorAll('.editable');
+                    inputs.forEach(function (input) {
+                        input.disabled = true;
+                        input.classList.remove('editing');
+                    });
+
+                    // Show success message
+                    showNotification('Profile updated successfully!', 'success');
+
+                    // Reset buttons
+                    updateBtn.classList.add('hidden');
+                    document.getElementById('editButton').classList.remove('hidden');
+                } else {
+                    showNotification('Failed to update profile: ' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('An error occurred while updating your profile.', 'error');
+            } finally {
+                // Reset button state
+                updateBtn.innerHTML = originalText;
+                updateBtn.disabled = false;
+            }
+        });
+
+        function showNotification(message, type = 'success') {
+            const notification = document.createElement('div');
+            notification.className = `notification ${type}`;
+            notification.innerHTML = `
+                <i class="fas fa-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i>
+                <span>${message}</span>
+            `;
+
+            document.body.appendChild(notification);
+
+            // Trigger animation
+            setTimeout(() => {
+                notification.classList.add('show');
+            }, 10);
+
+            // Remove notification after delay
+            setTimeout(() => {
+                notification.classList.remove('show');
+                setTimeout(() => {
+                    notification.remove();
+                }, 300);
+            }, 3000);
+        }
+
+        // Remove the toggle functionality since the form is always visible now
+        document.getElementById('cancelPasswordChange')?.remove();
+        document.getElementById('togglePasswordForm')?.parentElement.remove();
+
+        // Update the password change handler to clear the form on success
+        const updatePasswordHandler = async () => {
+            const oldPassword = document.getElementById('old_password').value;
+            const newPassword = document.getElementById('new_password').value;
+            const confirmPassword = document.getElementById('confirm_password').value;
+
+            if (!oldPassword || !newPassword || !confirmPassword) {
+                showNotification('Please fill in all password fields.', 'error');
+                return;
+            }
+
+            if (newPassword !== confirmPassword) {
+                showNotification('New password and confirm password do not match.', 'error');
+                return;
+            }
+
+            const updateBtn = document.getElementById('updatePasswordButton');
+            const originalText = updateBtn.innerHTML;
+            updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+            updateBtn.disabled = true;
+
+            try {
+                const response = await fetch('/change-password', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        'old_password': oldPassword,
+                        'new_password': newPassword,
+                        'confirm_password': confirmPassword
+                    })
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Password updated successfully!', 'success');
+                    // Clear the form
+                    document.getElementById('old_password').value = '';
+                    document.getElementById('new_password').value = '';
+                    document.getElementById('confirm_password').value = '';
+                } else {
+                    showNotification(result.message || 'Failed to update password.', 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('An error occurred while updating your password.', 'error');
+            } finally {
+                updateBtn.innerHTML = originalText;
+                updateBtn.disabled = false;
+            }
+        };
+
+        // Update the event listener
+        document.getElementById('updatePasswordButton').addEventListener('click', updatePasswordHandler);
+
+        // Profile picture upload functionality
+        const profileAvatar = document.querySelector('.profile-avatar');
+        const profilePictureInput = document.getElementById('profilePictureInput');
+        const profileImage = document.getElementById('profileImage');
+        const defaultAvatar = document.getElementById('defaultAvatar');
+
+        // Click on avatar to upload picture
+        profileAvatar.addEventListener('click', function () {
+            profilePictureInput.click();
+        });
+
+        // Handle file selection
+        profilePictureInput.addEventListener('change', function (e) {
+            const file = e.target.files[0];
+            if (file) {
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    showNotification('Please select a valid image file.', 'error');
+                    return;
+                }
+
+                // Validate file size (max 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    showNotification('File size must be less than 5MB.', 'error');
+                    return;
+                }
+
+                // Preview image
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    if (profileImage) {
+                        profileImage.src = e.target.result;
+                    } else {
+                        // Create new image element if it doesn't exist
+                        const newImg = document.createElement('img');
+                        newImg.src = e.target.result;
+                        newImg.alt = 'Profile Picture';
+                        newImg.id = 'profileImage';
+
+                        // Hide default avatar and show image
+                        if (defaultAvatar) {
+                            defaultAvatar.style.display = 'none';
+                        }
+                        profileAvatar.insertBefore(newImg, profileAvatar.firstChild);
+                    }
+                };
+                reader.readAsDataURL(file);
+
+                // Upload file
+                uploadProfilePicture(file);
+            }
+        });
+
+        // Upload profile picture function
+        async function uploadProfilePicture(file) {
+            const formData = new FormData();
+            formData.append('profile_picture', file);
+
+            try {
+                const response = await fetch('/upload-profile-picture', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+
+                if (result.success) {
+                    showNotification('Profile picture updated successfully!', 'success');
+                } else {
+                    showNotification('Failed to update profile picture: ' + result.message, 'error');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                showNotification('An error occurred while uploading your profile picture.', 'error');
+            }
+        }
+    </script>
+</body>
+
+</html>

@@ -1,0 +1,55 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.env
+*.env
+venv/
+env/
+.venv/
+
+# Flask
+instance/
+*.sqlite3
+*.db
+
+# Secrets / credentials
+*.key
+*.pem
+secrets.py
+config_local.py
+
+# Flutter / Dart
+mstyle_mobile/build/
+mstyle_mobile/.dart_tool/
+mstyle_mobile/.flutter-plugins
+mstyle_mobile/.flutter-plugins-dependencies
+mstyle_mobile/.packages
+mstyle_mobile/pubspec.lock
+mstyle_mobile/android/.gradle/
+mstyle_mobile/android/local.properties
+mstyle_mobile/android/app/debug/
+mstyle_mobile/android/app/release/
+mstyle_mobile/android/app/profile/
+mstyle_mobile/ios/Pods/
+mstyle_mobile/ios/.symlinks/
+mstyle_mobile/ios/Flutter/ephemeral/
+mstyle_mobile/ios/Flutter/Generated.xcconfig
+mstyle_mobile/ios/Flutter/flutter_export_environment.sh
+
+# VS Code
+.vscode/settings.json
+.vscode/launch.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Uploaded images (large binary files)
+mstyle_website/static/images/uploads/

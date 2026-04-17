@@ -1,0 +1,591 @@
+{% extends "admin_header.html" %}
+
+{% block content %}
+<div class="admin-dashboard-content">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="dashboard-avatar">
+            <i class="fas fa-clipboard-check"></i>
+        </div>
+        <h1> Order Monitoring</h1>
+        <p>View and manage all orders from buyers and sellers on the platform</p>
+    </div>
+
+    <div class="dashboard-container">
+        <!-- Stats Summary -->
+        <div class="stats-summary">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-shopping-cart"></i>
+                </div>
+                <div class="stat-value">{{ stats.total_orders }}</div>
+                <div class="stat-label">Total Orders</div>
+            </div>
+            <div class="stat-card stat-card-warning">
+                <div class="stat-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-value">{{ stats.pending_orders }}</div>
+                <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat-card stat-card-info">
+                <div class="stat-icon">
+                    <i class="fas fa-shipping-fast"></i>
+                </div>
+                <div class="stat-value">{{ stats.shipped_orders }}</div>
+                <div class="stat-label">Shipped</div>
+            </div>
+            <div class="stat-card stat-card-delivered">
+                <div class="stat-icon">
+                    <i class="fas fa-truck"></i>
+                </div>
+                <div class="stat-value">{{ stats.delivered_orders }}</div>
+                <div class="stat-label">Delivered</div>
+            </div>
+            <div class="stat-card stat-card-success">
+                <div class="stat-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-value">{{ stats.completed_orders }}</div>
+                <div class="stat-label">Completed</div>
+            </div>
+            <div class="stat-card stat-card-danger">
+                <div class="stat-icon">
+                    <i class="fas fa-times-circle"></i>
+                </div>
+                <div class="stat-value">{{ stats.cancelled_orders }}</div>
+                <div class="stat-label">Cancelled</div>
+            </div>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <form method="GET" action="{{ url_for('order_monitoring') }}" class="filter-form" id="orderFilterForm">
+                    <div class="filter-row">
+                        <!-- Left Side: Search -->
+                        <div class="filter-left">
+                            <div class="filter-group search-group">
+                                <label class="filter-label">
+                                    <i class="fas fa-search"></i> Search
+                                </label>
+                                <input type="text" name="search" id="searchInput" 
+                                       placeholder="Search by Order ID, Buyer, or Seller..." 
+                                       value="{{ request.args.get('search', '') }}" 
+                                       class="search-input">
+                            </div>
+                        </div>
+                        
+                        <!-- Right Side: Filters and Actions -->
+                        <div class="filter-right">
+                            <div class="filter-group">
+                                <label class="filter-label">
+                                    <i class="fas fa-info-circle"></i> Order Status
+                                </label>
+                                <select name="status" id="statusFilter" class="filter-select">
+                                    <option value="">All Statuses</option>
+                                    <option value="pending" {% if request.args.get('status') == 'pending' %}selected{% endif %}>Pending</option>
+                                    <option value="confirmed" {% if request.args.get('status') == 'confirmed' %}selected{% endif %}>Confirmed</option>
+                                    <option value="for pickup" {% if request.args.get('status') == 'for pickup' %}selected{% endif %}>For Pickup</option>
+                                    <option value="heading to seller" {% if request.args.get('status') == 'heading to seller' %}selected{% endif %}>Heading to Seller</option>
+                                    <option value="shipped" {% if request.args.get('status') == 'shipped' %}selected{% endif %}>Shipped</option>
+                                    <option value="delivered" {% if request.args.get('status') == 'delivered' %}selected{% endif %}>Delivered</option>
+                                    <option value="completed" {% if request.args.get('status') == 'completed' %}selected{% endif %}>Completed</option>
+                                    <option value="cancelled" {% if request.args.get('status') == 'cancelled' or request.args.get('status') == 'rejected' %}selected{% endif %}>Cancelled</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label class="filter-label">
+                                    <i class="fas fa-calendar"></i> Date From
+                                </label>
+                                <input type="date" name="date_from" id="dateFrom" class="filter-select" value="{{ request.args.get('date_from', '') }}">
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label class="filter-label">
+                                    <i class="fas fa-calendar"></i> Date To
+                                </label>
+                                <input type="date" name="date_to" id="dateTo" class="filter-select" value="{{ request.args.get('date_to', '') }}">
+                            </div>
+                            
+                            <div class="filter-group filter-actions">
+                                <label class="filter-label">&nbsp;</label>
+                                {% if request.args.get('search') or request.args.get('status') or request.args.get('date_from') or request.args.get('date_to') %}
+                                <a href="{{ url_for('order_monitoring') }}" class="btn-clear" title="Clear All Filters">
+                                    <i class="fas fa-times"></i> Clear
+                                </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="table-section">
+            <!-- Orders Table -->
+            <div class="table-container">
+                <table class="products-table">
+                    <thead>
+                        <tr>
+                            <th><i class="fas fa-list-ol"></i> No.</th>
+                            <th><i class="fas fa-hashtag"></i> Order ID</th>
+                            <th><i class="fas fa-calendar"></i> Order Date</th>
+                            <th><i class="fas fa-user"></i> Buyer Name</th>
+                            <th><i class="fas fa-store"></i> Seller Name</th>
+                            <th><i class="fas fa-peso-sign"></i> Total Amount</th>
+                            <th><i class="fas fa-credit-card"></i> Payment Method</th>
+                            <th><i class="fas fa-info-circle"></i> Order Status</th>
+                            <th><i class="fas fa-check-circle"></i> Completion Date</th>
+                            <th><i class="fas fa-motorcycle"></i> Assigned Rider</th>
+                            <th><i class="fas fa-cogs"></i> Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% if orders %}
+                        {% for order in orders %}
+                        <tr class="product-row">
+                            <td class="sequence-number">
+                                <span class="sequence-badge">{{ loop.index + ((current_page - 1) * 20) }}</span>
+                            </td>
+                            <td class="sequence-number">
+                                <span class="sequence-badge">#{{ order.order_id }}</span>
+                            </td>
+                            <td class="product-date">
+                                {% if order.order_date %}
+                                <div class="date-info">
+                                    <span class="date">{{ order.order_date.strftime('%b %d, %Y') }}</span>
+                                    <span class="time">{{ order.order_date.strftime('%I:%M %p') }}</span>
+                                </div>
+                                {% else %}
+                                <span class="no-date">N/A</span>
+                                {% endif %}
+                            </td>
+                            <td class="product-name">
+                                <span class="name">{{ order.buyer_name }}</span>
+                            </td>
+                            <td class="product-seller">
+                                <span class="seller-name">{{ order.seller_name }}</span>
+                            </td>
+                            <td class="product-price">₱{{ "%.2f"|format(order.total_amount) }}</td>
+                            <td class="product-category">
+                                <span class="category-badge">
+                                    {% if order.payment_method == 'cod' %}
+                                        Cash on Delivery
+                                    {% elif order.payment_method == 'gcash' %}
+                                        GCash
+                                    {% elif order.payment_method == 'card' %}
+                                        Card
+                                    {% else %}
+                                        {{ order.payment_method }}
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td>
+                                <span class="stock-badge 
+                                    {% if order.received_at or order.auto_complete_at %}status-completed
+                                    {% elif order.order_status|lower in ['rejected', 'cancelled'] %}status-cancelled
+                                    {% elif order.order_status|lower == 'pending' %}status-pending
+                                    {% elif order.order_status|lower == 'confirmed' %}status-confirmed
+                                    {% elif order.order_status|lower == 'for pickup' %}status-for-pickup
+                                    {% elif order.order_status|lower == 'heading to seller' %}status-heading
+                                    {% elif order.order_status|lower == 'shipped' %}status-shipped
+                                    {% elif order.order_status|lower == 'delivered' %}status-delivered
+                                    {% else %}low-stock
+                                    {% endif %}">
+                                    {% if order.received_at or order.auto_complete_at %}
+                                        Completed
+                                    {% elif order.order_status|lower in ['rejected', 'cancelled'] %}
+                                        Cancelled
+                                    {% else %}
+                                        {{ order.order_status|title }}
+                                    {% endif %}
+                                </span>
+                            </td>
+                            <td class="product-date">
+                                {% if order.received_at %}
+                                <div class="date-info">
+                                    <span class="date">{{ order.received_at.strftime('%b %d, %Y') }}</span>
+                                    <span class="time">{{ order.received_at.strftime('%I:%M %p') }}</span>
+                                </div>
+                                {% elif order.auto_complete_at %}
+                                <div class="date-info">
+                                    <span class="date">{{ order.auto_complete_at.strftime('%b %d, %Y') }}</span>
+                                    <span class="time">{{ order.auto_complete_at.strftime('%I:%M %p') }}</span>
+                                    {% if order.is_auto_completed %}
+                                    <span class="category-badge" style="font-size: 0.7rem; margin-top: 2px;">Auto</span>
+                                    {% endif %}
+                                </div>
+                                {% elif order.delivered_at %}
+                                <div class="date-info">
+                                    <span class="date">{{ order.delivered_at.strftime('%b %d, %Y') }}</span>
+                                    <span class="time">{{ order.delivered_at.strftime('%I:%M %p') }}</span>
+                                </div>
+                                {% else %}
+                                <span class="no-date">Not Completed</span>
+                                {% endif %}
+                            </td>
+                            <td>
+                                {% if order.rider_name %}
+                                    <span class="seller-name"><i class="fas fa-motorcycle me-1"></i>{{ order.rider_name }}</span>
+                                {% else %}
+                                    <span class="no-date">Not Assigned</span>
+                                {% endif %}
+                            </td>
+                            <td class="product-actions">
+                                <div class="action-buttons">
+                                    <button class="action-btn view-btn" 
+                                            onclick="viewOrderDetails({{ order.order_id }})"
+                                            title="View Details">
+                                        <i class="fas fa-eye"></i>
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                        {% else %}
+                        <tr>
+                            <td colspan="11">
+                                <div class="empty-state">
+                                    <div class="empty-icon"><i class="fas fa-clipboard-list"></i></div>
+                                    <h3>No Orders Found</h3>
+                                    <p>
+                                        {% if request.args.get('search') or request.args.get('status') or request.args.get('payment_method') or request.args.get('date_from') or request.args.get('date_to') %}
+                                        No orders match your search criteria.
+                                        {% else %}
+                                        No orders have been placed yet.
+                                        {% endif %}
+                                    </p>
+                                    {% if request.args.get('search') or request.args.get('status') or request.args.get('payment_method') or request.args.get('date_from') or request.args.get('date_to') %}
+                                    <a href="{{ url_for('order_monitoring') }}" class="btn btn-primary">
+                                        <i class="fas fa-arrow-left"></i> Show All Orders
+                                    </a>
+                                    {% endif %}
+                                </div>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+            {% if total_pages > 1 %}
+            <div class="pagination-container">
+                <div class="pagination-info">
+                    Showing {{ ((current_page - 1) * 20) + 1 }} to {{ [current_page * 20, orders|length]|min }} of {{ orders|length }} orders
+                </div>
+                <div class="pagination">
+                    {% if prev_page %}
+                    <a href="?page={{ prev_page }}{% if request.args.get('search') %}&search={{ request.args.get('search') }}{% endif %}{% if request.args.get('status') %}&status={{ request.args.get('status') }}{% endif %}{% if request.args.get('payment_method') %}&payment_method={{ request.args.get('payment_method') }}{% endif %}{% if request.args.get('date_from') %}&date_from={{ request.args.get('date_from') }}{% endif %}{% if request.args.get('date_to') %}&date_to={{ request.args.get('date_to') }}{% endif %}" class="pagination-btn">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </a>
+                    {% else %}
+                    <span class="pagination-btn disabled">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </span>
+                    {% endif %}
+                    
+                    <div class="pagination-numbers">
+                        {% for p in range(1, total_pages + 1) %}
+                            {% if p == current_page %}
+                                <span class="pagination-number active">{{ p }}</span>
+                            {% elif p == 1 or p == total_pages or (p >= current_page - 2 and p <= current_page + 2) %}
+                                <a href="?page={{ p }}{% if request.args.get('search') %}&search={{ request.args.get('search') }}{% endif %}{% if request.args.get('status') %}&status={{ request.args.get('status') }}{% endif %}{% if request.args.get('payment_method') %}&payment_method={{ request.args.get('payment_method') }}{% endif %}{% if request.args.get('date_from') %}&date_from={{ request.args.get('date_from') }}{% endif %}{% if request.args.get('date_to') %}&date_to={{ request.args.get('date_to') }}{% endif %}" class="pagination-number">{{ p }}</a>
+                            {% elif p == current_page - 3 or p == current_page + 3 %}
+                                <span class="pagination-ellipsis">...</span>
+                            {% endif %}
+                        {% endfor %}
+                    </div>
+                    
+                    {% if next_page %}
+                    <a href="?page={{ next_page }}{% if request.args.get('search') %}&search={{ request.args.get('search') }}{% endif %}{% if request.args.get('status') %}&status={{ request.args.get('status') }}{% endif %}{% if request.args.get('payment_method') %}&payment_method={{ request.args.get('payment_method') }}{% endif %}{% if request.args.get('date_from') %}&date_from={{ request.args.get('date_from') }}{% endif %}{% if request.args.get('date_to') %}&date_to={{ request.args.get('date_to') }}{% endif %}" class="pagination-btn">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </a>
+                    {% else %}
+                    <span class="pagination-btn disabled">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Order Details Modal -->
+<div id="orderDetailsModal" class="product-modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2><i class="fas fa-clipboard-list"></i> Order Details</h2>
+            <button class="modal-close" onclick="closeOrderModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="modal-body" id="orderDetailsContent">
+            <!-- Order details will be loaded here -->
+        </div>
+    </div>
+</div>
+
+<script>
+    function viewOrderDetails(orderId) {
+        fetch(`/admin/order/${orderId}/details`)
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+                
+                // Format dates
+                const orderDate = data.order_date ? new Date(data.order_date).toLocaleString() : 'N/A';
+                const deliveredAt = data.delivered_at ? new Date(data.delivered_at).toLocaleString() : null;
+                const receivedAt = data.received_at ? new Date(data.received_at).toLocaleString() : null;
+                const autoCompleteAt = data.auto_complete_at ? new Date(data.auto_complete_at).toLocaleString() : null;
+                
+                // Debug logging
+                console.log('Order data:', data);
+                console.log('Delivered at:', deliveredAt);
+                console.log('Received at:', receivedAt);
+                console.log('Auto complete at:', autoCompleteAt);
+                console.log('Status:', data.status);
+                
+                // Determine completion date based on available data
+                let completionDate = null;
+                let completionLabel = '';
+                
+                // Priority: received_at > auto_complete_at > delivered_at
+                if (receivedAt) {
+                    completionDate = receivedAt;
+                    completionLabel = 'Received Date';
+                } else if (autoCompleteAt) {
+                    completionDate = autoCompleteAt;
+                    completionLabel = 'Auto-Completed Date';
+                } else if (deliveredAt) {
+                    completionDate = deliveredAt;
+                    completionLabel = 'Delivered Date';
+                }
+                
+                console.log('Completion date:', completionDate);
+                console.log('Completion label:', completionLabel);
+                
+                document.getElementById('orderDetailsContent').innerHTML = `
+                    <div class="modal-product-header">
+                        <div class="modal-product-title">
+                            <h2>Order #${data.order_id}</h2>
+                        </div>
+                    </div>
+                    
+                    <!-- Order Information Section -->
+                    <div class="info-section">
+                        <h3 class="section-title"><i class="fas fa-clipboard-list"></i> Order Information</h3>
+                        <div class="modal-product-details">
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-calendar"></i> Order Date:</span>
+                                <span class="detail-value">${orderDate}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-info-circle"></i> Status:</span>
+                                <span class="detail-value"><span class="stock-badge ${
+                                    data.status && data.status.toLowerCase() === 'pending' ? 'status-pending' :
+                                    data.status && data.status.toLowerCase() === 'confirmed' ? 'status-confirmed' :
+                                    data.status && data.status.toLowerCase() === 'for pickup' ? 'status-for-pickup' :
+                                    data.status && data.status.toLowerCase() === 'heading to seller' ? 'status-heading' :
+                                    data.status && data.status.toLowerCase() === 'shipped' ? 'status-shipped' :
+                                    data.status && data.status.toLowerCase() === 'delivered' ? 'status-delivered' :
+                                    (data.status && (data.status.toLowerCase() === 'rejected' || data.status.toLowerCase() === 'cancelled')) ? 'status-cancelled' : 'low-stock'
+                                }">${(data.status && (data.status.toLowerCase() === 'rejected' || data.status.toLowerCase() === 'cancelled')) ? 'Cancelled' : (data.status ? data.status.split(' ').map(word => word.charAt(0).toUpperCase() + word.slice(1)).join(' ') : 'N/A')}</span></span>
+                            </div>
+                            ${deliveredAt ? `
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-shipping-fast"></i> Delivered Date:</span>
+                                <span class="detail-value">${deliveredAt}</span>
+                            </div>
+                            ` : ''}
+                            ${receivedAt ? `
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-check-circle"></i> Received Date:</span>
+                                <span class="detail-value">${receivedAt}</span>
+                            </div>
+                            ` : ''}
+                            ${autoCompleteAt ? `
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-clock"></i> Auto-Completed Date:</span>
+                                <span class="detail-value">${autoCompleteAt}</span>
+                            </div>
+                            ` : ''}
+                            ${data.is_auto_completed ? `
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-robot"></i> Completion Type:</span>
+                                <span class="detail-value"><span class="category-badge">Auto-Completed</span></span>
+                            </div>
+                            ` : ''}
+                        </div>
+                    </div>
+                    
+                    <!-- Buyer Information Section -->
+                    <div class="info-section">
+                        <h3 class="section-title"><i class="fas fa-user"></i> Buyer Information</h3>
+                        <div class="modal-product-details">
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-user-circle"></i> Name:</span>
+                                <span class="detail-value">${data.buyer_name || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-envelope"></i> Email:</span>
+                                <span class="detail-value">${data.buyer_email || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-phone"></i> Phone:</span>
+                                <span class="detail-value">${data.buyer_phone || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Seller Information Section -->
+                    <div class="info-section">
+                        <h3 class="section-title"><i class="fas fa-store"></i> Seller Information</h3>
+                        <div class="modal-product-details">
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-store-alt"></i> Name:</span>
+                                <span class="detail-value">${data.seller_name || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-envelope"></i> Email:</span>
+                                <span class="detail-value">${data.seller_email || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-phone"></i> Phone:</span>
+                                <span class="detail-value">${data.seller_phone || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Products Section -->
+                    <div class="info-section">
+                        <h3 class="section-title"><i class="fas fa-box"></i> Products</h3>
+                        <div class="table-responsive">
+                            <table class="products-table" style="font-size: 0.9rem;">
+                                <thead>
+                                    <tr>
+                                        <th>Product</th>
+                                        <th>Variations</th>
+                                        <th>Size</th>
+                                        <th>Quantity</th>
+                                        <th>Price</th>
+                                        <th>Subtotal</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    ${data.items && data.items.length > 0 ? data.items.map(item => `
+                                        <tr>
+                                            <td>${item.product_name || 'N/A'}</td>
+                                            <td>${item.variations || 'N/A'}</td>
+                                            <td>${item.size || 'N/A'}</td>
+                                            <td>${item.quantity || 0}</td>
+                                            <td>₱${item.price || '0.00'}</td>
+                                            <td>₱${item.subtotal || '0.00'}</td>
+                                        </tr>
+                                    `).join('') : '<tr><td colspan="6" style="text-align: center;">No items found</td></tr>'}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    
+                    <!-- Payment Information Section -->
+                    <div class="info-section">
+                        <h3 class="section-title"><i class="fas fa-credit-card"></i> Payment Information</h3>
+                        <div class="modal-product-details">
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-money-bill-wave"></i> Payment Method:</span>
+                                <span class="detail-value">${data.payment_method || 'N/A'}</span>
+                            </div>
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-peso-sign"></i> Total Amount:</span>
+                                <span class="detail-value price">₱${data.total_amount || '0.00'}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Delivery Information Section -->
+                    <div class="info-section">
+                        <h3 class="section-title"><i class="fas fa-truck"></i> Delivery Information</h3>
+                        <div class="modal-product-details">
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-motorcycle"></i> Assigned Rider:</span>
+                                <span class="detail-value">${data.rider_name || 'Not Assigned'}</span>
+                            </div>
+                            ${data.rider_name && data.rider_name !== 'Not Assigned' ? `
+                            <div class="detail-row">
+                                <span class="detail-label"><i class="fas fa-phone"></i> Rider Phone:</span>
+                                <span class="detail-value">${data.rider_phone || 'N/A'}</span>
+                            </div>
+                            ` : ''}
+                            <div class="detail-row full-width">
+                                <span class="detail-label"><i class="fas fa-map-marker-alt"></i> Delivery Address:</span>
+                                <span class="detail-value">${data.delivery_address || 'N/A'}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.getElementById('orderDetailsModal').style.display = 'block';
+            })
+            .catch(error => {
+                console.error('Error loading order details:', error);
+                alert('Error loading order details: ' + error.message);
+            });
+    }
+
+    function closeOrderModal() {
+        document.getElementById('orderDetailsModal').style.display = 'none';
+    }
+
+    // Close modal when clicking outside
+    window.onclick = function(event) {
+        const modal = document.getElementById('orderDetailsModal');
+        if (event.target === modal) {
+            closeOrderModal();
+        }
+    }
+
+    // Auto-submit filter form
+    let searchTimeout;
+    const orderFilterForm = document.getElementById('orderFilterForm');
+    const searchInput = document.getElementById('searchInput');
+    const statusFilter = document.getElementById('statusFilter');
+    const dateFrom = document.getElementById('dateFrom');
+    const dateTo = document.getElementById('dateTo');
+
+    // Auto-submit on search input with debounce (wait 500ms after user stops typing)
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => {
+            orderFilterForm.submit();
+        }, 500);
+    });
+
+    // Auto-submit on filter dropdown change
+    statusFilter.addEventListener('change', function() {
+        orderFilterForm.submit();
+    });
+    
+    // Auto-submit when date filters change
+    dateFrom.addEventListener('change', function() {
+        orderFilterForm.submit();
+    });
+    
+    dateTo.addEventListener('change', function() {
+        orderFilterForm.submit();
+    });
+</script>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='css/order_monitoring.css') }}">
+<style>
+.table-section { background: transparent; border: none; box-shadow: none; padding: 0; }
+</style>
+
+{% endblock %}

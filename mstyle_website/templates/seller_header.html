@@ -1,0 +1,1117 @@
+<header>
+    <div class="top-header">
+        <div class="logo-container">
+            <a href="/seller_dashboard">
+                {% if seller_profile_picture %}
+                <img src="{{ url_for('static', filename='images/uploads/' + seller_profile_picture) }}"
+                    alt="{{ seller_business_name }}" class="brand-logo seller-shop-logo">
+                {% else %}
+                <div class="seller-logo-placeholder">
+                    <i class="bi bi-shop"></i>
+                </div>
+                {% endif %}
+                <span class="brand-text seller-name">{{ seller_business_name or 'My Shop' }}</span>
+            </a>
+        </div>
+
+        <nav class="nav-menu">
+            <!-- Navigation moved to right-controls -->
+        </nav>
+
+        <div class="right-controls">
+            <!-- Messages Dropdown -->
+            <div class="messages-dropdown" id="messagesDropdown">
+                <button class="dropdown-btn messages-btn" onclick="toggleMessagesDropdown(event)">
+                    <i class="bi bi-chat-dots"></i>
+                    <span class="message-badge" id="messageBadge">0</span>
+                </button>
+                <div class="dropdown-content messages-content">
+                    <div class="dropdown-header">
+                        <h4>Messages</h4>
+                        <div class="header-actions">
+                            <button class="delete-all-btn" onclick="deleteAllConversations()"
+                                title="Delete all conversations">
+                                <i class="bi bi-trash"></i>
+                                Delete all
+                            </button>
+                        </div>
+                    </div>
+                    <div class="messages-list" id="messagesList">
+                        <div class="no-messages">
+                            <i class="bi bi-chat-slash"></i>
+                            <p>No new messages</p>
+                        </div>
+                    </div>
+                    <div class="dropdown-footer">
+                        <a href="#" onclick="openMessagesModal(event)" class="view-all-link">
+                            <i class="bi bi-envelope"></i>
+                            View all conversations
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Notifications Dropdown -->
+            <div class="notifications-dropdown" id="notificationsDropdown">
+                <button class="dropdown-btn notifications-btn" onclick="toggleNotificationsDropdown(event)">
+                    <i class="bi bi-bell"></i>
+                    <span class="notification-badge" id="notificationBadge">0</span>
+                </button>
+                <div class="dropdown-content notifications-content">
+                    <div class="dropdown-header">
+                        <h4>Notifications</h4>
+                        <div class="header-actions">
+                            <button class="mark-all-read" onclick="markAllAsRead()" title="Mark all as read">
+                                <i class="bi bi-check2-all"></i>
+                                Mark as read
+                            </button>
+                            <button class="delete-all-btn" onclick="deleteAllNotifications()"
+                                title="Delete all notifications">
+                                <i class="bi bi-trash"></i>
+                                Delete all
+                            </button>
+                        </div>
+                    </div>
+                    <div class="notifications-list" id="notificationsList">
+                        <div class="no-notifications">
+                            <i class="bi bi-bell-slash"></i>
+                            <p>No new notifications</p>
+                        </div>
+                    </div>
+                    <div class="dropdown-footer">
+                        <a href="{{ url_for('orders_list') }}" class="view-all-link">
+                            <i class="bi bi-list-check"></i>
+                            View all orders
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Profile Dropdown -->
+            <div class="profile-dropdown" id="profileDropdown">
+                <button class="dropdown-btn" onclick="toggleProfileDropdown(event)">
+                    <i class="bi bi-person-circle"></i>
+                    <span id="user-name">{{ user_email or 'Seller' }}</span>
+                    <i class="bi bi-chevron-down dropdown-arrow"></i>
+                </button>
+                <div class="dropdown-content">
+                    <a href="{{ url_for('profile') }}">
+                        <i class="bi bi-person"></i>
+                        <span>My Profile</span>
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a href="{{ url_for('seller_dashboard') }}"
+                        class="{% if request.endpoint=='seller_dashboard' %}active{% endif %}">
+                        <i class="bi bi-speedometer2"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="{{ url_for('products') }}" class="{% if request.endpoint=='products' %}active{% endif %}">
+                        <i class="bi bi-box-seam"></i>
+                        <span>Products</span>
+                    </a>
+                    <a href="{{ url_for('orders_list') }}"
+                        class="{% if request.endpoint=='orders_list' %}active{% endif %}">
+                        <i class="bi bi-list-check"></i>
+                        <span>Order Lists</span>
+                    </a>
+                    <a href="{{ url_for('seller_order_history') }}"
+                        class="{% if request.endpoint=='seller_order_history' %}active{% endif %}">
+                        <i class="bi bi-clock-history"></i>
+                        <span>Order History</span>
+                    </a>
+                    <a href="{{ url_for('promotions') }}"
+                        class="{% if request.endpoint=='promotions' %}active{% endif %}">
+                        <i class="bi bi-megaphone"></i>
+                        <span>Promotions</span>
+                    </a>
+                    <a href="{{ url_for('seller_reviews') }}"
+                        class="{% if request.endpoint=='seller_reviews' %}active{% endif %}">
+                        <i class="bi bi-star-fill"></i>
+                        <span>Reviews & Ratings</span>
+                    </a>
+                    <a href="{{ url_for('reports_analytics') }}"
+                        class="{% if request.endpoint=='reports_analytics' %}active{% endif %}">
+                        <i class="bi bi-graph-up"></i>
+                        <span>Reports & 
+                            Analytics</span>
+                    </a>
+                    <div class="dropdown-divider"></div>
+                    <a href="#" onclick="confirmLogout()">
+                        <i class="bi bi-box-arrow-right"></i>
+                        <span>Logout</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</header>
+
+<script>
+    function toggleProfileDropdown(event) {
+        event.stopPropagation();
+        const dropdown = document.getElementById('profileDropdown');
+        const notificationsDropdown = document.getElementById('notificationsDropdown');
+
+        // Close notifications dropdown if open
+        notificationsDropdown.classList.remove('active');
+
+        dropdown.classList.toggle('active');
+    }
+
+    function toggleMessagesDropdown(event) {
+        event.stopPropagation();
+        const dropdown = document.getElementById('messagesDropdown');
+        const notificationsDropdown = document.getElementById('notificationsDropdown');
+        const profileDropdown = document.getElementById('profileDropdown');
+
+        // Close other dropdowns if open
+        notificationsDropdown.classList.remove('active');
+        profileDropdown.classList.remove('active');
+
+        dropdown.classList.toggle('active');
+
+        // Load messages when opened
+        if (dropdown.classList.contains('active')) {
+            loadSellerMessages();
+        }
+    }
+
+    function toggleNotificationsDropdown(event) {
+        event.stopPropagation();
+        const dropdown = document.getElementById('notificationsDropdown');
+        const messagesDropdown = document.getElementById('messagesDropdown');
+        const profileDropdown = document.getElementById('profileDropdown');
+
+        // Close other dropdowns if open
+        messagesDropdown.classList.remove('active');
+        profileDropdown.classList.remove('active');
+
+        dropdown.classList.toggle('active');
+
+        // Load notifications when opened
+        if (dropdown.classList.contains('active')) {
+            loadNotifications();
+        }
+    }
+
+    function loadNotifications() {
+        console.log('🔔 Loading notifications...');
+        fetch('/api/seller/notifications')
+            .then(response => {
+                console.log('📡 Response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('📋 Notifications data received:', data);
+                const notificationsList = document.getElementById('notificationsList');
+                const notificationBadge = document.getElementById('notificationBadge');
+
+                if (data.success && data.notifications && data.notifications.length > 0) {
+                    console.log(`✅ Found ${data.notifications.length} notifications`);
+
+                    // Update badge count
+                    const unreadCount = data.notifications.filter(n => !n.read).length;
+                    console.log(`🔢 Unread count: ${unreadCount}`);
+
+                    notificationBadge.textContent = unreadCount;
+                    notificationBadge.style.display = unreadCount > 0 ? 'block' : 'none';
+
+                    // Populate notifications
+                    notificationsList.innerHTML = '';
+                    data.notifications.forEach((notification, index) => {
+                        console.log(`📝 Processing notification ${index + 1}:`, notification);
+                        const notificationItem = createNotificationItem(notification);
+                        notificationsList.appendChild(notificationItem);
+                    });
+
+                    console.log('✅ Notifications displayed successfully');
+                } else {
+                    console.log('ℹ️ No notifications found or API error');
+                    if (!data.success) {
+                        console.error('❌ API Error:', data.error);
+                    }
+
+                    // No notifications
+                    notificationBadge.textContent = '0';
+                    notificationBadge.style.display = 'none';
+                    notificationsList.innerHTML = `
+                        <div class="no-notifications">
+                            <i class="bi bi-bell-slash"></i>
+                            <p>No new notifications</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error loading notifications:', error);
+                const notificationsList = document.getElementById('notificationsList');
+                if (notificationsList) {
+                    notificationsList.innerHTML = `
+                        <div class="no-notifications">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <p>Error loading notifications</p>
+                        </div>
+                    `;
+                }
+            });
+    }
+
+    function createNotificationItem(notification) {
+        console.log('🎨 Creating notification item:', notification);
+
+        const item = document.createElement('div');
+        item.className = `notification-item ${notification.read ? '' : 'unread'}`;
+        item.setAttribute('data-type', notification.type || 'order');
+
+        const formattedTime = formatTime(notification.created_at);
+        console.log('⏰ Formatted time:', formattedTime);
+
+        // Determine notification type and set appropriate icon and title
+        let iconClass, title, iconColor;
+
+        switch (notification.type) {
+            case 'rider_assigned':
+                iconClass = 'bi bi-truck';
+                title = 'Rider Assigned';
+                iconColor = '#10b981'; // Green color for rider assigned
+                break;
+            case 'cancellation':
+                iconClass = 'bi bi-x-circle';
+                title = 'Order Cancelled';
+                iconColor = '#e74c3c'; // Red color for cancellations
+                break;
+            case 'review':
+                iconClass = 'bi bi-star-fill';
+                title = 'New Review';
+                iconColor = '#f59e0b'; // Orange color for reviews
+                break;
+            case 'product_activated':
+                iconClass = 'bi bi-check-circle';
+                title = 'Product Activated';
+                iconColor = '#28a745'; // Green color for activation
+                break;
+            case 'product_deactivated':
+                iconClass = 'bi bi-ban';
+                title = 'Product Deactivated';
+                iconColor = '#dc3545'; // Red color for deactivation
+                break;
+            case 'product_flagged':
+                iconClass = 'bi bi-flag';
+                title = 'Product Flagged for Policy Violation';
+                iconColor = '#ffc107'; // Warning yellow for flagged
+                break;
+            case 'low_stock':
+                iconClass = 'bi bi-exclamation-triangle';
+                title = 'Low Stock Alert';
+                iconColor = '#ff9800'; // Orange color for low stock warning
+                break;
+            case 'out_of_stock':
+                iconClass = 'bi bi-x-octagon';
+                title = 'Out of Stock';
+                iconColor = '#dc3545'; // Red color for out of stock
+                break;
+            case 'issue_update':
+                iconClass = 'bi bi-flag-fill';
+                title = 'Issue Report Update';
+                iconColor = '#e74c3c'; // Red color for issue updates
+                break;
+            case 'order':
+            default:
+                iconClass = 'bi bi-bag-check';
+                title = 'New Order Received';
+                iconColor = '#d4af37'; // Gold color for new orders
+                break;
+        }
+
+        item.innerHTML = `
+            <div class="notification-icon" style="background: linear-gradient(135deg, ${iconColor}, ${iconColor}dd);">
+                <i class="${iconClass}"></i>
+            </div>
+            <div class="notification-content">
+                <div class="notification-title">${title}</div>
+                <div class="notification-message">${notification.message || 'No message'}</div>
+                <div class="notification-time">${formattedTime}</div>
+            </div>
+            <div class="notification-actions">
+                <button class="delete-notification-btn" onclick="deleteNotification(${notification.id}, event)" title="Delete notification">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            ${!notification.read ? '<div class="unread-indicator"></div>' : ''}
+        `;
+
+        // Mark as read when clicked
+        item.addEventListener('click', (event) => {
+            console.log('🖱️ Notification clicked:', notification.id);
+
+            if (!notification.read) {
+                console.log('📝 Marking notification as read...');
+
+                // Prevent immediate redirect
+                event.preventDefault();
+
+                // Mark as read first, then redirect
+                markNotificationAsRead(notification.id, () => {
+                    // Redirect after marking as read
+                    window.location.href = '/orders_list';
+                });
+            } else {
+                // Already read, redirect immediately
+                window.location.href = '/orders_list';
+            }
+        });
+
+        return item;
+    }
+
+    function formatTime(timestamp) {
+        const date = new Date(timestamp);
+        const now = new Date();
+        const diffInMinutes = Math.floor((now - date) / (1000 * 60));
+
+        if (diffInMinutes < 1) return 'Just now';
+        if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+        if (diffInMinutes < 1440) return `${Math.floor(diffInMinutes / 60)}h ago`;
+        return `${Math.floor(diffInMinutes / 1440)}d ago`;
+    }
+
+    function markNotificationAsRead(notificationId, callback) {
+        console.log(`📝 Marking notification ${notificationId} as read...`);
+
+        fetch('/api/seller/notifications/mark-read', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ notification_id: notificationId })
+        })
+            .then(response => {
+                console.log('📡 Mark as read response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('📋 Mark as read response:', data);
+                if (data.success) {
+                    console.log('✅ Notification marked as read successfully');
+                    loadNotifications(); // Refresh notifications
+
+                    // Execute callback if provided
+                    if (callback && typeof callback === 'function') {
+                        callback();
+                    }
+                } else {
+                    console.error('❌ Failed to mark notification as read:', data.error);
+                    // Still execute callback even if marking failed
+                    if (callback && typeof callback === 'function') {
+                        callback();
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error marking notification as read:', error);
+                // Still execute callback even if there was an error
+                if (callback && typeof callback === 'function') {
+                    callback();
+                }
+            });
+    }
+
+    function markAllAsRead() {
+        console.log('📝 Marking all notifications as read...');
+        
+        // Get the button element for visual feedback
+        const markAllBtn = document.querySelector('.mark-all-read');
+        const originalHTML = markAllBtn ? markAllBtn.innerHTML : '';
+        
+        // Show loading state
+        if (markAllBtn) {
+            markAllBtn.disabled = true;
+            markAllBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Marking...';
+            markAllBtn.style.opacity = '0.6';
+        }
+        
+        fetch('/api/seller/notifications/mark-all-read', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                console.log('📡 Mark all as read response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('📋 Mark all as read response:', data);
+                if (data.success) {
+                    console.log(`✅ Successfully marked ${data.affected_rows || 'all'} notifications as read`);
+                    
+                    // Show success state briefly
+                    if (markAllBtn) {
+                        markAllBtn.innerHTML = '<i class="bi bi-check-circle"></i> Done!';
+                        setTimeout(() => {
+                            markAllBtn.innerHTML = originalHTML;
+                            markAllBtn.disabled = false;
+                            markAllBtn.style.opacity = '1';
+                        }, 1500);
+                    }
+                    
+                    // Refresh notifications
+                    loadNotifications();
+                    
+                    // Show success feedback
+                    if (data.affected_rows > 0) {
+                        console.log(`✅ ${data.affected_rows} notification(s) marked as read`);
+                    } else {
+                        console.log('ℹ️ No unread notifications to mark');
+                    }
+                } else {
+                    console.error('❌ Failed to mark all notifications as read:', data.error);
+                    alert(`Failed to mark notifications as read: ${data.error}`);
+                    
+                    // Restore button state
+                    if (markAllBtn) {
+                        markAllBtn.innerHTML = originalHTML;
+                        markAllBtn.disabled = false;
+                        markAllBtn.style.opacity = '1';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error marking all notifications as read:', error);
+                alert(`Error marking notifications as read: ${error.message}`);
+                
+                // Restore button state
+                if (markAllBtn) {
+                    markAllBtn.innerHTML = originalHTML;
+                    markAllBtn.disabled = false;
+                    markAllBtn.style.opacity = '1';
+                }
+            });
+    }
+
+    function deleteNotification(notificationId, event) {
+        // Prevent the notification click event from firing
+        event.stopPropagation();
+
+        console.log(`🗑️ Deleting notification: ${notificationId}`);
+
+        // Add visual feedback
+        const notificationItem = event.target.closest('.notification-item');
+        if (notificationItem) {
+            notificationItem.style.opacity = '0.5';
+            notificationItem.style.pointerEvents = 'none';
+        }
+
+        fetch('/api/seller/notifications/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ notification_id: notificationId })
+        })
+            .then(response => {
+                console.log('Delete response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Delete response data:', data);
+                if (data.success) {
+                    console.log(`✅ Notification ${notificationId} deleted successfully`);
+                    loadNotifications(); // Refresh notifications
+                } else {
+                    console.error('Failed to delete notification:', data.error);
+
+                    // Show specific error message based on error type
+                    let errorMessage = data.error;
+                    if (errorMessage.includes('email') || errorMessage.includes('log in')) {
+                        errorMessage += '\\n\\nPlease log in as a seller to delete notifications.';
+                    } else if (errorMessage.includes('User type')) {
+                        errorMessage += '\\n\\nYou must be logged in as a seller to delete notifications.';
+                    }
+
+                    alert(`Failed to delete notification: ${errorMessage}`);
+
+                    // Restore visual state on error
+                    if (notificationItem) {
+                        notificationItem.style.opacity = '1';
+                        notificationItem.style.pointerEvents = 'auto';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting notification:', error);
+                alert(`Error deleting notification: ${error.message}`);
+                // Restore visual state on error
+                if (notificationItem) {
+                    notificationItem.style.opacity = '1';
+                    notificationItem.style.pointerEvents = 'auto';
+                }
+            });
+    }
+
+    function deleteAllNotifications() {
+        // Show confirmation dialog
+        if (!confirm('Are you sure you want to delete all notifications? This action cannot be undone.')) {
+            return;
+        }
+
+        console.log('🗑️ Deleting all notifications...');
+
+        fetch('/api/seller/notifications/delete-all', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                console.log('Delete all response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Delete all response data:', data);
+                if (data.success) {
+                    console.log(`✅ ${data.deleted_count || 'All'} notifications deleted successfully`);
+                    loadNotifications(); // Refresh notifications
+                    alert(`Successfully deleted ${data.deleted_count || 'all'} notifications`);
+                } else {
+                    console.error('Failed to delete all notifications:', data.error);
+                    alert(`Failed to delete all notifications: ${data.error}`);
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting all notifications:', error);
+                alert(`Error deleting all notifications: ${error.message}`);
+            });
+    }
+
+    // Load seller messages
+    function loadSellerMessages() {
+        console.log('💬 Loading seller messages...');
+        fetch('/api/seller/messages')
+            .then(response => {
+                console.log('📡 Messages response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('📋 Messages data received:', data);
+                const messagesList = document.getElementById('messagesList');
+                const messageBadge = document.getElementById('messageBadge');
+
+                if (data.success && data.conversations && data.conversations.length > 0) {
+                    console.log(`✅ Found ${data.conversations.length} conversations`);
+
+                    // Update badge count (unread messages)
+                    const unreadCount = data.conversations.reduce((sum, conv) => sum + (conv.unread_count || 0), 0);
+                    console.log(`🔢 Unread messages count: ${unreadCount}`);
+
+                    messageBadge.textContent = unreadCount;
+                    messageBadge.style.display = unreadCount > 0 ? 'block' : 'none';
+
+                    // Populate messages
+                    messagesList.innerHTML = '';
+                    data.conversations.forEach((conversation, index) => {
+                        console.log(`📝 Processing conversation ${index + 1}:`, conversation);
+                        const messageItem = createMessageItem(conversation);
+                        messagesList.appendChild(messageItem);
+                    });
+
+                    console.log('✅ Messages displayed successfully');
+                } else {
+                    console.log('ℹ️ No messages found or API error');
+                    if (!data.success) {
+                        console.error('❌ API Error:', data.error);
+                    }
+
+                    // No messages
+                    messageBadge.textContent = '0';
+                    messageBadge.style.display = 'none';
+                    messagesList.innerHTML = `
+                        <div class="no-messages">
+                            <i class="bi bi-chat-slash"></i>
+                            <p>No new messages</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('❌ Error loading messages:', error);
+                const messagesList = document.getElementById('messagesList');
+                if (messagesList) {
+                    messagesList.innerHTML = `
+                        <div class="no-messages">
+                            <i class="bi bi-exclamation-triangle"></i>
+                            <p>Error loading messages</p>
+                        </div>
+                    `;
+                }
+            });
+    }
+
+    function createMessageItem(conversation) {
+        console.log('🎨 Creating message item:', conversation);
+
+        const item = document.createElement('div');
+        item.className = `message-item ${conversation.unread_count > 0 ? 'unread' : ''}`;
+
+        const formattedTime = formatTime(conversation.last_message_at);
+        
+        // Determine if it's a rider or buyer conversation
+        let contactName, contextInfo, avatarIcon, typeLabel;
+        if (conversation.conversation_type === 'rider') {
+            contactName = conversation.rider_name || 'Rider';
+            contextInfo = conversation.order_id ? `Order #${conversation.order_id}` : 'Delivery';
+            avatarIcon = 'bi-truck';
+            typeLabel = '<small style="color: #999;">(Rider)</small>';
+        } else {
+            contactName = conversation.buyer_name || 'Buyer';
+            contextInfo = conversation.product_name || 'General Inquiry';
+            avatarIcon = 'bi-person-circle';
+            typeLabel = '<small style="color: #999;">(Buyer)</small>';
+        }
+        
+        const lastMessage = conversation.last_message || 'No messages yet';
+
+        item.innerHTML = `
+            <div class="message-avatar">
+                <i class="${avatarIcon}"></i>
+            </div>
+            <div class="message-content">
+                <div class="message-header">
+                    <span class="buyer-name">${contactName} ${typeLabel}</span>
+                    <span class="message-time">${formattedTime}</span>
+                </div>
+                <div class="product-context">${contextInfo}</div>
+                <div class="message-preview">${lastMessage}</div>
+            </div>
+            <div class="message-actions">
+                <button class="delete-message-btn" onclick="deleteConversation('${conversation.conversation_id}', event)" title="Delete conversation">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            ${conversation.unread_count > 0 ? `<div class="unread-indicator"></div>` : ''}
+        `;
+
+        // Open conversation when clicked (but not when clicking delete button)
+        item.addEventListener('click', (event) => {
+            // Don't open if clicking on delete button
+            if (!event.target.closest('.delete-message-btn')) {
+                console.log('🖱️ Message clicked:', conversation);
+                openSellerChat(conversation);
+            }
+        });
+
+        return item;
+    }
+
+    function deleteConversation(conversationId, event) {
+        // Prevent the message click event from firing
+        event.stopPropagation();
+
+        console.log(`🗑️ Deleting conversation: ${conversationId}`);
+
+        if (!confirm('Are you sure you want to delete this conversation? This will delete all messages in this conversation.')) {
+            return;
+        }
+
+        // Add visual feedback
+        const messageItem = event.target.closest('.message-item');
+        if (messageItem) {
+            messageItem.style.opacity = '0.5';
+            messageItem.style.pointerEvents = 'none';
+        }
+
+        fetch('/api/seller/conversations/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ conversation_id: conversationId })
+        })
+            .then(response => {
+                console.log('Delete conversation response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Delete conversation response data:', data);
+                if (data.success) {
+                    console.log(`✅ Conversation ${conversationId} deleted successfully`);
+                    loadSellerMessages(); // Refresh messages
+                } else {
+                    console.error('Failed to delete conversation:', data.error);
+                    alert(`Failed to delete conversation: ${data.error}`);
+
+                    // Restore visual state on error
+                    if (messageItem) {
+                        messageItem.style.opacity = '1';
+                        messageItem.style.pointerEvents = 'auto';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting conversation:', error);
+                alert(`Error deleting conversation: ${error.message}`);
+                // Restore visual state on error
+                if (messageItem) {
+                    messageItem.style.opacity = '1';
+                    messageItem.style.pointerEvents = 'auto';
+                }
+            });
+    }
+
+    function deleteAllConversations() {
+        // Show confirmation dialog
+        if (!confirm('Are you sure you want to delete all conversations? This action cannot be undone.')) {
+            return;
+        }
+
+        console.log('🗑️ Deleting all conversations...');
+
+        // Get the button element for visual feedback
+        const deleteAllBtn = document.querySelector('.messages-dropdown .delete-all-btn');
+        const originalHTML = deleteAllBtn ? deleteAllBtn.innerHTML : '';
+        
+        // Show loading state
+        if (deleteAllBtn) {
+            deleteAllBtn.disabled = true;
+            deleteAllBtn.innerHTML = '<i class="bi bi-hourglass-split"></i> Deleting...';
+            deleteAllBtn.style.opacity = '0.6';
+        }
+
+        fetch('/api/seller/conversations/delete-all', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                console.log('Delete all conversations response status:', response.status);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Delete all conversations response data:', data);
+                if (data.success) {
+                    console.log(`✅ ${data.deleted_count || 'All'} conversations deleted successfully`);
+                    
+                    // Show success state briefly
+                    if (deleteAllBtn) {
+                        deleteAllBtn.innerHTML = '<i class="bi bi-check-circle"></i> Done!';
+                        setTimeout(() => {
+                            deleteAllBtn.innerHTML = originalHTML;
+                            deleteAllBtn.disabled = false;
+                            deleteAllBtn.style.opacity = '1';
+                        }, 1500);
+                    }
+                    
+                    loadSellerMessages(); // Refresh messages
+                    alert(`Successfully deleted ${data.deleted_count || 'all'} conversations`);
+                } else {
+                    console.error('Failed to delete all conversations:', data.error);
+                    alert(`Failed to delete all conversations: ${data.error}`);
+                    
+                    // Restore button state
+                    if (deleteAllBtn) {
+                        deleteAllBtn.innerHTML = originalHTML;
+                        deleteAllBtn.disabled = false;
+                        deleteAllBtn.style.opacity = '1';
+                    }
+                }
+            })
+            .catch(error => {
+                console.error('Error deleting all conversations:', error);
+                alert(`Error deleting all conversations: ${error.message}`);
+                
+                // Restore button state
+                if (deleteAllBtn) {
+                    deleteAllBtn.innerHTML = originalHTML;
+                    deleteAllBtn.disabled = false;
+                    deleteAllBtn.style.opacity = '1';
+                }
+            });
+    }
+
+    function openSellerChat(conversation) {
+        console.log('💬 Opening seller chat:', conversation);
+        // Use the messages modal instead of redirecting
+        openMessagesModal(null, conversation);
+    }
+
+    // Close dropdowns when clicking outside
+    document.addEventListener('click', function (event) {
+        const profileDropdown = document.getElementById('profileDropdown');
+        const notificationsDropdown = document.getElementById('notificationsDropdown');
+        const messagesDropdown = document.getElementById('messagesDropdown');
+
+        if (profileDropdown && !profileDropdown.contains(event.target)) {
+            profileDropdown.classList.remove('active');
+        }
+
+        if (notificationsDropdown && !notificationsDropdown.contains(event.target)) {
+            notificationsDropdown.classList.remove('active');
+        }
+
+        if (messagesDropdown && !messagesDropdown.contains(event.target)) {
+            messagesDropdown.classList.remove('active');
+        }
+    });
+
+    // Close dropdowns when pressing Escape key
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape') {
+            const profileDropdown = document.getElementById('profileDropdown');
+            const notificationsDropdown = document.getElementById('notificationsDropdown');
+
+            if (profileDropdown) {
+                profileDropdown.classList.remove('active');
+            }
+            if (notificationsDropdown) {
+                notificationsDropdown.classList.remove('active');
+            }
+        }
+    });
+
+    // Load notifications on page load
+    // Debug function - can be called from browser console
+    window.debugNotifications = function () {
+        console.log('🔍 Debug: Manually loading notifications...');
+        loadNotifications();
+    };
+
+    // Debug function to test notification creation
+    window.testNotification = function () {
+        console.log('🧪 Testing notification creation...');
+        fetch('/test-notifications')
+            .then(response => response.text())
+            .then(result => {
+                console.log('Test result:', result);
+                // Reload notifications after test
+                setTimeout(loadNotifications, 1000);
+            })
+            .catch(error => {
+                console.error('Test error:', error);
+            });
+    };
+
+    // Debug function to test cancellation notification creation
+    window.testCancellationNotification = function () {
+        console.log('🚫 Testing cancellation notification creation...');
+        fetch('/test-cancellation-notification')
+            .then(response => response.text())
+            .then(result => {
+                console.log('Cancellation test result:', result);
+                // Reload notifications after test
+                setTimeout(loadNotifications, 1000);
+            })
+            .catch(error => {
+                console.error('Cancellation test error:', error);
+            });
+    };
+
+    // Debug function to test with specific seller email (bypasses authentication)
+    window.testNotificationsForSeller = function (sellerEmail) {
+        console.log(`🧪 Testing notifications for seller: ${sellerEmail}`);
+        fetch(`/api/notifications-bypass/${sellerEmail}`)
+            .then(response => response.json())
+            .then(data => {
+                console.log('Bypass test result:', data);
+
+                // Manually populate the notifications dropdown with the results
+                const notificationsList = document.getElementById('notificationsList');
+                const notificationBadge = document.getElementById('notificationBadge');
+
+                if (data.success && data.notifications && data.notifications.length > 0) {
+                    console.log(`✅ Found ${data.notifications.length} notifications for ${sellerEmail}`);
+
+                    const unreadCount = data.notifications.filter(n => !n.read).length;
+                    notificationBadge.textContent = unreadCount;
+                    notificationBadge.style.display = unreadCount > 0 ? 'block' : 'none';
+
+                    notificationsList.innerHTML = '';
+                    data.notifications.forEach((notification, index) => {
+                        const notificationItem = createNotificationItem(notification);
+                        notificationsList.appendChild(notificationItem);
+                    });
+                } else {
+                    console.log('No notifications found for this seller');
+                    notificationsList.innerHTML = `
+                        <div class="no-notifications">
+                            <i class="bi bi-bell-slash"></i>
+                            <p>No notifications for ${sellerEmail}</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                console.error('Bypass test error:', error);
+            });
+    };
+
+    // Debug function to check session data
+    window.checkSession = function () {
+        console.log('🔍 Checking session data...');
+        fetch('/debug-session')
+            .then(response => response.text())
+            .then(result => {
+                console.log('Session data loaded - check browser for details');
+                // Open in new window to see formatted result
+                const newWindow = window.open('', '_blank');
+                newWindow.document.write(result);
+            })
+            .catch(error => {
+                console.error('Session check error:', error);
+            });
+    };
+
+    // Debug function to check authentication for notifications
+    window.checkAuth = function () {
+        console.log('🔐 Checking authentication for notifications...');
+        fetch('/debug-auth')
+            .then(response => response.text())
+            .then(result => {
+                console.log('Auth data loaded - check browser for details');
+                // Open in new window to see formatted result
+                const newWindow = window.open('', '_blank');
+                newWindow.document.write(result);
+            })
+            .catch(error => {
+                console.error('Auth check error:', error);
+            });
+    };
+
+    // Debug function to set test session
+    window.setTestSession = function () {
+        console.log('🧪 Setting test seller session...');
+        fetch('/set-test-session')
+            .then(response => response.text())
+            .then(result => {
+                console.log('Test session set - check browser for details');
+                // Open in new window to see formatted result
+                const newWindow = window.open('', '_blank');
+                newWindow.document.write(result);
+                // Reload notifications after setting session
+                setTimeout(loadNotifications, 1000);
+            })
+            .catch(error => {
+                console.error('Set test session error:', error);
+            });
+    };
+
+    // Debug function to test delete functionality
+    window.testDeleteNotifications = function () {
+        console.log('🗑️ Testing delete functionality...');
+
+        // First create some test notifications
+        Promise.all([
+            fetch('/test-notifications'),
+            fetch('/test-cancellation-notification')
+        ])
+            .then(() => {
+                console.log('Test notifications created, reloading...');
+                setTimeout(loadNotifications, 1000);
+            })
+            .catch(error => {
+                console.error('Error creating test notifications:', error);
+            });
+    };
+
+    // Debug function to test delete API directly
+    window.testDeleteAPI = function (notificationId) {
+        if (!notificationId) {
+            console.log('Usage: testDeleteAPI(notificationId)');
+            console.log('First run debugNotifications() to see available notification IDs');
+            return;
+        }
+
+        console.log(`🧪 Testing delete API for notification ID: ${notificationId}`);
+
+        fetch('/api/seller/notifications/delete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ notification_id: notificationId })
+        })
+            .then(response => {
+                console.log('Delete API response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Delete API response data:', data);
+                if (data.success) {
+                    console.log('✅ Delete API test successful');
+                    loadNotifications();
+                } else {
+                    console.error('❌ Delete API test failed:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Delete API test error:', error);
+            });
+    };
+
+    // Debug function to test delete all API
+    window.testDeleteAllAPI = function () {
+        console.log('🧪 Testing delete all API...');
+
+        fetch('/api/seller/notifications/delete-all', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+            .then(response => {
+                console.log('Delete all API response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Delete all API response data:', data);
+                if (data.success) {
+                    console.log(`✅ Delete all API test successful - deleted ${data.deleted_count} notifications`);
+                    loadNotifications();
+                } else {
+                    console.error('❌ Delete all API test failed:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('❌ Delete all API test error:', error);
+            });
+    };
+
+    document.addEventListener('DOMContentLoaded', function () {
+        console.log('📱 Page loaded, initializing notifications...');
+        loadNotifications();
+
+        // Refresh notifications every 30 seconds
+        setInterval(() => {
+            console.log('🔄 Auto-refreshing notifications...');
+            loadNotifications();
+        }, 30000);
+
+        // Also refresh messages every 30 seconds
+        setInterval(() => {
+            console.log('🔄 Auto-refreshing messages...');
+            if (document.getElementById('messagesModal').style.display === 'flex') {
+                loadAllConversations();
+            }
+        }, 30000);
+    });
+</script>
+
+<!-- Messages Modal -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/messages_modal.css') }}">
+{% include 'messages_modal.html' %}
+<script src="{{ url_for('static', filename='js/messages_modal.js') }}"></script>

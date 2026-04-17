@@ -1,0 +1,2689 @@
+{% extends "admin_header.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_reports_analytics.css') }}">
+<div class="admin-dashboard-content">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="dashboard-avatar">
+            <i class="fas fa-chart-line"></i>
+        </div>
+        <h1>Reports & Analytics</h1>
+        <p>Comprehensive insights and data analysis</p>
+    </div>
+
+    <div class="dashboard-container">
+            <!-- Stats Summary -->
+            <div class="stats-summary no-print">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="fas fa-shopping-cart"></i>
+                    </div>
+                    <div class="stat-value" id="totalOrders">0</div>
+                    <div class="stat-label">Total Orders</div>
+                </div>
+                <div class="stat-card stat-card-success">
+                    <div class="stat-icon">
+                        <i class="fas fa-coins"></i>
+                    </div>
+                    <div class="stat-value" id="totalPlatformCommission">₱0</div>
+                    <div class="stat-label">Platform Commission</div>
+                </div>
+                <div class="stat-card stat-card-info">
+                    <div class="stat-icon">
+                        <i class="fas fa-peso-sign"></i>
+                    </div>
+                    <div class="stat-value" id="totalRevenue">₱0</div>
+                    <div class="stat-label">Total Revenue</div>
+                </div>
+                <div class="stat-card stat-card-info">
+                    <div class="stat-icon">
+                        <i class="fas fa-users"></i>
+                    </div>
+                    <div class="stat-value" id="totalUsers">0</div>
+                    <div class="stat-label">Total Users</div>
+                </div>
+                <div class="stat-card stat-card-warning">
+                    <div class="stat-icon">
+                        <i class="fas fa-box"></i>
+                    </div>
+                    <div class="stat-value" id="totalProducts">0</div>
+                    <div class="stat-label">Total Products</div>
+                </div>
+            </div>
+
+            <!-- Filter Section and Action Buttons -->
+            <div class="filter-and-actions-container">
+                <!-- Filter Section -->
+                <div class="filter-section">
+                    <div class="filter-form">
+                        <div class="filter-row">
+                            <!-- Left Side: Filter By Section -->
+                            <div class="filter-left">
+                                <div class="filter-group">
+                                    <label class="filter-label">
+                                        <i class="fas fa-filter"></i> Filter By Section
+                                    </label>
+                                    <select id="filterBySection" class="filter-select" onchange="updateSectionFilters()">
+                                        <option value="all">All Sections</option>
+                                        <option value="inventory">Inventory & Products</option>
+                                        <option value="seller">Seller Performance</option>
+                                        <option value="rider">Rider/Delivery</option>
+                                        <option value="buyer">Buyer Activity</option>
+                                        <option value="promo">Promo Codes</option>
+                                        <option value="commission">Platform Commission</option>
+                                        <option value="issues">Complaints & Issues</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <!-- Right Side: Dynamic Filters -->
+                            <div class="filter-right">
+                                <!-- Search Input -->
+                                <div class="filter-group search-group" id="searchGroup">
+                                    <label class="filter-label">
+                                        <i class="fas fa-search"></i> Search
+                                    </label>
+                                    <input type="text" id="searchInput" 
+                                           placeholder="Search..." 
+                                           class="search-input"
+                                           onkeyup="applyFilters()">
+                                </div>
+
+                                <!-- Status Filter (for sections with status) -->
+                                <div class="filter-group" id="statusGroup" style="display: none;">
+                                    <label class="filter-label">
+                                        <i class="fas fa-info-circle"></i> Status
+                                    </label>
+                                    <select id="statusFilter" class="filter-select" onchange="applyFilters()">
+                                        <option value="">All Statuses</option>
+                                    </select>
+                                </div>
+
+                                <!-- Sort By Filter -->
+                                <div class="filter-group" id="sortGroup" style="display: none;">
+                                    <label class="filter-label">
+                                        <i class="fas fa-sort"></i> Sort By
+                                    </label>
+                                    <select id="sortFilter" class="filter-select" onchange="applyFilters()">
+                                        <option value="">Default</option>
+                                    </select>
+                                </div>
+
+                                <!-- Date Range Filters (for sections with dates) -->
+                                <div class="filter-group" id="dateFromGroup" style="display: none;">
+                                    <label class="filter-label">
+                                        <i class="fas fa-calendar"></i> From Date
+                                    </label>
+                                    <input type="date" id="fromDate" class="filter-select" onchange="applyFilters()">
+                                </div>
+
+                                <div class="filter-group" id="dateToGroup" style="display: none;">
+                                    <label class="filter-label">
+                                        <i class="fas fa-calendar"></i> To Date
+                                    </label>
+                                    <input type="date" id="toDate" class="filter-select" onchange="applyFilters()">
+                                </div>
+                                
+                                <!-- Clear Button -->
+                                <div class="filter-group filter-actions">
+                                    <label class="filter-label">&nbsp;</label>
+                                    <button class="btn-clear" onclick="clearFilters()" title="Clear all filters">
+                                        <i class="fas fa-times"></i> Clear
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="action-buttons-right">
+                            <button class="btn btn-outline-secondary" onclick="printReport()" title="Print report">
+                                <i class="fas fa-print me-2"></i>Print
+                            </button>
+                            <button class="btn btn-outline-primary" onclick="exportReport()" title="Export report">
+                                <i class="fas fa-download me-2"></i>Export
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Inventory and Products Analytics -->
+            <div class="row mb-4" id="section-inventory">
+                <div class="col-12">
+                    <div class="card">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <h5 class="card-title mb-0">
+                                <i class="fas fa-boxes"></i> Inventory and Products Analytics
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-hover">
+                                    <thead>
+                                        <tr>
+                                            <th>No.</th>
+                                            <th>Product Name</th>
+                                            <th>Seller Name</th>
+                                            <th>Category</th>
+                                            <th>Status</th>
+                                            <th>Units Sold</th>
+                                            <th>Stock</th>
+                                            <th>Rating</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="inventoryProductsTable">
+                                        <tr>
+                                            <td colspan="8" class="text-center text-muted py-4">
+                                                <i class="fas fa-box-open fa-3x mb-3"></i>
+                                                <h5>No data available</h5>
+                                                <p>Inventory and products analytics will appear here</p>
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                            <div class="table-totals" id="inventory-totals">
+                                <div class="total-row">
+                                    <span>Total Products:</span>
+                                    <span id="inventory-total-count">0</span>
+                                </div>
+                                <div class="total-row">
+                                    <span>Total Units Sold:</span>
+                                    <span id="inventory-total-sold">0</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Seller Performance Reports -->
+            <div class="card mb-4" id="section-seller">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-store"></i> Seller Performance Reports
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>No.</th>
+                                    <th>Seller Name / Business Name</th>
+                                    <th>Total Products</th>
+                                    <th>Total Orders</th>
+                                    <th>Completed Orders</th>
+                                    <th>Cancelled Orders</th>
+                                    <th>Total Revenue</th>
+                                    <th>Flagged Products</th>
+                                    <th>Deactivated Products</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sellerPerformanceTable">
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="fas fa-store-slash fa-3x mb-3"></i>
+                                        <h5>No data available</h5>
+                                        <p>Seller performance reports will appear here</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-totals" id="seller-totals">
+                        <div class="total-row">
+                            <span>Total Sellers:</span>
+                            <span id="seller-total-count">0</span>
+                        </div>
+                        <div class="total-row grand-total">
+                            <span>Total Revenue:</span>
+                            <span id="seller-total-revenue">₱0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rider/Delivery Analytics -->
+            <div class="card mb-4" id="section-rider">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-motorcycle"></i> Rider/Delivery Analytics
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>No.</th>
+                                    <th>Rider Name</th>
+                                    <th>Vehicle Type</th>
+                                    <th>Plate Number</th>
+                                    <th>Total Deliveries</th>
+                                    <th>Successful Deliveries</th>
+                                    <th>Failed Deliveries</th>
+                                    <th>Total Earnings</th>
+                                </tr>
+                            </thead>
+                            <tbody id="riderAnalyticsTable">
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="fas fa-motorcycle fa-3x mb-3"></i>
+                                        <h5>No data available</h5>
+                                        <p>Rider/delivery analytics will appear here</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-totals" id="rider-totals">
+                        <div class="total-row">
+                            <span>Total Riders:</span>
+                            <span id="rider-total-count">0</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Total Deliveries:</span>
+                            <span id="rider-total-deliveries">0</span>
+                        </div>
+                        <div class="total-row grand-total">
+                            <span>Total Earnings:</span>
+                            <span id="rider-total-earnings">₱0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Buyer Activity & Behavior Insights -->
+            <div class="card mb-4" id="section-buyer">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-user-chart"></i> Buyer Activity & Behavior Insights
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>No.</th>
+                                    <th>Buyer Name</th>
+                                    <th>Total Orders</th>
+                                    <th>Total Spend</th>
+                                    <th>Avg Order Value (AOV)</th>
+                                    <th>Last Order Date</th>
+                                    <th>Cart Items</th>
+                                    <th>Wishlist Items</th>
+                                </tr>
+                            </thead>
+                            <tbody id="buyerInsightsTable">
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="fas fa-users fa-3x mb-3"></i>
+                                        <h5>No data available</h5>
+                                        <p>Buyer activity and behavior insights will appear here</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-totals" id="buyer-totals">
+                        <div class="total-row">
+                            <span>Total Buyers:</span>
+                            <span id="buyer-total-count">0</span>
+                        </div>
+                        <div class="total-row grand-total">
+                            <span>Total Spend:</span>
+                            <span id="buyer-total-spend">₱0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Promo Code Usage Analytics -->
+            <div class="card mb-4" id="section-promo">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-tags"></i> Promo Code Usage Analytics
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>No.</th>
+                                    <th>Promo Code</th>
+                                    <th>Discount Type</th>
+                                    <th>Discount Value</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Total Uses</th>
+                                    <th>Total Discount Given</th>
+                                    <th>Status</th>
+                                </tr>
+                            </thead>
+                            <tbody id="promoCodeAnalyticsTable">
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="fas fa-tags fa-3x mb-3"></i>
+                                        <h5>No data available</h5>
+                                        <p>Promo code usage analytics will appear here</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-totals" id="promo-totals">
+                        <div class="total-row">
+                            <span>Total Promo Codes:</span>
+                            <span id="promo-total-count">0</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Total Uses:</span>
+                            <span id="promo-total-uses">0</span>
+                        </div>
+                        <div class="total-row grand-total">
+                            <span>Total Discount Given:</span>
+                            <span id="promo-total-discount">₱0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Platform Commission Summary Report -->
+            <div class="card mb-4" id="section-commission">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-coins"></i> Platform Commission Summary Report
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>No.</th>
+                                    <th>Order ID</th>
+                                    <th>Seller Email</th>
+                                    <th>Rider Email</th>
+                                    <th>Order Total</th>
+                                    <th>Delivery Fee</th>
+                                    <th>Seller Commission (5%)</th>
+                                    <th>Rider Commission (5%)</th>
+                                    <th>Total Platform Earnings</th>
+                                    <th>Order Date</th>
+                                    <th>Date Completed</th>
+                                </tr>
+                            </thead>
+                            <tbody id="platformCommissionTable">
+                                <tr>
+                                    <td colspan="11" class="text-center text-muted py-4">
+                                        <i class="fas fa-coins fa-3x mb-3"></i>
+                                        <h5>No data available</h5>
+                                        <p>Platform commission summary will appear here</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-totals" id="commission-totals">
+                        <div class="total-row">
+                            <span>Total Orders:</span>
+                            <span id="commission-total-count">0</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Total Seller Commission:</span>
+                            <span id="commission-total-seller">₱0.00</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Total Rider Commission:</span>
+                            <span id="commission-total-rider">₱0.00</span>
+                        </div>
+                        <div class="total-row grand-total">
+                            <span>Total Platform Earnings:</span>
+                            <span id="commission-total-earnings">₱0.00</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Complaints & Issues Report -->
+            <div class="card mb-4" id="section-issues">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="card-title mb-0">
+                        <i class="fas fa-exclamation-triangle"></i> Complaints & Issues Report
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-hover">
+                            <thead>
+                                <tr>
+                                    <th>No.</th>
+                                    <th>Reported By</th>
+                                    <th>Reported Against</th>
+                                    <th>Issue Type</th>
+                                    <th>Description</th>
+                                    <th>Order ID</th>
+                                    <th>Status</th>
+                                    <th>Date Submitted</th>
+                                </tr>
+                            </thead>
+                            <tbody id="complaintsIssuesTable">
+                                <tr>
+                                    <td colspan="8" class="text-center text-muted py-4">
+                                        <i class="fas fa-exclamation-triangle fa-3x mb-3"></i>
+                                        <h5>No data available</h5>
+                                        <p>Complaints and issues reports will appear here</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="table-totals" id="issues-totals">
+                        <div class="total-row">
+                            <span>Total Issues:</span>
+                            <span id="issues-total-count">0</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Pending Issues:</span>
+                            <span id="issues-pending-count">0</span>
+                        </div>
+                        <div class="total-row">
+                            <span>Resolved Issues:</span>
+                            <span id="issues-resolved-count">0</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        loadAnalyticsData();
+        setDefaultDateRange();
+    });
+
+    function setDefaultDateRange() {
+        // Don't set default dates - let user choose when needed
+        // const today = new Date();
+        // const lastMonth = new Date(today.getFullYear(), today.getMonth() - 1, today.getDate());
+        // document.getElementById('toDate').valueAsDate = today;
+        // document.getElementById('fromDate').valueAsDate = lastMonth;
+    }
+
+    // Store original data for filtering
+    let originalData = {
+        inventoryProducts: [],
+        sellerPerformance: [],
+        riderAnalytics: [],
+        buyerInsights: [],
+        promoCodeAnalytics: [],
+        platformCommission: [],
+        complaintsIssues: []
+    };
+
+    // Function to show/hide sections based on filter selection
+    function showHideSections(section) {
+        // Get all section elements
+        const sections = {
+            'inventory': document.getElementById('section-inventory'),
+            'seller': document.getElementById('section-seller'),
+            'rider': document.getElementById('section-rider'),
+            'buyer': document.getElementById('section-buyer'),
+            'promo': document.getElementById('section-promo'),
+            'commission': document.getElementById('section-commission'),
+            'issues': document.getElementById('section-issues')
+        };
+        
+        // If "all" is selected, show all sections
+        if (section === 'all') {
+            Object.values(sections).forEach(el => {
+                if (el) el.style.display = 'block';
+            });
+        } else {
+            // Hide all sections first
+            Object.values(sections).forEach(el => {
+                if (el) el.style.display = 'none';
+            });
+            
+            // Show only the selected section
+            if (sections[section]) {
+                sections[section].style.display = 'block';
+            }
+        }
+    }
+
+    // Update section filters based on selected section
+    function updateSectionFilters() {
+        const section = document.getElementById('filterBySection').value;
+        
+        // Hide all dynamic filters first
+        document.getElementById('statusGroup').style.display = 'none';
+        document.getElementById('sortGroup').style.display = 'none';
+        document.getElementById('dateFromGroup').style.display = 'none';
+        document.getElementById('dateToGroup').style.display = 'none';
+        
+        // Show/hide sections based on selection
+        showHideSections(section);
+        
+        // Update search placeholder
+        const searchInput = document.getElementById('searchInput');
+        
+        // Configure filters based on section
+        switch(section) {
+            case 'all':
+                searchInput.placeholder = 'Search all sections...';
+                break;
+                
+            case 'inventory':
+                searchInput.placeholder = 'Search by product name, seller, category...';
+                document.getElementById('statusGroup').style.display = 'block';
+                document.getElementById('sortGroup').style.display = 'block';
+                
+                // Status options for inventory
+                document.getElementById('statusFilter').innerHTML = `
+                    <option value="">All Statuses</option>
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                    <option value="flagged">Flagged</option>
+                `;
+                
+                // Sort options for inventory
+                document.getElementById('sortFilter').innerHTML = `
+                    <option value="">Default</option>
+                    <option value="units_sold_desc">Units Sold (High to Low)</option>
+                    <option value="units_sold_asc">Units Sold (Low to High)</option>
+                    <option value="stock_desc">Stock (High to Low)</option>
+                    <option value="stock_asc">Stock (Low to High)</option>
+                    <option value="rating_desc">Rating (High to Low)</option>
+                    <option value="rating_asc">Rating (Low to High)</option>
+                `;
+                break;
+                
+            case 'seller':
+                searchInput.placeholder = 'Search by seller name...';
+                document.getElementById('sortGroup').style.display = 'block';
+                
+                // Sort options for seller
+                document.getElementById('sortFilter').innerHTML = `
+                    <option value="">Default</option>
+                    <option value="revenue_desc">Revenue (High to Low)</option>
+                    <option value="revenue_asc">Revenue (Low to High)</option>
+                    <option value="orders_desc">Total Orders (High to Low)</option>
+                    <option value="orders_asc">Total Orders (Low to High)</option>
+                    <option value="products_desc">Total Products (High to Low)</option>
+                    <option value="products_asc">Total Products (Low to High)</option>
+                `;
+                break;
+                
+            case 'rider':
+                searchInput.placeholder = 'Search by rider name, vehicle type...';
+                document.getElementById('sortGroup').style.display = 'block';
+                
+                // Sort options for rider
+                document.getElementById('sortFilter').innerHTML = `
+                    <option value="">Default</option>
+                    <option value="deliveries_desc">Deliveries (High to Low)</option>
+                    <option value="deliveries_asc">Deliveries (Low to High)</option>
+                    <option value="earnings_desc">Earnings (High to Low)</option>
+                    <option value="earnings_asc">Earnings (Low to High)</option>
+                    <option value="success_rate_desc">Success Rate (High to Low)</option>
+                    <option value="success_rate_asc">Success Rate (Low to High)</option>
+                `;
+                break;
+                
+            case 'buyer':
+                searchInput.placeholder = 'Search by buyer name, email...';
+                document.getElementById('sortGroup').style.display = 'block';
+                document.getElementById('dateFromGroup').style.display = 'block';
+                document.getElementById('dateToGroup').style.display = 'block';
+                
+                // Sort options for buyer
+                document.getElementById('sortFilter').innerHTML = `
+                    <option value="">Default</option>
+                    <option value="spend_desc">Total Spend (High to Low)</option>
+                    <option value="spend_asc">Total Spend (Low to High)</option>
+                    <option value="orders_desc">Total Orders (High to Low)</option>
+                    <option value="orders_asc">Total Orders (Low to High)</option>
+                    <option value="aov_desc">Avg Order Value (High to Low)</option>
+                    <option value="aov_asc">Avg Order Value (Low to High)</option>
+                `;
+                break;
+                
+            case 'promo':
+                searchInput.placeholder = 'Search by promo code...';
+                document.getElementById('statusGroup').style.display = 'block';
+                document.getElementById('sortGroup').style.display = 'block';
+                document.getElementById('dateFromGroup').style.display = 'block';
+                document.getElementById('dateToGroup').style.display = 'block';
+                
+                // Status options for promo
+                document.getElementById('statusFilter').innerHTML = `
+                    <option value="">All Statuses</option>
+                    <option value="active">Active</option>
+                    <option value="upcoming">Upcoming</option>
+                    <option value="expired">Expired</option>
+                `;
+                
+                // Sort options for promo
+                document.getElementById('sortFilter').innerHTML = `
+                    <option value="">Default</option>
+                    <option value="uses_desc">Total Uses (High to Low)</option>
+                    <option value="uses_asc">Total Uses (Low to High)</option>
+                    <option value="discount_desc">Discount Given (High to Low)</option>
+                    <option value="discount_asc">Discount Given (Low to High)</option>
+                `;
+                break;
+                
+            case 'commission':
+                searchInput.placeholder = 'Search by order ID, seller, rider...';
+                document.getElementById('sortGroup').style.display = 'block';
+                document.getElementById('dateFromGroup').style.display = 'block';
+                document.getElementById('dateToGroup').style.display = 'block';
+                
+                // Sort options for commission
+                document.getElementById('sortFilter').innerHTML = `
+                    <option value="">Default</option>
+                    <option value="earnings_desc">Platform Earnings (High to Low)</option>
+                    <option value="earnings_asc">Platform Earnings (Low to High)</option>
+                    <option value="order_total_desc">Order Total (High to Low)</option>
+                    <option value="order_total_asc">Order Total (Low to High)</option>
+                    <option value="date_desc">Date (Newest First)</option>
+                    <option value="date_asc">Date (Oldest First)</option>
+                `;
+                break;
+                
+            case 'issues':
+                searchInput.placeholder = 'Search by reporter, issue type, description...';
+                document.getElementById('statusGroup').style.display = 'block';
+                document.getElementById('sortGroup').style.display = 'block';
+                document.getElementById('dateFromGroup').style.display = 'block';
+                document.getElementById('dateToGroup').style.display = 'block';
+                
+                // Status options for issues
+                document.getElementById('statusFilter').innerHTML = `
+                    <option value="">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="resolved">Resolved</option>
+                    <option value="closed">Closed</option>
+                `;
+                
+                // Sort options for issues
+                document.getElementById('sortFilter').innerHTML = `
+                    <option value="">Default</option>
+                    <option value="date_desc">Date (Newest First)</option>
+                    <option value="date_asc">Date (Oldest First)</option>
+                `;
+                break;
+        }
+        
+        // Apply filters after updating
+        applyFilters();
+    }
+
+    // Apply filters to the data
+    function applyFilters() {
+        const section = document.getElementById('filterBySection').value;
+        const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+        const status = document.getElementById('statusFilter').value;
+        const sort = document.getElementById('sortFilter').value;
+        const fromDate = document.getElementById('fromDate').value;
+        const toDate = document.getElementById('toDate').value;
+        
+        // Filter and update based on section
+        if (section === 'all') {
+            // Apply filters to all sections
+            filterInventoryProducts(searchTerm, status, sort);
+            filterSellerPerformance(searchTerm, sort);
+            filterRiderAnalytics(searchTerm, sort);
+            filterBuyerInsights(searchTerm, sort, fromDate, toDate);
+            filterPromoCodeAnalytics(searchTerm, status, sort, fromDate, toDate);
+            filterPlatformCommission(searchTerm, sort, fromDate, toDate);
+            filterComplaintsIssues(searchTerm, status, sort, fromDate, toDate);
+        } else {
+            // Apply filters to specific section
+            switch(section) {
+                case 'inventory':
+                    filterInventoryProducts(searchTerm, status, sort);
+                    break;
+                case 'seller':
+                    filterSellerPerformance(searchTerm, sort);
+                    break;
+                case 'rider':
+                    filterRiderAnalytics(searchTerm, sort);
+                    break;
+                case 'buyer':
+                    filterBuyerInsights(searchTerm, sort, fromDate, toDate);
+                    break;
+                case 'promo':
+                    filterPromoCodeAnalytics(searchTerm, status, sort, fromDate, toDate);
+                    break;
+                case 'commission':
+                    filterPlatformCommission(searchTerm, sort, fromDate, toDate);
+                    break;
+                case 'issues':
+                    filterComplaintsIssues(searchTerm, status, sort, fromDate, toDate);
+                    break;
+            }
+        }
+    }
+
+    // Clear all filters
+    function clearFilters() {
+        document.getElementById('filterBySection').value = 'all';
+        document.getElementById('searchInput').value = '';
+        document.getElementById('statusFilter').value = '';
+        document.getElementById('sortFilter').value = '';
+        document.getElementById('fromDate').value = '';
+        document.getElementById('toDate').value = '';
+        
+        // Show all sections
+        showHideSections('all');
+        
+        updateSectionFilters();
+        applyFilters();
+    }
+
+    // Filter functions for each section
+    function filterInventoryProducts(search, status, sort) {
+        let filtered = [...originalData.inventoryProducts];
+        
+        // Apply search filter
+        if (search) {
+            filtered = filtered.filter(p => 
+                (p.product_name && p.product_name.toLowerCase().includes(search)) ||
+                (p.seller_name && p.seller_name.toLowerCase().includes(search)) ||
+                (p.category && p.category.toLowerCase().includes(search))
+            );
+        }
+        
+        // Apply status filter
+        if (status) {
+            filtered = filtered.filter(p => {
+                const isActive = p.is_active === true || p.is_active === 'true' || p.is_active === 1;
+                const isFlagged = p.is_flagged === true || p.is_flagged === 'true' || p.is_flagged === 1;
+                
+                if (status === 'active') return isActive && !isFlagged;
+                if (status === 'inactive') return !isActive;
+                if (status === 'flagged') return isFlagged;
+                return true;
+            });
+        }
+        
+        // Apply sort
+        if (sort) {
+            filtered.sort((a, b) => {
+                switch(sort) {
+                    case 'units_sold_desc': return (b.units_sold || 0) - (a.units_sold || 0);
+                    case 'units_sold_asc': return (a.units_sold || 0) - (b.units_sold || 0);
+                    case 'stock_desc': return (b.stock || 0) - (a.stock || 0);
+                    case 'stock_asc': return (a.stock || 0) - (b.stock || 0);
+                    case 'rating_desc': return (b.rating || 0) - (a.rating || 0);
+                    case 'rating_asc': return (a.rating || 0) - (b.rating || 0);
+                    default: return 0;
+                }
+            });
+        }
+        
+        // Re-number the filtered results
+        filtered = filtered.map((item, index) => ({...item, no: index + 1}));
+        
+        // Update the table
+        updateInventoryTable(filtered);
+    }
+
+    function filterSellerPerformance(search, sort) {
+        let filtered = [...originalData.sellerPerformance];
+        
+        // Apply search filter
+        if (search) {
+            filtered = filtered.filter(s => 
+                (s.seller_name && s.seller_name.toLowerCase().includes(search))
+            );
+        }
+        
+        // Apply sort
+        if (sort) {
+            filtered.sort((a, b) => {
+                switch(sort) {
+                    case 'revenue_desc': return (b.total_revenue || 0) - (a.total_revenue || 0);
+                    case 'revenue_asc': return (a.total_revenue || 0) - (b.total_revenue || 0);
+                    case 'orders_desc': return (b.total_orders || 0) - (a.total_orders || 0);
+                    case 'orders_asc': return (a.total_orders || 0) - (b.total_orders || 0);
+                    case 'products_desc': return (b.total_products || 0) - (a.total_products || 0);
+                    case 'products_asc': return (a.total_products || 0) - (b.total_products || 0);
+                    default: return 0;
+                }
+            });
+        }
+        
+        filtered = filtered.map((item, index) => ({...item, no: index + 1}));
+        updateSellerTable(filtered);
+    }
+
+    function filterRiderAnalytics(search, sort) {
+        let filtered = [...originalData.riderAnalytics];
+        
+        // Apply search filter
+        if (search) {
+            filtered = filtered.filter(r => 
+                (r.rider_name && r.rider_name.toLowerCase().includes(search)) ||
+                (r.email && r.email.toLowerCase().includes(search)) ||
+                (r.vehicle_type && r.vehicle_type.toLowerCase().includes(search))
+            );
+        }
+        
+        // Apply sort
+        if (sort) {
+            filtered.sort((a, b) => {
+                switch(sort) {
+                    case 'deliveries_desc': return (b.total_deliveries || 0) - (a.total_deliveries || 0);
+                    case 'deliveries_asc': return (a.total_deliveries || 0) - (b.total_deliveries || 0);
+                    case 'earnings_desc': return (b.total_earnings || 0) - (a.total_earnings || 0);
+                    case 'earnings_asc': return (a.total_earnings || 0) - (b.total_earnings || 0);
+                    case 'success_rate_desc': {
+                        const rateA = a.total_deliveries > 0 ? (a.successful_deliveries / a.total_deliveries) : 0;
+                        const rateB = b.total_deliveries > 0 ? (b.successful_deliveries / b.total_deliveries) : 0;
+                        return rateB - rateA;
+                    }
+                    case 'success_rate_asc': {
+                        const rateA = a.total_deliveries > 0 ? (a.successful_deliveries / a.total_deliveries) : 0;
+                        const rateB = b.total_deliveries > 0 ? (b.successful_deliveries / b.total_deliveries) : 0;
+                        return rateA - rateB;
+                    }
+                    default: return 0;
+                }
+            });
+        }
+        
+        filtered = filtered.map((item, index) => ({...item, no: index + 1}));
+        updateRiderTable(filtered);
+    }
+
+    function filterBuyerInsights(search, sort, fromDate, toDate) {
+        let filtered = [...originalData.buyerInsights];
+        
+        // Apply search filter
+        if (search) {
+            filtered = filtered.filter(b => 
+                (b.buyer_name && b.buyer_name.toLowerCase().includes(search)) ||
+                (b.email && b.email.toLowerCase().includes(search))
+            );
+        }
+        
+        // Apply date filter
+        if (fromDate || toDate) {
+            filtered = filtered.filter(b => {
+                if (!b.last_order_date || b.last_order_date === 'N/A') return false;
+                const orderDate = new Date(b.last_order_date);
+                if (fromDate && orderDate < new Date(fromDate)) return false;
+                if (toDate && orderDate > new Date(toDate)) return false;
+                return true;
+            });
+        }
+        
+        // Apply sort
+        if (sort) {
+            filtered.sort((a, b) => {
+                switch(sort) {
+                    case 'spend_desc': return (b.total_spend || 0) - (a.total_spend || 0);
+                    case 'spend_asc': return (a.total_spend || 0) - (b.total_spend || 0);
+                    case 'orders_desc': return (b.total_orders || 0) - (a.total_orders || 0);
+                    case 'orders_asc': return (a.total_orders || 0) - (b.total_orders || 0);
+                    case 'aov_desc': return (b.avg_order_value || 0) - (a.avg_order_value || 0);
+                    case 'aov_asc': return (a.avg_order_value || 0) - (b.avg_order_value || 0);
+                    default: return 0;
+                }
+            });
+        }
+        
+        filtered = filtered.map((item, index) => ({...item, no: index + 1}));
+        updateBuyerTable(filtered);
+    }
+
+    function filterPromoCodeAnalytics(search, status, sort, fromDate, toDate) {
+        let filtered = [...originalData.promoCodeAnalytics];
+        
+        // Apply search filter
+        if (search) {
+            filtered = filtered.filter(p => 
+                (p.promo_code && p.promo_code.toLowerCase().includes(search))
+            );
+        }
+        
+        // Apply status filter
+        if (status) {
+            filtered = filtered.filter(p => {
+                const today = new Date();
+                const startDate = new Date(p.start_date);
+                const endDate = new Date(p.end_date);
+                
+                if (status === 'active') return today >= startDate && today <= endDate;
+                if (status === 'upcoming') return today < startDate;
+                if (status === 'expired') return today > endDate;
+                return true;
+            });
+        }
+        
+        // Apply date filter
+        if (fromDate || toDate) {
+            filtered = filtered.filter(p => {
+                const startDate = new Date(p.start_date);
+                const endDate = new Date(p.end_date);
+                if (fromDate && endDate < new Date(fromDate)) return false;
+                if (toDate && startDate > new Date(toDate)) return false;
+                return true;
+            });
+        }
+        
+        // Apply sort
+        if (sort) {
+            filtered.sort((a, b) => {
+                switch(sort) {
+                    case 'uses_desc': return (b.total_uses || 0) - (a.total_uses || 0);
+                    case 'uses_asc': return (a.total_uses || 0) - (b.total_uses || 0);
+                    case 'discount_desc': return (b.total_discount_given || 0) - (a.total_discount_given || 0);
+                    case 'discount_asc': return (a.total_discount_given || 0) - (b.total_discount_given || 0);
+                    default: return 0;
+                }
+            });
+        }
+        
+        filtered = filtered.map((item, index) => ({...item, no: index + 1}));
+        updatePromoTable(filtered);
+    }
+
+    function filterPlatformCommission(search, sort, fromDate, toDate) {
+        let filtered = [...originalData.platformCommission];
+        
+        // Apply search filter
+        if (search) {
+            filtered = filtered.filter(c => 
+                (c.order_id && c.order_id.toString().includes(search)) ||
+                (c.seller_email && c.seller_email.toLowerCase().includes(search)) ||
+                (c.rider_email && c.rider_email.toLowerCase().includes(search))
+            );
+        }
+        
+        // Apply date filter
+        if (fromDate || toDate) {
+            filtered = filtered.filter(c => {
+                if (!c.date_completed || c.date_completed === 'N/A') return false;
+                const completedDate = new Date(c.date_completed);
+                if (fromDate && completedDate < new Date(fromDate)) return false;
+                if (toDate && completedDate > new Date(toDate)) return false;
+                return true;
+            });
+        }
+        
+        // Apply sort
+        if (sort) {
+            filtered.sort((a, b) => {
+                switch(sort) {
+                    case 'earnings_desc': return (b.total_platform_earnings || 0) - (a.total_platform_earnings || 0);
+                    case 'earnings_asc': return (a.total_platform_earnings || 0) - (b.total_platform_earnings || 0);
+                    case 'order_total_desc': return (b.order_total || 0) - (a.order_total || 0);
+                    case 'order_total_asc': return (a.order_total || 0) - (b.order_total || 0);
+                    case 'date_desc': return new Date(b.date_completed || 0) - new Date(a.date_completed || 0);
+                    case 'date_asc': return new Date(a.date_completed || 0) - new Date(b.date_completed || 0);
+                    default: return 0;
+                }
+            });
+        }
+        
+        filtered = filtered.map((item, index) => ({...item, no: index + 1}));
+        updateCommissionTable(filtered);
+    }
+
+    function filterComplaintsIssues(search, status, sort, fromDate, toDate) {
+        let filtered = [...originalData.complaintsIssues];
+        
+        // Apply search filter
+        if (search) {
+            filtered = filtered.filter(i => 
+                (i.reported_by && i.reported_by.toLowerCase().includes(search)) ||
+                (i.reported_against && i.reported_against.toLowerCase().includes(search)) ||
+                (i.issue_type && i.issue_type.toLowerCase().includes(search)) ||
+                (i.description && i.description.toLowerCase().includes(search))
+            );
+        }
+        
+        // Apply status filter
+        if (status) {
+            filtered = filtered.filter(i => 
+                i.status && i.status.toLowerCase() === status.toLowerCase()
+            );
+        }
+        
+        // Apply date filter
+        if (fromDate || toDate) {
+            filtered = filtered.filter(i => {
+                if (!i.date_submitted) return false;
+                const submittedDate = new Date(i.date_submitted);
+                if (fromDate && submittedDate < new Date(fromDate)) return false;
+                if (toDate && submittedDate > new Date(toDate)) return false;
+                return true;
+            });
+        }
+        
+        // Apply sort
+        if (sort) {
+            filtered.sort((a, b) => {
+                switch(sort) {
+                    case 'date_desc': return new Date(b.date_submitted || 0) - new Date(a.date_submitted || 0);
+                    case 'date_asc': return new Date(a.date_submitted || 0) - new Date(b.date_submitted || 0);
+                    default: return 0;
+                }
+            });
+        }
+        
+        filtered = filtered.map((item, index) => ({...item, no: index + 1}));
+        updateIssuesTable(filtered);
+    }
+
+    function loadAnalyticsData() {
+        // Fetch actual data from backend
+        fetch('/api/admin/analytics')
+            .then(response => {
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                return response.json();
+            })
+            .then(data => {
+                console.log('Analytics data received:', data);
+                updateMetrics(data);
+                updateTables(data);
+            })
+            .catch(error => {
+                console.error('Error loading analytics:', error);
+                alert('Failed to load analytics data. Please check the console for details.');
+            });
+    }
+
+    function updateMetrics(data) {
+        // Update key metrics
+        document.getElementById('totalOrders').textContent = data.totalOrders || 0;
+        
+        // Calculate total platform commission from seller and rider commissions
+        let totalPlatformCommission = 0;
+        if (data.platformCommission && data.platformCommission.length > 0) {
+            totalPlatformCommission = data.platformCommission.reduce((sum, c) => sum + (c.total_platform_earnings || 0), 0);
+        }
+        document.getElementById('totalPlatformCommission').textContent = '₱' + totalPlatformCommission.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        
+        // Calculate total revenue from seller performance
+        let totalRevenue = 0;
+        if (data.sellerPerformance && data.sellerPerformance.length > 0) {
+            totalRevenue = data.sellerPerformance.reduce((sum, s) => sum + (s.total_revenue || 0), 0);
+        }
+        document.getElementById('totalRevenue').textContent = '₱' + totalRevenue.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        
+        document.getElementById('totalUsers').textContent = data.totalUsers || 0;
+        document.getElementById('totalProducts').textContent = data.totalProducts || 0;
+    }
+
+    function updateTables(data) {
+        // Update inventory products table
+        if (data.inventoryProducts && data.inventoryProducts.length > 0) {
+            const inventoryHtml = data.inventoryProducts.map(product => {
+                // Match the status badge style from product management page
+                // Show multiple badges like in product management: Flagged, Inactive, or Active
+                let statusBadges = '<div class="status-badges">';
+                
+                // Show flagged badge if product is flagged
+                if (product.is_flagged && product.flagged_at) {
+                    statusBadges += `<span class="flagged-badge" title="Flagged on ${product.flagged_at}"><i class="fas fa-flag"></i> Flagged</span>`;
+                }
+                
+                // Show inactive badge if product is inactive
+                if (!product.is_active) {
+                    statusBadges += '<span class="inactive-badge" title="Product is deactivated"><i class="fas fa-ban"></i> Inactive</span>';
+                }
+                
+                // Show active badge if product is active and not flagged
+                if (product.is_active && !product.is_flagged) {
+                    statusBadges += '<span class="active-badge" title="Product is active"><i class="fas fa-check-circle"></i> Active</span>';
+                }
+                
+                statusBadges += '</div>';
+                
+                // Determine stock status
+                const stock = parseInt(product.stock) || 0;
+                const threshold = parseInt(product.low_stock_threshold) || 5;
+                let stockClass = 'in-stock';
+                let stockLabel = '';
+                
+                if (stock <= 0) {
+                    stockClass = 'out-of-stock';
+                    stockLabel = '<div style="font-size: 11px; color: #dc3545; font-weight: 600; margin-top: 4px;"><i class="fas fa-times-circle"></i> Out of Stock</div>';
+                } else if (stock <= threshold) {
+                    stockClass = 'low-stock';
+                    stockLabel = '<div style="font-size: 11px; color: #ff9800; font-weight: 600; margin-top: 4px;"><i class="fas fa-exclamation-triangle"></i> Low Stock</div>';
+                }
+                
+                const ratingStars = '★'.repeat(Math.floor(product.rating)) + '☆'.repeat(5 - Math.floor(product.rating));
+                
+                return `
+                    <tr>
+                        <td><span class="badge bg-warning text-dark">${product.no}</span></td>
+                        <td><strong>${product.product_name}</strong></td>
+                        <td>${product.seller_name}</td>
+                        <td><span class="badge bg-info">${product.category}</span></td>
+                        <td>${statusBadges}</td>
+                        <td><span class="badge bg-primary">${product.units_sold}</span></td>
+                        <td>
+                            <span class="stock-badge ${stockClass}">${stock}</span>
+                            ${stockLabel}
+                        </td>
+                        <td>
+                            <span class="text-warning">${ratingStars}</span>
+                            <small class="text-muted">(${product.rating})</small>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('inventoryProductsTable').innerHTML = inventoryHtml;
+            
+            // Calculate totals
+            const totalProducts = data.inventoryProducts.length;
+            const totalSold = data.inventoryProducts.reduce((sum, p) => sum + (p.units_sold || 0), 0);
+            document.getElementById('inventory-total-count').textContent = totalProducts;
+            document.getElementById('inventory-total-sold').textContent = totalSold;
+        } else {
+            // Show empty state message
+            document.getElementById('inventoryProductsTable').innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No products found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('inventory-total-count').textContent = '0';
+            document.getElementById('inventory-total-sold').textContent = '0';
+        }
+
+        // Update seller performance table
+        if (data.sellerPerformance && data.sellerPerformance.length > 0) {
+            const sellerHtml = data.sellerPerformance.map(seller => `
+                <tr>
+                    <td><span class="badge bg-warning text-dark">${seller.no}</span></td>
+                    <td>
+                        <div class="seller-info">
+                            <strong>${seller.seller_name}</strong>
+                            <small class="text-muted d-block">${seller.email || 'N/A'}</small>
+                        </div>
+                    </td>
+                    <td><span class="badge bg-info">${seller.total_products}</span></td>
+                    <td><span class="badge bg-primary">${seller.total_orders}</span></td>
+                    <td><span class="badge bg-success">${seller.completed_orders}</span></td>
+                    <td><span class="badge bg-danger">${seller.cancelled_orders}</span></td>
+                    <td><strong class="text-success">₱${seller.total_revenue.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+                    <td><span class="badge bg-warning text-dark">${seller.flagged_products}</span></td>
+                    <td><span class="badge bg-secondary">${seller.deactivated_products}</span></td>
+                </tr>
+            `).join('');
+            document.getElementById('sellerPerformanceTable').innerHTML = sellerHtml;
+            
+            // Calculate totals
+            const totalSellers = data.sellerPerformance.length;
+            const totalRevenue = data.sellerPerformance.reduce((sum, s) => sum + (s.total_revenue || 0), 0);
+            document.getElementById('seller-total-count').textContent = totalSellers;
+            document.getElementById('seller-total-revenue').textContent = '₱' + totalRevenue.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        } else {
+            document.getElementById('sellerPerformanceTable').innerHTML = `
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No sellers found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('seller-total-count').textContent = '0';
+            document.getElementById('seller-total-revenue').textContent = '₱0.00';
+        }
+
+        // Update rider analytics table
+        if (data.riderAnalytics && data.riderAnalytics.length > 0) {
+            const riderHtml = data.riderAnalytics.map(rider => {
+                const successRate = rider.total_deliveries > 0 
+                    ? ((rider.successful_deliveries / rider.total_deliveries) * 100).toFixed(1) 
+                    : 0;
+                
+                return `
+                    <tr>
+                        <td><span class="badge bg-warning text-dark">${rider.no}</span></td>
+                        <td>
+                            <div style="font-weight: 600;">${rider.rider_name}</div>
+                            <small class="text-muted">${rider.email}</small>
+                        </td>
+                        <td><span class="badge bg-info">${rider.vehicle_type || 'N/A'}</span></td>
+                        <td><span class="badge bg-dark">${rider.plate_number || 'N/A'}</span></td>
+                        <td>
+                            <span class="badge bg-primary">${rider.total_deliveries}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-success">${rider.successful_deliveries}</span>
+                            <small class="text-muted d-block">${successRate}% success rate</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-danger">${rider.failed_deliveries}</span>
+                        </td>
+                        <td>
+                            <strong class="text-success">₱${rider.total_earnings.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('riderAnalyticsTable').innerHTML = riderHtml;
+            
+            // Calculate totals
+            const totalRiders = data.riderAnalytics.length;
+            const totalDeliveries = data.riderAnalytics.reduce((sum, r) => sum + (r.total_deliveries || 0), 0);
+            const totalEarnings = data.riderAnalytics.reduce((sum, r) => sum + (r.total_earnings || 0), 0);
+            document.getElementById('rider-total-count').textContent = totalRiders;
+            document.getElementById('rider-total-deliveries').textContent = totalDeliveries;
+            document.getElementById('rider-total-earnings').textContent = '₱' + totalEarnings.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        } else {
+            document.getElementById('riderAnalyticsTable').innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No riders found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('rider-total-count').textContent = '0';
+            document.getElementById('rider-total-deliveries').textContent = '0';
+            document.getElementById('rider-total-earnings').textContent = '₱0.00';
+        }
+
+        // Update buyer insights table
+        console.log('Buyer Insights Data:', data.buyerInsights);
+        if (data.buyerInsights && data.buyerInsights.length > 0) {
+            console.log(`Rendering ${data.buyerInsights.length} buyer insights`);
+            const buyerHtml = data.buyerInsights.map(buyer => {
+                // Format cart items
+                const cartItems = buyer.cart_items || 0;
+                let cartBadge = 'bg-secondary';
+                if (cartItems > 10) cartBadge = 'bg-danger';
+                else if (cartItems > 5) cartBadge = 'bg-warning';
+                else if (cartItems > 0) cartBadge = 'bg-info';
+                
+                return `
+                    <tr>
+                        <td><span class="badge bg-warning text-dark">${buyer.no}</span></td>
+                        <td>
+                            <div style="font-weight: 600;">${buyer.buyer_name}</div>
+                            <small class="text-muted">${buyer.email}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-info">${buyer.total_orders}</span>
+                        </td>
+                        <td>
+                            <strong class="text-primary">₱${buyer.total_spend.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                        </td>
+                        <td>
+                            <strong class="text-success">₱${buyer.avg_order_value.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                        </td>
+                        <td>
+                            <small class="text-muted">${buyer.last_order_date || 'N/A'}</small>
+                        </td>
+                        <td>
+                            <span class="badge ${cartBadge}">${cartItems} items</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-warning text-dark">${buyer.wishlist_items} items</span>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('buyerInsightsTable').innerHTML = buyerHtml;
+            
+            // Calculate totals
+            const totalBuyers = data.buyerInsights.length;
+            const totalSpend = data.buyerInsights.reduce((sum, b) => sum + (b.total_spend || 0), 0);
+            document.getElementById('buyer-total-count').textContent = totalBuyers;
+            document.getElementById('buyer-total-spend').textContent = '₱' + totalSpend.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            console.log('Buyer insights table updated successfully');
+        } else {
+            console.log('No buyer insights data available or empty array');
+            document.getElementById('buyerInsightsTable').innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No buyers found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('buyer-total-count').textContent = '0';
+            document.getElementById('buyer-total-spend').textContent = '₱0.00';
+        }
+
+        // Update promo code analytics table
+        console.log('Promo Code Analytics Data:', data.promoCodeAnalytics);
+        if (data.promoCodeAnalytics && data.promoCodeAnalytics.length > 0) {
+            console.log(`Rendering ${data.promoCodeAnalytics.length} promo code analytics`);
+            const promoHtml = data.promoCodeAnalytics.map(promo => {
+                // Determine status
+                const today = new Date();
+                const startDate = new Date(promo.start_date);
+                const endDate = new Date(promo.end_date);
+                let statusBadge = '';
+                
+                if (today < startDate) {
+                    statusBadge = '<span class="badge bg-secondary"><i class="fas fa-clock"></i> Upcoming</span>';
+                } else if (today > endDate) {
+                    statusBadge = '<span class="badge bg-danger"><i class="fas fa-times-circle"></i> Expired</span>';
+                } else {
+                    statusBadge = '<span class="badge bg-success"><i class="fas fa-check-circle"></i> Active</span>';
+                }
+                
+                // Format discount type display
+                let discountTypeBadge = '';
+                let discountTypeText = '';
+                
+                switch(promo.discount_type) {
+                    case 'percentage':
+                        discountTypeBadge = 'bg-info';
+                        discountTypeText = 'Percentage';
+                        break;
+                    case 'fixed':
+                        discountTypeBadge = 'bg-warning';
+                        discountTypeText = 'Fixed Amount';
+                        break;
+                    case 'free_shipping':
+                        discountTypeBadge = 'bg-success';
+                        discountTypeText = 'Free Shipping';
+                        break;
+                    case 'buy_one_get_one':
+                        discountTypeBadge = 'bg-primary';
+                        discountTypeText = 'Buy One Get One';
+                        break;
+                    default:
+                        discountTypeBadge = 'bg-secondary';
+                        discountTypeText = promo.discount_type;
+                }
+                
+                // Format discount value based on type
+                let discountDisplay = '';
+                if (promo.discount_type === 'percentage') {
+                    discountDisplay = `${promo.discount_value}%`;
+                } else if (promo.discount_type === 'fixed') {
+                    discountDisplay = `₱${promo.discount_value.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                } else if (promo.discount_type === 'free_shipping') {
+                    discountDisplay = '<span class="text-success"><i class="fas fa-shipping-fast"></i> Free</span>';
+                } else if (promo.discount_type === 'buy_one_get_one') {
+                    discountDisplay = '<span class="text-primary"><i class="fas fa-gift"></i> BOGO</span>';
+                } else {
+                    discountDisplay = 'N/A';
+                }
+                
+                return `
+                    <tr>
+                        <td><span class="badge bg-warning text-dark">${promo.no}</span></td>
+                        <td>
+                            <strong class="text-primary">${promo.promo_code}</strong>
+                        </td>
+                        <td>
+                            <span class="badge ${discountTypeBadge}">
+                                ${discountTypeText}
+                            </span>
+                        </td>
+                        <td>
+                            <strong>${discountDisplay}</strong>
+                        </td>
+                        <td>
+                            <small class="text-muted">${promo.start_date}</small>
+                        </td>
+                        <td>
+                            <small class="text-muted">${promo.end_date}</small>
+                        </td>
+                        <td>
+                            <span class="badge bg-primary">${promo.total_uses}</span>
+                        </td>
+                        <td>
+                            <strong class="text-success">₱${promo.total_discount_given.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                        </td>
+                        <td>${statusBadge}</td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('promoCodeAnalyticsTable').innerHTML = promoHtml;
+            
+            // Calculate totals
+            const totalPromos = data.promoCodeAnalytics.length;
+            const totalUses = data.promoCodeAnalytics.reduce((sum, p) => sum + (p.total_uses || 0), 0);
+            const totalDiscount = data.promoCodeAnalytics.reduce((sum, p) => sum + (p.total_discount_given || 0), 0);
+            document.getElementById('promo-total-count').textContent = totalPromos;
+            document.getElementById('promo-total-uses').textContent = totalUses;
+            document.getElementById('promo-total-discount').textContent = '₱' + totalDiscount.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            console.log('Promo code analytics table updated successfully');
+        } else {
+            console.log('No promo code analytics data available or empty array');
+            document.getElementById('promoCodeAnalyticsTable').innerHTML = `
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No promo codes found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('promo-total-count').textContent = '0';
+            document.getElementById('promo-total-uses').textContent = '0';
+            document.getElementById('promo-total-discount').textContent = '₱0.00';
+        }
+
+        // Update platform commission table
+        console.log('Platform Commission Data:', data.platformCommission);
+        if (data.platformCommission && data.platformCommission.length > 0) {
+            console.log(`Rendering ${data.platformCommission.length} platform commission records`);
+            const commissionHtml = data.platformCommission.map(commission => {
+                return `
+                    <tr>
+                        <td><span class="badge bg-warning text-dark">${commission.no}</span></td>
+                        <td>
+                            <strong class="text-primary">#${commission.order_id}</strong>
+                        </td>
+                        <td>
+                            <small class="text-muted">${commission.seller_email}</small>
+                        </td>
+                        <td>
+                            <small class="text-muted">${commission.rider_email || 'N/A'}</small>
+                        </td>
+                        <td>
+                            <strong class="text-primary">₱${commission.order_total.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                        </td>
+                        <td>
+                            <span class="badge bg-info">₱${commission.delivery_fee.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-warning text-dark">₱${commission.seller_commission.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </td>
+                        <td>
+                            <span class="badge bg-info">₱${commission.rider_commission.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span>
+                        </td>
+                        <td>
+                            <strong class="text-success">₱${commission.total_platform_earnings.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong>
+                        </td>
+                        <td>
+                            <small class="text-muted">${commission.order_date}</small>
+                        </td>
+                        <td>
+                            <small class="text-muted">${commission.date_completed || 'N/A'}</small>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('platformCommissionTable').innerHTML = commissionHtml;
+            
+            // Calculate totals
+            const totalCommissionOrders = data.platformCommission.length;
+            const totalSellerCommission = data.platformCommission.reduce((sum, c) => sum + (c.seller_commission || 0), 0);
+            const totalRiderCommission = data.platformCommission.reduce((sum, c) => sum + (c.rider_commission || 0), 0);
+            const totalPlatformEarnings = data.platformCommission.reduce((sum, c) => sum + (c.total_platform_earnings || 0), 0);
+            document.getElementById('commission-total-count').textContent = totalCommissionOrders;
+            document.getElementById('commission-total-seller').textContent = '₱' + totalSellerCommission.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('commission-total-rider').textContent = '₱' + totalRiderCommission.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            document.getElementById('commission-total-earnings').textContent = '₱' + totalPlatformEarnings.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+            
+            console.log('Platform commission table updated successfully');
+        } else {
+            console.log('No platform commission data available or empty array');
+            document.getElementById('platformCommissionTable').innerHTML = `
+                <tr>
+                    <td colspan="11" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No commission data found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('commission-total-count').textContent = '0';
+            document.getElementById('commission-total-seller').textContent = '₱0.00';
+            document.getElementById('commission-total-rider').textContent = '₱0.00';
+            document.getElementById('commission-total-earnings').textContent = '₱0.00';
+        }
+
+        // Update complaints & issues table
+        console.log('Complaints & Issues Data:', data.complaintsIssues);
+        if (data.complaintsIssues && data.complaintsIssues.length > 0) {
+            console.log(`Rendering ${data.complaintsIssues.length} complaints & issues records`);
+            const issuesHtml = data.complaintsIssues.map(issue => {
+                // Determine status badge
+                let statusBadge = '';
+                switch(issue.status.toLowerCase()) {
+                    case 'pending':
+                        statusBadge = '<span class="badge bg-warning"><i class="fas fa-clock"></i> Pending</span>';
+                        break;
+                    case 'in_progress':
+                    case 'in progress':
+                        statusBadge = '<span class="badge bg-info"><i class="fas fa-spinner"></i> In Progress</span>';
+                        break;
+                    case 'resolved':
+                        statusBadge = '<span class="badge bg-success"><i class="fas fa-check-circle"></i> Resolved</span>';
+                        break;
+                    case 'closed':
+                        statusBadge = '<span class="badge bg-secondary"><i class="fas fa-times-circle"></i> Closed</span>';
+                        break;
+                    default:
+                        statusBadge = `<span class="badge bg-secondary">${issue.status}</span>`;
+                }
+                
+                // Determine issue type badge color
+                let issueTypeBadge = '';
+                switch(issue.issue_type.toLowerCase()) {
+                    case 'product':
+                        issueTypeBadge = 'bg-primary';
+                        break;
+                    case 'delivery':
+                        issueTypeBadge = 'bg-warning';
+                        break;
+                    case 'payment':
+                        issueTypeBadge = 'bg-danger';
+                        break;
+                    case 'seller':
+                        issueTypeBadge = 'bg-info';
+                        break;
+                    case 'rider':
+                        issueTypeBadge = 'bg-dark';
+                        break;
+                    case 'other':
+                        issueTypeBadge = 'bg-secondary';
+                        break;
+                    default:
+                        issueTypeBadge = 'bg-secondary';
+                }
+                
+                // Truncate description if too long
+                const maxDescLength = 100;
+                let description = issue.description || 'No description provided';
+                if (description.length > maxDescLength) {
+                    description = description.substring(0, maxDescLength) + '...';
+                }
+                
+                // Format reporter role badge
+                let reporterRoleBadge = '';
+                if (issue.reporter_role) {
+                    const role = issue.reporter_role.toLowerCase();
+                    let roleBadgeClass = '';
+                    let roleIcon = '';
+                    
+                    switch(role) {
+                        case 'buyer':
+                            roleBadgeClass = 'bg-info';
+                            roleIcon = 'fa-user-tag';
+                            break;
+                        case 'seller':
+                            roleBadgeClass = 'bg-success';
+                            roleIcon = 'fa-store';
+                            break;
+                        case 'rider':
+                            roleBadgeClass = 'bg-warning';
+                            roleIcon = 'fa-motorcycle';
+                            break;
+                        case 'admin':
+                            roleBadgeClass = 'bg-danger';
+                            roleIcon = 'fa-user-shield';
+                            break;
+                        default:
+                            roleBadgeClass = 'bg-secondary';
+                            roleIcon = 'fa-user';
+                    }
+                    
+                    reporterRoleBadge = `<span class="badge ${roleBadgeClass}" style="font-size: 0.7rem; margin-top: 2px;"><i class="fas ${roleIcon}"></i> ${issue.reporter_role}</span>`;
+                }
+                
+                // Format reported against role badge
+                let reportedAgainstRoleBadge = '';
+                if (issue.reported_against_role) {
+                    const role = issue.reported_against_role.toLowerCase();
+                    let roleBadgeClass = '';
+                    let roleIcon = '';
+                    
+                    switch(role) {
+                        case 'buyer':
+                            roleBadgeClass = 'bg-info';
+                            roleIcon = 'fa-user-tag';
+                            break;
+                        case 'seller':
+                            roleBadgeClass = 'bg-success';
+                            roleIcon = 'fa-store';
+                            break;
+                        case 'rider':
+                            roleBadgeClass = 'bg-warning';
+                            roleIcon = 'fa-motorcycle';
+                            break;
+                        case 'platform':
+                            roleBadgeClass = 'bg-primary';
+                            roleIcon = 'fa-server';
+                            break;
+                        case 'other':
+                            roleBadgeClass = 'bg-secondary';
+                            roleIcon = 'fa-question';
+                            break;
+                        default:
+                            roleBadgeClass = 'bg-secondary';
+                            roleIcon = 'fa-user';
+                    }
+                    
+                    reportedAgainstRoleBadge = `<span class="badge ${roleBadgeClass}" style="font-size: 0.7rem; margin-top: 2px;"><i class="fas ${roleIcon}"></i> ${issue.reported_against_role}</span>`;
+                }
+                
+                return `
+                    <tr>
+                        <td><span class="badge bg-warning text-dark">${issue.no}</span></td>
+                        <td>
+                            <div style="font-weight: 600;">${issue.reported_by}</div>
+                            ${reporterRoleBadge}
+                            <small class="text-muted d-block" style="margin-top: 2px;">${issue.reported_by_email || ''}</small>
+                        </td>
+                        <td>
+                            <div style="font-weight: 600;">${issue.reported_against}</div>
+                            ${reportedAgainstRoleBadge}
+                            <small class="text-muted d-block" style="margin-top: 2px;">${issue.reported_against_email || ''}</small>
+                        </td>
+                        <td>
+                            <span class="badge ${issueTypeBadge}">${issue.issue_type}</span>
+                        </td>
+                        <td>
+                            <small class="text-muted" title="${issue.description || 'No description'}">${description}</small>
+                        </td>
+                        <td>
+                            ${issue.order_id ? `<strong class="text-primary">#${issue.order_id}</strong>` : '<span class="text-muted">N/A</span>'}
+                        </td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <small class="text-muted">${issue.date_submitted}</small>
+                        </td>
+                    </tr>
+                `;
+            }).join('');
+            document.getElementById('complaintsIssuesTable').innerHTML = issuesHtml;
+            
+            // Calculate totals
+            const totalIssues = data.complaintsIssues.length;
+            const pendingIssues = data.complaintsIssues.filter(i => i.status.toLowerCase() === 'pending').length;
+            const resolvedIssues = data.complaintsIssues.filter(i => i.status.toLowerCase() === 'resolved').length;
+            document.getElementById('issues-total-count').textContent = totalIssues;
+            document.getElementById('issues-pending-count').textContent = pendingIssues;
+            document.getElementById('issues-resolved-count').textContent = resolvedIssues;
+            
+            console.log('Complaints & issues table updated successfully');
+        } else {
+            console.log('No complaints & issues data available or empty array');
+            document.getElementById('complaintsIssuesTable').innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No issues found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('issues-total-count').textContent = '0';
+            document.getElementById('issues-pending-count').textContent = '0';
+            document.getElementById('issues-resolved-count').textContent = '0';
+        }
+    }
+
+    function applyQuickSelect() {
+        const select = document.getElementById('quickSelect');
+        const today = new Date();
+        let fromDate = new Date();
+
+        switch(select.value) {
+            case 'today':
+                fromDate = today;
+                break;
+            case 'week':
+                fromDate.setDate(today.getDate() - 7);
+                break;
+            case 'month':
+                fromDate.setDate(today.getDate() - 30);
+                break;
+            case 'year':
+                fromDate.setFullYear(today.getFullYear() - 1);
+                break;
+            default:
+                return;
+        }
+
+        document.getElementById('fromDate').valueAsDate = fromDate;
+        document.getElementById('toDate').valueAsDate = today;
+    }
+
+    function applyFilter() {
+        const fromDate = document.getElementById('fromDate').value;
+        const toDate = document.getElementById('toDate').value;
+
+        // Only validate if one date is filled but not the other
+        if ((fromDate && !toDate) || (!fromDate && toDate)) {
+            alert('Please select both from and to dates');
+            return;
+        }
+
+        // If both dates are filled, fetch filtered data
+        if (fromDate && toDate) {
+            console.log('Applying date filter:', fromDate, 'to', toDate);
+            // TODO: Implement backend date filtering
+            // For now, just reload data
+            loadAnalyticsData();
+        }
+    }
+
+    function printReport() {
+        const section = document.getElementById('filterBySection').value;
+        
+        // Determine which sections to print
+        let sections = [];
+        if (section === 'all') {
+            sections = ['inventory', 'seller', 'rider', 'buyer', 'promo', 'commission', 'issues'];
+        } else {
+            sections = [section];
+        }
+        
+        // Get report type name
+        const reportTypes = {
+            'all': 'Complete Analytics Report',
+            'inventory': 'Inventory & Products Analytics',
+            'seller': 'Seller Performance Report',
+            'rider': 'Rider/Delivery Analytics',
+            'buyer': 'Buyer Activity & Behavior Insights',
+            'promo': 'Promo Code Usage Analytics',
+            'commission': 'Platform Commission Summary',
+            'issues': 'Complaints & Issues Report'
+        };
+        
+        // Prepare data for print
+        const printData = {
+            reportType: reportTypes[section] || 'Analytics Report',
+            sections: sections,
+            stats: {
+                totalOrders: document.getElementById('totalOrders').textContent,
+                platformCommission: document.getElementById('totalPlatformCommission').textContent,
+                totalRevenue: document.getElementById('totalRevenue').textContent,
+                totalUsers: document.getElementById('totalUsers').textContent,
+                totalProducts: document.getElementById('totalProducts').textContent
+            },
+            inventoryProducts: originalData.inventoryProducts || [],
+            sellerPerformance: originalData.sellerPerformance || [],
+            riderAnalytics: originalData.riderAnalytics || [],
+            buyerInsights: originalData.buyerInsights || [],
+            promoCodeAnalytics: originalData.promoCodeAnalytics || [],
+            platformCommission: originalData.platformCommission || [],
+            complaintsIssues: originalData.complaintsIssues || []
+        };
+        
+        // Store data in localStorage
+        localStorage.setItem('printData', JSON.stringify(printData));
+        
+        // Open print layout in new window
+        const printWindow = window.open('/print_layout', '_blank');
+        
+        if (!printWindow) {
+            alert('Please allow pop-ups to print the report');
+        }
+    }
+
+    function exportReport() {
+        const section = document.getElementById('filterBySection').value;
+        let csvContent = "";
+        let filename = "admin_analytics_report.csv";
+        
+        // Add BOM for proper UTF-8 encoding in Excel
+        const BOM = "\uFEFF";
+        
+        // Add header with date
+        const today = new Date().toLocaleDateString('en-US', {year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'});
+        csvContent += `M'STYLE Admin Analytics Report\n`;
+        csvContent += `Generated on: ${today}\n\n`;
+        
+        // Export based on selected section
+        if (section === 'all' || section === 'inventory') {
+            csvContent += exportInventoryData();
+        }
+        
+        if (section === 'all' || section === 'seller') {
+            csvContent += exportSellerData();
+        }
+        
+        if (section === 'all' || section === 'rider') {
+            csvContent += exportRiderData();
+        }
+        
+        if (section === 'all' || section === 'buyer') {
+            csvContent += exportBuyerData();
+        }
+        
+        if (section === 'all' || section === 'promo') {
+            csvContent += exportPromoData();
+        }
+        
+        if (section === 'all' || section === 'commission') {
+            csvContent += exportCommissionData();
+        }
+        
+        if (section === 'all' || section === 'issues') {
+            csvContent += exportIssuesData();
+        }
+        
+        // Create blob with BOM for proper Excel encoding
+        const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement("a");
+        const url = URL.createObjectURL(blob);
+        link.setAttribute("href", url);
+        link.setAttribute("download", filename);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+
+    function exportInventoryData() {
+        let csv = "INVENTORY AND PRODUCTS ANALYTICS\n";
+        csv += "No.,Product Name,Seller Name,Category,Status,Units Sold,Stock,Low Stock Threshold,Rating\n";
+        
+        const data = originalData.inventoryProducts || [];
+        
+        if (data.length === 0) {
+            csv += "No data available\n";
+            return csv + '\n';
+        }
+        
+        data.forEach((product, index) => {
+            // Determine status
+            const isActive = product.is_active === true || product.is_active === 'true' || product.is_active === 1;
+            const isFlagged = product.is_flagged === true || product.is_flagged === 'true' || product.is_flagged === 1;
+            let status = '';
+            if (isFlagged) status = 'Flagged';
+            else if (!isActive) status = 'Inactive';
+            else status = 'Active';
+            
+            const rowData = [
+                index + 1,
+                `"${product.product_name || 'N/A'}"`,
+                `"${product.seller_name || 'N/A'}"`,
+                product.category || 'N/A',
+                status,
+                product.units_sold || 0,
+                product.stock || 0,
+                product.low_stock_threshold || 5,
+                product.rating || 0
+            ];
+            csv += rowData.join(',') + '\n';
+        });
+        
+        csv += '\n';
+        csv += `Total Products:,${data.length}\n`;
+        csv += `Total Units Sold:,${data.reduce((sum, p) => sum + (p.units_sold || 0), 0)}\n`;
+        
+        return csv + '\n';
+    }
+
+    function exportSellerData() {
+        let csv = "SELLER PERFORMANCE REPORTS\n";
+        csv += "No.,Seller Name / Business Name,Total Products,Total Orders,Completed Orders,Cancelled Orders,Total Revenue,Flagged Products,Deactivated Products\n";
+        
+        const data = originalData.sellerPerformance || [];
+        
+        if (data.length === 0) {
+            csv += "No data available\n";
+            return csv + '\n';
+        }
+        
+        data.forEach((seller, index) => {
+            const rowData = [
+                index + 1,
+                `"${seller.seller_name || 'N/A'}"`,
+                seller.total_products || 0,
+                seller.total_orders || 0,
+                seller.completed_orders || 0,
+                seller.cancelled_orders || 0,
+                seller.total_revenue ? seller.total_revenue.toFixed(2) : '0.00',
+                seller.flagged_products || 0,
+                seller.deactivated_products || 0
+            ];
+            csv += rowData.join(',') + '\n';
+        });
+        
+        csv += '\n';
+        csv += `Total Sellers:,${data.length}\n`;
+        csv += `Total Revenue:,${data.reduce((sum, s) => sum + (s.total_revenue || 0), 0).toFixed(2)}\n`;
+        
+        return csv + '\n';
+    }
+
+    function exportRiderData() {
+        let csv = "RIDER/DELIVERY ANALYTICS\n";
+        csv += "No.,Rider Name,Email,Vehicle Type,Plate Number,Total Deliveries,Successful Deliveries,Failed Deliveries,Success Rate (%),Total Earnings\n";
+        
+        const data = originalData.riderAnalytics || [];
+        
+        if (data.length === 0) {
+            csv += "No data available\n";
+            return csv + '\n';
+        }
+        
+        data.forEach((rider, index) => {
+            const successRate = rider.total_deliveries > 0 
+                ? ((rider.successful_deliveries / rider.total_deliveries) * 100).toFixed(1) 
+                : 0;
+            
+            const rowData = [
+                index + 1,
+                `"${rider.rider_name || 'N/A'}"`,
+                `"${rider.email || 'N/A'}"`,
+                rider.vehicle_type || 'N/A',
+                rider.plate_number || 'N/A',
+                rider.total_deliveries || 0,
+                rider.successful_deliveries || 0,
+                rider.failed_deliveries || 0,
+                successRate,
+                rider.total_earnings ? rider.total_earnings.toFixed(2) : '0.00'
+            ];
+            csv += rowData.join(',') + '\n';
+        });
+        
+        csv += '\n';
+        csv += `Total Riders:,${data.length}\n`;
+        csv += `Total Deliveries:,${data.reduce((sum, r) => sum + (r.total_deliveries || 0), 0)}\n`;
+        csv += `Total Earnings:,${data.reduce((sum, r) => sum + (r.total_earnings || 0), 0).toFixed(2)}\n`;
+        
+        return csv + '\n';
+    }
+
+    function exportBuyerData() {
+        let csv = "BUYER ACTIVITY & BEHAVIOR INSIGHTS\n";
+        csv += "No.,Buyer Name,Email,Total Orders,Total Spend,Avg Order Value (AOV),Last Order Date,Cart Items,Wishlist Items\n";
+        
+        const data = originalData.buyerInsights || [];
+        
+        if (data.length === 0) {
+            csv += "No data available\n";
+            return csv + '\n';
+        }
+        
+        data.forEach((buyer, index) => {
+            // Format date with = and quotes to force Excel to treat as text
+            const lastOrderDate = buyer.last_order_date ? `"=""${buyer.last_order_date}"""` : '"N/A"';
+            
+            const rowData = [
+                index + 1,
+                `"${buyer.buyer_name || 'N/A'}"`,
+                `"${buyer.email || 'N/A'}"`,
+                buyer.total_orders || 0,
+                buyer.total_spend ? buyer.total_spend.toFixed(2) : '0.00',
+                buyer.avg_order_value ? buyer.avg_order_value.toFixed(2) : '0.00',
+                lastOrderDate,
+                buyer.cart_items || 0,
+                buyer.wishlist_items || 0
+            ];
+            csv += rowData.join(',') + '\n';
+        });
+        
+        csv += '\n';
+        csv += `Total Buyers:,${data.length}\n`;
+        csv += `Total Spend:,${data.reduce((sum, b) => sum + (b.total_spend || 0), 0).toFixed(2)}\n`;
+        
+        return csv + '\n';
+    }
+
+    function exportPromoData() {
+        let csv = "PROMO CODE USAGE ANALYTICS\n";
+        csv += "No.,Promo Code,Discount Type,Discount Value,Start Date,End Date,Total Uses,Total Discount Given,Status\n";
+        
+        const data = originalData.promoCodeAnalytics || [];
+        
+        if (data.length === 0) {
+            csv += "No data available\n";
+            return csv + '\n';
+        }
+        
+        data.forEach((promo, index) => {
+            // Determine status
+            const today = new Date();
+            const startDate = new Date(promo.start_date);
+            const endDate = new Date(promo.end_date);
+            let status = '';
+            
+            if (today < startDate) {
+                status = 'Upcoming';
+            } else if (today > endDate) {
+                status = 'Expired';
+            } else {
+                status = 'Active';
+            }
+            
+            // Format discount type
+            let discountType = promo.discount_type || 'N/A';
+            switch(discountType) {
+                case 'percentage': discountType = 'Percentage'; break;
+                case 'fixed': discountType = 'Fixed Amount'; break;
+                case 'free_shipping': discountType = 'Free Shipping'; break;
+                case 'buy_one_get_one': discountType = 'Buy One Get One'; break;
+            }
+            
+            // Format discount value
+            let discountValue = '';
+            if (promo.discount_type === 'percentage') {
+                discountValue = `${promo.discount_value}%`;
+            } else if (promo.discount_type === 'fixed') {
+                discountValue = promo.discount_value ? promo.discount_value.toFixed(2) : '0.00';
+            } else if (promo.discount_type === 'free_shipping') {
+                discountValue = 'Free Shipping';
+            } else if (promo.discount_type === 'buy_one_get_one') {
+                discountValue = 'BOGO';
+            } else {
+                discountValue = 'N/A';
+            }
+            
+            // Format dates with = and quotes to force Excel to treat as text
+            const startDateFormatted = promo.start_date ? `"=""${promo.start_date}"""` : '"N/A"';
+            const endDateFormatted = promo.end_date ? `"=""${promo.end_date}"""` : '"N/A"';
+            
+            const rowData = [
+                index + 1,
+                promo.promo_code || 'N/A',
+                discountType,
+                discountValue,
+                startDateFormatted,
+                endDateFormatted,
+                promo.total_uses || 0,
+                promo.total_discount_given ? promo.total_discount_given.toFixed(2) : '0.00',
+                status
+            ];
+            csv += rowData.join(',') + '\n';
+        });
+        
+        csv += '\n';
+        csv += `Total Promo Codes:,${data.length}\n`;
+        csv += `Total Uses:,${data.reduce((sum, p) => sum + (p.total_uses || 0), 0)}\n`;
+        csv += `Total Discount Given:,${data.reduce((sum, p) => sum + (p.total_discount_given || 0), 0).toFixed(2)}\n`;
+        
+        return csv + '\n';
+    }
+
+    function exportCommissionData() {
+        let csv = "PLATFORM COMMISSION SUMMARY REPORT\n";
+        csv += "No.,Order ID,Seller Email,Rider Email,Order Total,Delivery Fee,Seller Commission (5%),Rider Commission (5%),Total Platform Earnings,Order Date,Date Completed\n";
+        
+        // Use original data or filtered data
+        const data = originalData.platformCommission || [];
+        
+        if (data.length === 0) {
+            csv += "No data available\n";
+            return csv + '\n';
+        }
+        
+        data.forEach((commission, index) => {
+            // Format dates with = and quotes to force Excel to treat as text
+            const orderDate = commission.order_date ? `"=""${commission.order_date}"""` : '"N/A"';
+            const dateCompleted = commission.date_completed ? `"=""${commission.date_completed}"""` : '"N/A"';
+            
+            const rowData = [
+                index + 1,
+                commission.order_id || 'N/A',
+                `"${commission.seller_email || 'N/A'}"`,
+                `"${commission.rider_email || 'N/A'}"`,
+                commission.order_total ? commission.order_total.toFixed(2) : '0.00',
+                commission.delivery_fee ? commission.delivery_fee.toFixed(2) : '0.00',
+                commission.seller_commission ? commission.seller_commission.toFixed(2) : '0.00',
+                commission.rider_commission ? commission.rider_commission.toFixed(2) : '0.00',
+                commission.total_platform_earnings ? commission.total_platform_earnings.toFixed(2) : '0.00',
+                orderDate,
+                dateCompleted
+            ];
+            csv += rowData.join(',') + '\n';
+        });
+        
+        // Add totals
+        const totalOrders = data.length;
+        const totalSellerCommission = data.reduce((sum, c) => sum + (c.seller_commission || 0), 0);
+        const totalRiderCommission = data.reduce((sum, c) => sum + (c.rider_commission || 0), 0);
+        const totalPlatformEarnings = data.reduce((sum, c) => sum + (c.total_platform_earnings || 0), 0);
+        
+        csv += '\n';
+        csv += `Total Orders:,${totalOrders}\n`;
+        csv += `Total Seller Commission:,${totalSellerCommission.toFixed(2)}\n`;
+        csv += `Total Rider Commission:,${totalRiderCommission.toFixed(2)}\n`;
+        csv += `Total Platform Earnings:,${totalPlatformEarnings.toFixed(2)}\n`;
+        
+        return csv + '\n';
+    }
+
+    function exportIssuesData() {
+        let csv = "COMPLAINTS & ISSUES REPORT\n";
+        csv += "No.,Reported By,Reporter Role,Reporter Email,Reported Against,Reported Against Role,Reported Against Email,Issue Type,Description,Order ID,Status,Date Submitted\n";
+        
+        // Use original data or filtered data
+        const data = originalData.complaintsIssues || [];
+        
+        if (data.length === 0) {
+            csv += "No data available\n";
+            return csv + '\n';
+        }
+        
+        data.forEach((issue, index) => {
+            // Clean description - remove commas and newlines
+            const description = (issue.description || 'No description').replace(/,/g, ';').replace(/\n/g, ' ').replace(/\r/g, ' ');
+            
+            // Format date with = and quotes to force Excel to treat as text
+            const dateSubmitted = issue.date_submitted ? `"=""${issue.date_submitted}"""` : '"N/A"';
+            
+            const rowData = [
+                index + 1,
+                `"${issue.reported_by || 'N/A'}"`,
+                issue.reporter_role || 'N/A',
+                `"${issue.reported_by_email || 'N/A'}"`,
+                `"${issue.reported_against || 'N/A'}"`,
+                issue.reported_against_role || 'N/A',
+                `"${issue.reported_against_email || 'N/A'}"`,
+                issue.issue_type || 'N/A',
+                `"${description}"`,
+                issue.order_id || 'N/A',
+                issue.status || 'N/A',
+                dateSubmitted
+            ];
+            csv += rowData.join(',') + '\n';
+        });
+        
+        // Add totals
+        const totalIssues = data.length;
+        const pendingIssues = data.filter(i => i.status && i.status.toLowerCase() === 'pending').length;
+        const inProgressIssues = data.filter(i => i.status && (i.status.toLowerCase() === 'in_progress' || i.status.toLowerCase() === 'in progress')).length;
+        const resolvedIssues = data.filter(i => i.status && i.status.toLowerCase() === 'resolved').length;
+        const closedIssues = data.filter(i => i.status && i.status.toLowerCase() === 'closed').length;
+        
+        csv += '\n';
+        csv += `Total Issues:,${totalIssues}\n`;
+        csv += `Pending Issues:,${pendingIssues}\n`;
+        csv += `In Progress Issues:,${inProgressIssues}\n`;
+        csv += `Resolved Issues:,${resolvedIssues}\n`;
+        csv += `Closed Issues:,${closedIssues}\n`;
+        
+        return csv + '\n';
+    }
+
+    // Table update functions for filtered data
+    function updateInventoryTable(products) {
+        const tbody = document.getElementById('inventoryProductsTable');
+        if (!products || products.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No products found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('inventory-total-count').textContent = '0';
+            document.getElementById('inventory-total-sold').textContent = '0';
+            return;
+        }
+        
+        const html = products.map(product => {
+            let statusBadges = '<div class="status-badges">';
+            if (product.is_flagged && product.flagged_at) {
+                statusBadges += `<span class="flagged-badge" title="Flagged on ${product.flagged_at}"><i class="fas fa-flag"></i> Flagged</span>`;
+            }
+            if (!product.is_active) {
+                statusBadges += '<span class="inactive-badge" title="Product is deactivated"><i class="fas fa-ban"></i> Inactive</span>';
+            }
+            if (product.is_active && !product.is_flagged) {
+                statusBadges += '<span class="active-badge" title="Product is active"><i class="fas fa-check-circle"></i> Active</span>';
+            }
+            statusBadges += '</div>';
+            
+            const stock = parseInt(product.stock) || 0;
+            const threshold = parseInt(product.low_stock_threshold) || 5;
+            let stockClass = 'in-stock';
+            let stockLabel = '';
+            
+            if (stock <= 0) {
+                stockClass = 'out-of-stock';
+                stockLabel = '<div style="font-size: 11px; color: #dc3545; font-weight: 600; margin-top: 4px;"><i class="fas fa-times-circle"></i> Out of Stock</div>';
+            } else if (stock <= threshold) {
+                stockClass = 'low-stock';
+                stockLabel = '<div style="font-size: 11px; color: #ff9800; font-weight: 600; margin-top: 4px;"><i class="fas fa-exclamation-triangle"></i> Low Stock</div>';
+            }
+            
+            const ratingStars = '★'.repeat(Math.floor(product.rating)) + '☆'.repeat(5 - Math.floor(product.rating));
+            
+            return `
+                <tr>
+                    <td><span class="badge bg-warning text-dark">${product.no}</span></td>
+                    <td><strong>${product.product_name}</strong></td>
+                    <td>${product.seller_name}</td>
+                    <td><span class="badge bg-info">${product.category}</span></td>
+                    <td>${statusBadges}</td>
+                    <td><span class="badge bg-primary">${product.units_sold}</span></td>
+                    <td>
+                        <span class="stock-badge ${stockClass}">${stock}</span>
+                        ${stockLabel}
+                    </td>
+                    <td>
+                        <span class="text-warning">${ratingStars}</span>
+                        <small class="text-muted">(${product.rating})</small>
+                    </td>
+                </tr>
+            `;
+        }).join('');
+        
+        tbody.innerHTML = html;
+        document.getElementById('inventory-total-count').textContent = products.length;
+        document.getElementById('inventory-total-sold').textContent = products.reduce((sum, p) => sum + (p.units_sold || 0), 0);
+    }
+
+    function updateSellerTable(sellers) {
+        const tbody = document.getElementById('sellerPerformanceTable');
+        if (!sellers || sellers.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No sellers found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('seller-total-count').textContent = '0';
+            document.getElementById('seller-total-revenue').textContent = '₱0.00';
+            return;
+        }
+        
+        const html = sellers.map(seller => `
+            <tr>
+                <td><span class="badge bg-warning text-dark">${seller.no}</span></td>
+                <td>
+                    <div class="seller-info">
+                        <strong>${seller.seller_name}</strong>
+                        <small class="text-muted d-block">${seller.email || 'N/A'}</small>
+                    </div>
+                </td>
+                <td><span class="badge bg-info">${seller.total_products}</span></td>
+                <td><span class="badge bg-primary">${seller.total_orders}</span></td>
+                <td><span class="badge bg-success">${seller.completed_orders}</span></td>
+                <td><span class="badge bg-danger">${seller.cancelled_orders}</span></td>
+                <td><strong class="text-success">₱${seller.total_revenue.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+                <td><span class="badge bg-warning text-dark">${seller.flagged_products}</span></td>
+                <td><span class="badge bg-secondary">${seller.deactivated_products}</span></td>
+            </tr>
+        `).join('');
+        
+        tbody.innerHTML = html;
+        document.getElementById('seller-total-count').textContent = sellers.length;
+        const totalRevenue = sellers.reduce((sum, s) => sum + (s.total_revenue || 0), 0);
+        document.getElementById('seller-total-revenue').textContent = '₱' + totalRevenue.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    function updateRiderTable(riders) {
+        const tbody = document.getElementById('riderAnalyticsTable');
+        if (!riders || riders.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No riders found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('rider-total-count').textContent = '0';
+            document.getElementById('rider-total-deliveries').textContent = '0';
+            document.getElementById('rider-total-earnings').textContent = '₱0.00';
+            return;
+        }
+        
+        const html = riders.map(rider => {
+            const successRate = rider.total_deliveries > 0 
+                ? ((rider.successful_deliveries / rider.total_deliveries) * 100).toFixed(1) 
+                : 0;
+            
+            return `
+                <tr>
+                    <td><span class="badge bg-warning text-dark">${rider.no}</span></td>
+                    <td>
+                        <div style="font-weight: 600;">${rider.rider_name}</div>
+                        <small class="text-muted">${rider.email}</small>
+                    </td>
+                    <td><span class="badge bg-info">${rider.vehicle_type || 'N/A'}</span></td>
+                    <td><span class="badge bg-dark">${rider.plate_number || 'N/A'}</span></td>
+                    <td><span class="badge bg-primary">${rider.total_deliveries}</span></td>
+                    <td>
+                        <span class="badge bg-success">${rider.successful_deliveries}</span>
+                        <small class="text-muted d-block">${successRate}% success rate</small>
+                    </td>
+                    <td><span class="badge bg-danger">${rider.failed_deliveries}</span></td>
+                    <td><strong class="text-success">₱${rider.total_earnings.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+                </tr>
+            `;
+        }).join('');
+        
+        tbody.innerHTML = html;
+        document.getElementById('rider-total-count').textContent = riders.length;
+        document.getElementById('rider-total-deliveries').textContent = riders.reduce((sum, r) => sum + (r.total_deliveries || 0), 0);
+        const totalEarnings = riders.reduce((sum, r) => sum + (r.total_earnings || 0), 0);
+        document.getElementById('rider-total-earnings').textContent = '₱' + totalEarnings.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    function updateBuyerTable(buyers) {
+        const tbody = document.getElementById('buyerInsightsTable');
+        if (!buyers || buyers.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No buyers found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('buyer-total-count').textContent = '0';
+            document.getElementById('buyer-total-spend').textContent = '₱0.00';
+            return;
+        }
+        
+        const html = buyers.map(buyer => {
+            const cartItems = buyer.cart_items || 0;
+            let cartBadge = 'bg-secondary';
+            if (cartItems > 10) cartBadge = 'bg-danger';
+            else if (cartItems > 5) cartBadge = 'bg-warning';
+            else if (cartItems > 0) cartBadge = 'bg-info';
+            
+            return `
+                <tr>
+                    <td><span class="badge bg-warning text-dark">${buyer.no}</span></td>
+                    <td>
+                        <div style="font-weight: 600;">${buyer.buyer_name}</div>
+                        <small class="text-muted">${buyer.email}</small>
+                    </td>
+                    <td><span class="badge bg-info">${buyer.total_orders}</span></td>
+                    <td><strong class="text-primary">₱${buyer.total_spend.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+                    <td><strong class="text-success">₱${buyer.avg_order_value.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+                    <td><small class="text-muted">${buyer.last_order_date || 'N/A'}</small></td>
+                    <td><span class="badge ${cartBadge}">${cartItems} items</span></td>
+                    <td><span class="badge bg-warning text-dark">${buyer.wishlist_items} items</span></td>
+                </tr>
+            `;
+        }).join('');
+        
+        tbody.innerHTML = html;
+        document.getElementById('buyer-total-count').textContent = buyers.length;
+        const totalSpend = buyers.reduce((sum, b) => sum + (b.total_spend || 0), 0);
+        document.getElementById('buyer-total-spend').textContent = '₱' + totalSpend.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    function updatePromoTable(promos) {
+        const tbody = document.getElementById('promoCodeAnalyticsTable');
+        if (!promos || promos.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="9" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No promo codes found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('promo-total-count').textContent = '0';
+            document.getElementById('promo-total-uses').textContent = '0';
+            document.getElementById('promo-total-discount').textContent = '₱0.00';
+            return;
+        }
+        
+        const html = promos.map(promo => {
+            const today = new Date();
+            const startDate = new Date(promo.start_date);
+            const endDate = new Date(promo.end_date);
+            let statusBadge = '';
+            
+            if (today < startDate) {
+                statusBadge = '<span class="badge bg-secondary"><i class="fas fa-clock"></i> Upcoming</span>';
+            } else if (today > endDate) {
+                statusBadge = '<span class="badge bg-danger"><i class="fas fa-times-circle"></i> Expired</span>';
+            } else {
+                statusBadge = '<span class="badge bg-success"><i class="fas fa-check-circle"></i> Active</span>';
+            }
+            
+            let discountTypeBadge = 'bg-secondary';
+            let discountTypeText = promo.discount_type;
+            
+            switch(promo.discount_type) {
+                case 'percentage':
+                    discountTypeBadge = 'bg-info';
+                    discountTypeText = 'Percentage';
+                    break;
+                case 'fixed':
+                    discountTypeBadge = 'bg-warning';
+                    discountTypeText = 'Fixed Amount';
+                    break;
+                case 'free_shipping':
+                    discountTypeBadge = 'bg-success';
+                    discountTypeText = 'Free Shipping';
+                    break;
+                case 'buy_one_get_one':
+                    discountTypeBadge = 'bg-primary';
+                    discountTypeText = 'Buy One Get One';
+                    break;
+            }
+            
+            let discountDisplay = '';
+            if (promo.discount_type === 'percentage') {
+                discountDisplay = `${promo.discount_value}%`;
+            } else if (promo.discount_type === 'fixed') {
+                discountDisplay = `₱${promo.discount_value.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            } else if (promo.discount_type === 'free_shipping') {
+                discountDisplay = '<span class="text-success"><i class="fas fa-shipping-fast"></i> Free</span>';
+            } else if (promo.discount_type === 'buy_one_get_one') {
+                discountDisplay = '<span class="text-primary"><i class="fas fa-gift"></i> BOGO</span>';
+            } else {
+                discountDisplay = 'N/A';
+            }
+            
+            return `
+                <tr>
+                    <td><span class="badge bg-warning text-dark">${promo.no}</span></td>
+                    <td><strong class="text-primary">${promo.promo_code}</strong></td>
+                    <td><span class="badge ${discountTypeBadge}">${discountTypeText}</span></td>
+                    <td><strong>${discountDisplay}</strong></td>
+                    <td><small class="text-muted">${promo.start_date}</small></td>
+                    <td><small class="text-muted">${promo.end_date}</small></td>
+                    <td><span class="badge bg-primary">${promo.total_uses}</span></td>
+                    <td><strong class="text-success">₱${promo.total_discount_given.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+                    <td>${statusBadge}</td>
+                </tr>
+            `;
+        }).join('');
+        
+        tbody.innerHTML = html;
+        document.getElementById('promo-total-count').textContent = promos.length;
+        document.getElementById('promo-total-uses').textContent = promos.reduce((sum, p) => sum + (p.total_uses || 0), 0);
+        const totalDiscount = promos.reduce((sum, p) => sum + (p.total_discount_given || 0), 0);
+        document.getElementById('promo-total-discount').textContent = '₱' + totalDiscount.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    function updateCommissionTable(commissions) {
+        const tbody = document.getElementById('platformCommissionTable');
+        if (!commissions || commissions.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="11" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No commission data found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('commission-total-count').textContent = '0';
+            document.getElementById('commission-total-seller').textContent = '₱0.00';
+            document.getElementById('commission-total-rider').textContent = '₱0.00';
+            document.getElementById('commission-total-earnings').textContent = '₱0.00';
+            return;
+        }
+        
+        const html = commissions.map(commission => `
+            <tr>
+                <td><span class="badge bg-warning text-dark">${commission.no}</span></td>
+                <td><strong class="text-primary">#${commission.order_id}</strong></td>
+                <td><small class="text-muted">${commission.seller_email}</small></td>
+                <td><small class="text-muted">${commission.rider_email || 'N/A'}</small></td>
+                <td><strong class="text-primary">₱${commission.order_total.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+                <td><span class="badge bg-info">₱${commission.delivery_fee.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
+                <td><span class="badge bg-warning text-dark">₱${commission.seller_commission.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
+                <td><span class="badge bg-info">₱${commission.rider_commission.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</span></td>
+                <td><strong class="text-success">₱${commission.total_platform_earnings.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2})}</strong></td>
+                <td><small class="text-muted">${commission.order_date}</small></td>
+                <td><small class="text-muted">${commission.date_completed || 'N/A'}</small></td>
+            </tr>
+        `).join('');
+        
+        tbody.innerHTML = html;
+        document.getElementById('commission-total-count').textContent = commissions.length;
+        document.getElementById('commission-total-seller').textContent = '₱' + commissions.reduce((sum, c) => sum + (c.seller_commission || 0), 0).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        document.getElementById('commission-total-rider').textContent = '₱' + commissions.reduce((sum, c) => sum + (c.rider_commission || 0), 0).toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        const totalEarnings = commissions.reduce((sum, c) => sum + (c.total_platform_earnings || 0), 0);
+        document.getElementById('commission-total-earnings').textContent = '₱' + totalEarnings.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+    }
+
+    function updateIssuesTable(issues) {
+        const tbody = document.getElementById('complaintsIssuesTable');
+        if (!issues || issues.length === 0) {
+            tbody.innerHTML = `
+                <tr>
+                    <td colspan="8" class="text-center text-muted py-4">
+                        <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
+                        <h5>No issues found</h5>
+                        <p>Try adjusting your filters or search criteria</p>
+                    </td>
+                </tr>
+            `;
+            document.getElementById('issues-total-count').textContent = '0';
+            document.getElementById('issues-pending-count').textContent = '0';
+            document.getElementById('issues-resolved-count').textContent = '0';
+            return;
+        }
+        
+        const html = issues.map(issue => {
+            let statusBadge = '';
+            switch(issue.status.toLowerCase()) {
+                case 'pending':
+                    statusBadge = '<span class="badge bg-warning"><i class="fas fa-clock"></i> Pending</span>';
+                    break;
+                case 'in_progress':
+                case 'in progress':
+                    statusBadge = '<span class="badge bg-info"><i class="fas fa-spinner"></i> In Progress</span>';
+                    break;
+                case 'resolved':
+                    statusBadge = '<span class="badge bg-success"><i class="fas fa-check-circle"></i> Resolved</span>';
+                    break;
+                case 'closed':
+                    statusBadge = '<span class="badge bg-secondary"><i class="fas fa-times-circle"></i> Closed</span>';
+                    break;
+                default:
+                    statusBadge = `<span class="badge bg-secondary">${issue.status}</span>`;
+            }
+            
+            let issueTypeBadge = 'bg-secondary';
+            switch(issue.issue_type.toLowerCase()) {
+                case 'product': issueTypeBadge = 'bg-primary'; break;
+                case 'delivery': issueTypeBadge = 'bg-warning'; break;
+                case 'payment': issueTypeBadge = 'bg-danger'; break;
+                case 'seller': issueTypeBadge = 'bg-info'; break;
+                case 'rider': issueTypeBadge = 'bg-dark'; break;
+            }
+            
+            const maxDescLength = 100;
+            let description = issue.description || 'No description provided';
+            if (description.length > maxDescLength) {
+                description = description.substring(0, maxDescLength) + '...';
+            }
+            
+            let reporterRoleBadge = '';
+            if (issue.reporter_role) {
+                const role = issue.reporter_role.toLowerCase();
+                let roleBadgeClass = role === 'buyer' ? 'bg-info' : role === 'seller' ? 'bg-success' : role === 'rider' ? 'bg-warning' : 'bg-secondary';
+                let roleIcon = role === 'buyer' ? 'fa-user-tag' : role === 'seller' ? 'fa-store' : role === 'rider' ? 'fa-motorcycle' : 'fa-user';
+                reporterRoleBadge = `<span class="badge ${roleBadgeClass}" style="font-size: 0.7rem; margin-top: 2px;"><i class="fas ${roleIcon}"></i> ${issue.reporter_role}</span>`;
+            }
+            
+            let reportedAgainstRoleBadge = '';
+            if (issue.reported_against_role) {
+                const role = issue.reported_against_role.toLowerCase();
+                let roleBadgeClass = role === 'buyer' ? 'bg-info' : role === 'seller' ? 'bg-success' : role === 'rider' ? 'bg-warning' : role === 'platform' ? 'bg-primary' : 'bg-secondary';
+                let roleIcon = role === 'buyer' ? 'fa-user-tag' : role === 'seller' ? 'fa-store' : role === 'rider' ? 'fa-motorcycle' : role === 'platform' ? 'fa-server' : 'fa-question';
+                reportedAgainstRoleBadge = `<span class="badge ${roleBadgeClass}" style="font-size: 0.7rem; margin-top: 2px;"><i class="fas ${roleIcon}"></i> ${issue.reported_against_role}</span>`;
+            }
+            
+            return `
+                <tr>
+                    <td><span class="badge bg-warning text-dark">${issue.no}</span></td>
+                    <td>
+                        <div style="font-weight: 600;">${issue.reported_by}</div>
+                        ${reporterRoleBadge}
+                        <small class="text-muted d-block" style="margin-top: 2px;">${issue.reported_by_email || ''}</small>
+                    </td>
+                    <td>
+                        <div style="font-weight: 600;">${issue.reported_against}</div>
+                        ${reportedAgainstRoleBadge}
+                        <small class="text-muted d-block" style="margin-top: 2px;">${issue.reported_against_email || ''}</small>
+                    </td>
+                    <td><span class="badge ${issueTypeBadge}">${issue.issue_type}</span></td>
+                    <td><small class="text-muted" title="${issue.description || 'No description'}">${description}</small></td>
+                    <td>${issue.order_id ? `<strong class="text-primary">#${issue.order_id}</strong>` : '<span class="text-muted">N/A</span>'}</td>
+                    <td>${statusBadge}</td>
+                    <td><small class="text-muted">${issue.date_submitted}</small></td>
+                </tr>
+            `;
+        }).join('');
+        
+        tbody.innerHTML = html;
+        document.getElementById('issues-total-count').textContent = issues.length;
+        document.getElementById('issues-pending-count').textContent = issues.filter(i => i.status.toLowerCase() === 'pending').length;
+        document.getElementById('issues-resolved-count').textContent = issues.filter(i => i.status.toLowerCase() === 'resolved').length;
+    }
+
+    // Store original updateTables function
+    let originalUpdateTablesFunction = updateTables;
+    
+    // Override updateTables to store data
+    updateTables = function(data) {
+        // Store original data for filtering
+        originalData = {
+            inventoryProducts: data.inventoryProducts || [],
+            sellerPerformance: data.sellerPerformance || [],
+            riderAnalytics: data.riderAnalytics || [],
+            buyerInsights: data.buyerInsights || [],
+            promoCodeAnalytics: data.promoCodeAnalytics || [],
+            platformCommission: data.platformCommission || [],
+            complaintsIssues: data.complaintsIssues || []
+        };
+        
+        console.log('Data stored for filtering:', {
+            inventoryProducts: originalData.inventoryProducts.length,
+            sellerPerformance: originalData.sellerPerformance.length,
+            riderAnalytics: originalData.riderAnalytics.length,
+            buyerInsights: originalData.buyerInsights.length,
+            promoCodeAnalytics: originalData.promoCodeAnalytics.length,
+            platformCommission: originalData.platformCommission.length,
+            complaintsIssues: originalData.complaintsIssues.length
+        });
+        
+        // Call original function to display data
+        originalUpdateTablesFunction(data);
+    };
+</script>
+{% endblock %}

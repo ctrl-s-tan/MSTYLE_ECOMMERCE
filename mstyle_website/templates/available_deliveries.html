@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Available Deliveries</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/available_deliveries.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/success_message_modal.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+
+<body>
+    {% include 'rider_header.html' %}
+
+    <div class="container">
+        <div class="content">
+            <div class="page-header">
+                <div class="header-content">
+                    <div class="header-icon">
+                        <i class="bi bi-list-task"></i>
+                    </div>
+                    <div class="header-text">
+                        <h1>Available Deliveries</h1>
+                        <p>Choose from available delivery orders in your area</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="filters-section">
+                <div class="filter-group">
+                    <label for="sortBy"><i class="bi bi-sort-down"></i> Sort By</label>
+                    <select id="sortBy" class="filter-select" onchange="sortDeliveries()">
+                        <option value="newest">Newest First</option>
+                        <option value="priority">Priority (Urgent First)</option>
+                        <option value="value_high">Order Value (High to Low)</option>
+                        <option value="value_low">Order Value (Low to High)</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="filterPriority"><i class="bi bi-exclamation-triangle"></i> Priority</label>
+                    <select id="filterPriority" class="filter-select" onchange="filterDeliveries()">
+                        <option value="all">All Priority</option>
+                        <option value="urgent">Urgent Only</option>
+                        <option value="normal">Normal Only</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <label for="filterFee"><i class="bi bi-cash"></i> Delivery Fee</label>
+                    <select id="filterFee" class="filter-select" onchange="filterDeliveries()">
+                        <option value="all">All Fees</option>
+                        <option value="free">Free Delivery</option>
+                        <option value="paid">Paid Delivery</option>
+                    </select>
+                </div>
+
+                <div class="filter-group">
+                    <button class="btn btn-secondary" onclick="resetFilters()">
+                        <i class="bi bi-arrow-clockwise"></i>
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+            <div class="deliveries-grid">
+                {% for order in available_orders %}
+                <div class="delivery-card {{ 'urgent' if order.priority == 'urgent' else '' }}"
+                    data-distance="{{ order.distance.split()[0] }}" data-fee="{{ order.delivery_fee }}"
+                    data-priority="{{ order.priority }}" data-order-id="{{ order.id }}">
+                    <div class="card-header">
+                        <div class="order-info">
+                            <h3>Order #{{ order.id }}</h3>
+                            <span class="customer-name">{{ order.customer_name }}</span>
+                            {% if order.priority == 'urgent' %}
+                            <span class="priority-badge urgent">
+                                <i class="bi bi-exclamation-triangle"></i>
+                                Urgent
+                            </span>
+                            {% endif %}
+                        </div>
+                        <div class="delivery-fee">
+                            <span class="fee-amount">{% if order.has_free_shipping %}Free{% else %}₱{{ "%.2f"|format(order.delivery_fee) }}{% endif %}</span>
+                            <span class="fee-label">Delivery Fee</span>
+                        </div>
+                    </div>
+
+                    <div class="card-body">
+                        <div class="location-info">
+                            <div class="location-item pickup">
+                                <div class="location-icon">
+                                    <i class="bi bi-geo-alt"></i>
+                                </div>
+                                <div class="location-details">
+                                    <span class="location-label">Pickup Location</span>
+                                    <span class="location-address">{{ order.pickup_address }}</span>
+                                </div>
+                            </div>
+
+                            <div class="route-line">
+                                <div class="route-dots">
+                                    <div class="dot"></div>
+                                    <div class="dot"></div>
+                                    <div class="dot"></div>
+                                </div>
+                            </div>
+
+                            <div class="location-item delivery">
+                                <div class="location-icon">
+                                    <i class="bi bi-house"></i>
+                                </div>
+                                <div class="location-details">
+                                    <span class="location-label">Delivery Address</span>
+                                    <span class="location-address">{{ order.delivery_address }}</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="order-details">
+
+                            <div class="detail-item">
+                                <i class="bi bi-bag"></i>
+                                <span>{{ order.items_count }} items</span>
+                            </div>
+                            <div class="detail-item">
+                                <i class="bi bi-currency-dollar"></i>
+                                <span>₱{{ "%.2f"|format(order.order_value) }}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="card-actions">
+                        <button class="btn btn-secondary" onclick="viewOrderDetails('{{ order.id }}')">
+                            <i class="bi bi-eye"></i>
+                            View Details
+                        </button>
+                        <button class="btn btn-primary" onclick="acceptDelivery('{{ order.id }}')">
+                            <i class="bi bi-check-circle"></i>
+                            Accept Delivery
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+
+            <!-- Empty State -->
+            <div class="empty-state" id="emptyState" style="display: {% if available_orders %}none{% else %}block{% endif %}; grid-column: 1 / -1;">
+                <div class="empty-icon">
+                    <i class="bi bi-inbox"></i>
+                </div>
+                <h3>No Available Deliveries</h3>
+                <p>There are currently no delivery orders available in your area. Check back later!</p>
+                <button class="btn btn-primary" onclick="refreshDeliveries()">
+                    <i class="bi bi-arrow-clockwise"></i>
+                    Refresh
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Message Modal -->
+    <div id="successModal" class="success-modal" aria-hidden="true" role="dialog" aria-labelledby="success-modal-title">
+        <div class="success-modal-content">
+            <div class="success-icon">
+                <i class="fas fa-check success-checkmark" aria-hidden="true"></i>
+            </div>
+            <h2 id="success-modal-title">Delivery Accepted Successfully!</h2>
+            <p class="thank-you-message">Thank You for Accepting This Delivery!</p>
+            <p class="order-message">
+                The order has been assigned to you. Please proceed to the pickup location and complete the delivery.
+            </p>
+            <div class="success-modal-buttons">
+                <button type="button" class="view-orders-btn" onclick="goToActiveDeliveries()">
+                    <i class="fas fa-truck" aria-hidden="true"></i>
+                    View Active Deliveries
+                </button>
+                <button type="button" class="continue-shopping-btn" onclick="closeSuccessModal()">
+                    <i class="fas fa-list" aria-hidden="true"></i>
+                    View More Deliveries
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/available_deliveries.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+</body>
+
+</html>

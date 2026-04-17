@@ -1,0 +1,98 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container mt-4">
+    <a href="{{ url_for('admin_pending_users') }}" class="btn btn-secondary mb-3">
+        <i class="fas fa-arrow-left"></i> Back to Pending Users
+    </a>
+    
+    <div class="card">
+        <div class="card-header">
+            <h4>User Details</h4>
+        </div>
+        <div class="card-body">
+            <div class="row mb-3">
+                <div class="col-md-6">
+                    <h5>Personal Information</h5>
+                    <p><strong>Name:</strong> {{ user.first_name }} {{ user.last_name }}</p>
+                    <p><strong>Email:</strong> {{ user.email }}</p>
+                    <p><strong>Phone:</strong> {{ user.phone_number }}</p>
+                    <p><strong>User Type:</strong> {{ user.user_type|title }}</p>
+                    <p><strong>Registration Date:</strong> {{ user.created_at.strftime('%Y-%m-%d %H:%M') }}</p>
+                </div>
+                <div class="col-md-6">
+                    <h5>Address</h5>
+                    <p>{{ user.address|replace('\n', '<br>')|safe }}</p>
+                    
+                    {% if user.valid_id_path %}
+                    <h5 class="mt-4">Valid ID</h5>
+                    <img src="{{ url_for('static', filename=user.valid_id_path) }}" 
+                         class="img-thumbnail" style="max-height: 200px;">
+                    {% endif %}
+                    
+                    {% if user.user_type == 'seller' %}
+                        {% if user.bir_path %}
+                        <h5 class="mt-3">BIR Certificate</h5>
+                        <img src="{{ url_for('static', filename=user.bir_path) }}" 
+                             class="img-thumbnail" style="max-height: 200px;">
+                        {% endif %}
+                        
+                        {% if user.dti_path %}
+                        <h5 class="mt-3">DTI Certificate</h5>
+                        <img src="{{ url_for('static', filename=user.dti_path) }}" 
+                             class="img-thumbnail" style="max-height: 200px;">
+                        {% endif %}
+                        
+                        {% if user.tin_path %}
+                        <h5 class="mt-3">TIN Certificate</h5>
+                        <img src="{{ url_for('static', filename=user.tin_path) }}" 
+                             class="img-thumbnail" style="max-height: 200px;">
+                        {% endif %}
+                    {% endif %}
+                </div>
+            </div>
+            
+            <div class="mt-4">
+                <a href="{{ url_for('admin_approve_user', user_id=user.id) }}" 
+                   class="btn btn-success" 
+                   onclick="return confirm('Approve this user?')">
+                    <i class="fas fa-check"></i> Approve User
+                </a>
+                
+                <button type="button" 
+                        class="btn btn-danger" 
+                        data-bs-toggle="modal" 
+                        data-bs-target="#rejectModal">
+                    <i class="fas fa-times"></i> Reject User
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div class="modal fade" id="rejectModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Reject User Registration</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('admin_reject_user', user_id=user.id) }}" method="post">
+                <div class="modal-body">
+                    <p>Are you sure you want to reject {{ user.first_name }}'s registration?</p>
+                    <div class="mb-3">
+                        <label for="rejectionReason" class="form-label">Reason for rejection:</label>
+                        <textarea class="form-control" id="rejectionReason" 
+                                 name="rejection_reason" rows="3" required></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-danger">Reject</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

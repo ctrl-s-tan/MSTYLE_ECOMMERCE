@@ -1,0 +1,350 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Seller Dashboard</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seller_dashboard.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+    {% include 'seller_header.html' %}
+    <div class="container">
+        <div class="content">
+            <div class="dashboard-header">
+                <div class="dashboard-avatar">
+                    <i class="bi bi-speedometer2"></i>
+                </div>
+                <h1>Seller Dashboard</h1>
+                <p>Overview of your store performance</p>
+            </div>
+            <div class="dashboard-container">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="bi bi-currency-dollar"></i>
+                        </div>
+                        <div class="stat-value">₱{{ total_sales }}</div>
+                        <div class="stat-label">Total Sales</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="bi bi-wallet2"></i>
+                        </div>
+                        <div class="stat-value">₱{{ total_earnings }}</div>
+                        <div class="stat-label">Total Earnings</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="bi bi-bag-check"></i>
+                        </div>
+                        <div class="stat-value">{{ total_items }}</div>
+                        <div class="stat-label">Items Sold</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="bi bi-graph-up-arrow"></i>
+                        </div>
+                        <div class="stat-value">₱{{ avg_order_value }}</div>
+                        <div class="stat-label">Avg Order Value</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="bi bi-box-seam"></i>
+                        </div>
+                        <div class="stat-value">{{ total_products }}</div>
+                        <div class="stat-label">Total Products</div>
+                    </div>
+                </div>
+                
+                <!-- Line Charts Row -->
+                <div class="charts-row">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <i class="bi bi-graph-up"></i>
+                            <h2>Total Sales (Last 12 Months)</h2>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="salesChart"></canvas>
+                        </div>
+                    </div>
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <i class="bi bi-cash-coin"></i>
+                            <h2>Net Earnings (Last 12 Months)</h2>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="earningsChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Order Status Pie Chart -->
+                <div class="chart-container">
+                    <div class="chart-card">
+                        <div class="chart-header">
+                            <i class="bi bi-pie-chart-fill"></i>
+                            <h2>Order Status Distribution</h2>
+                        </div>
+                        <div class="chart-body">
+                            <canvas id="orderStatusChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+    <script>
+        // Prepare chart data
+        const chartDates = {{ chart_dates | tojson }};
+        const chartSales = {{ chart_sales | tojson }};
+        const chartEarnings = {{ chart_earnings | tojson }};
+        
+        // Format dates for display (monthly format)
+        const formattedDates = chartDates.map(date => {
+            const [year, month] = date.split('-');
+            const d = new Date(year, month - 1);
+            return d.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+        });
+        
+        // Sales Line Chart
+        const salesCtx = document.getElementById('salesChart').getContext('2d');
+        const salesChart = new Chart(salesCtx, {
+            type: 'line',
+            data: {
+                labels: formattedDates,
+                datasets: [{
+                    label: 'Total Sales',
+                    data: chartSales,
+                    borderColor: 'rgb(33, 150, 243)',
+                    backgroundColor: 'rgba(33, 150, 243, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: 'rgb(33, 150, 243)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: {
+                            size: 14,
+                            family: 'Poppins'
+                        },
+                        bodyFont: {
+                            size: 13,
+                            family: 'Poppins'
+                        },
+                        callbacks: {
+                            label: function(context) {
+                                return 'Sales: ₱' + context.parsed.y.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '₱' + value.toFixed(0);
+                            },
+                            font: {
+                                family: 'Poppins'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            font: {
+                                family: 'Poppins',
+                                size: 10
+                            }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Earnings Line Chart
+        const earningsCtx = document.getElementById('earningsChart').getContext('2d');
+        const earningsChart = new Chart(earningsCtx, {
+            type: 'line',
+            data: {
+                labels: formattedDates,
+                datasets: [{
+                    label: 'Net Earnings',
+                    data: chartEarnings,
+                    borderColor: 'rgb(76, 175, 80)',
+                    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 4,
+                    pointHoverRadius: 6,
+                    pointBackgroundColor: 'rgb(76, 175, 80)',
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        display: false
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: {
+                            size: 14,
+                            family: 'Poppins'
+                        },
+                        bodyFont: {
+                            size: 13,
+                            family: 'Poppins'
+                        },
+                        callbacks: {
+                            label: function(context) {
+                                return 'Earnings: ₱' + context.parsed.y.toFixed(2);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            callback: function(value) {
+                                return '₱' + value.toFixed(0);
+                            },
+                            font: {
+                                family: 'Poppins'
+                            }
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)'
+                        }
+                    },
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            font: {
+                                family: 'Poppins',
+                                size: 10
+                            }
+                        },
+                        grid: {
+                            display: false
+                        }
+                    }
+                }
+            }
+        });
+        
+        // Order Status Pie Chart
+        const ctx = document.getElementById('orderStatusChart').getContext('2d');
+        const orderStatusChart = new Chart(ctx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Pending', 'Confirmed', 'Preparing', 'Ready for Pickup', 'Out for Delivery', 'Delivered', 'Completed', 'Cancelled'],
+                datasets: [{
+                    data: [
+                        {{ order_status_counts['Pending'] }},
+                        {{ order_status_counts['Confirmed'] }},
+                        {{ order_status_counts['Preparing'] }},
+                        {{ order_status_counts['Ready for Pickup'] }},
+                        {{ order_status_counts['Out for Delivery'] }},
+                        {{ order_status_counts['Delivered'] }},
+                        {{ order_status_counts['Completed'] }},
+                        {{ order_status_counts['Cancelled'] }}
+                    ],
+                    backgroundColor: [
+                        'rgb(255, 152, 0)',      // Orange - Pending
+                        'rgb(33, 150, 243)',     // Blue - Confirmed
+                        'rgb(156, 39, 176)',     // Purple - Preparing
+                        'rgb(0, 188, 212)',      // Teal - Ready for Pickup
+                        'rgb(63, 81, 181)',      // Indigo - Out for Delivery
+                        'rgb(139, 195, 74)',     // Light Green - Delivered
+                        'rgb(76, 175, 80)',      // Dark Green - Completed
+                        'rgb(244, 67, 54)'       // Red - Cancelled
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#fff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: {
+                            padding: 15,
+                            font: {
+                                size: 12,
+                                family: 'Poppins'
+                            },
+                            usePointStyle: true,
+                            pointStyle: 'circle'
+                        }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        padding: 12,
+                        titleFont: {
+                            size: 14,
+                            family: 'Poppins'
+                        },
+                        bodyFont: {
+                            size: 13,
+                            family: 'Poppins'
+                        },
+                        callbacks: {
+                            label: function(context) {
+                                const label = context.label || '';
+                                const value = context.parsed || 0;
+                                const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
+                                return label + ': ' + value + ' (' + percentage + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+</body>
+
+</html>

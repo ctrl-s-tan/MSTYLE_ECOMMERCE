@@ -1,0 +1,492 @@
+{% extends "admin_header.html" %}
+
+{% block content %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<div class="admin-dashboard-content">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="dashboard-avatar">
+            <i class="bi bi-speedometer2"></i>
+        </div>
+        <h1>Admin Dashboard</h1>
+        <p>Complete overview of your platform management</p>
+    </div>
+
+    <!-- Stats Grid -->
+    <div class="stats-grid">
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-shopping-cart"></i>
+            </div>
+            <div class="stat-value">{{ total_orders or 0 }}</div>
+            <div class="stat-label">Total Orders</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-box"></i>
+            </div>
+            <div class="stat-value">{{ total_products or 0 }}</div>
+            <div class="stat-label">Total Products</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-users"></i>
+            </div>
+            <div class="stat-value">{{ total_users or 0 }}</div>
+            <div class="stat-label">Total Users</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-exclamation-triangle"></i>
+            </div>
+            <div class="stat-value">{{ total_issues or 0 }}</div>
+            <div class="stat-label">Total Issues</div>
+        </div>
+
+        <div class="stat-card">
+            <div class="stat-icon">
+                <i class="fas fa-clock"></i>
+            </div>
+            <div class="stat-value">{{ pending_approvals or 0 }}</div>
+            <div class="stat-label">Pending Approvals</div>
+        </div>
+    </div>
+</div>
+
+<!-- Charts Section -->
+<div class="charts-section">
+    <!-- Line Charts Row -->
+    <div class="charts-grid">
+        <!-- Total Revenue Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3><i class="fas fa-chart-line"></i> Total Revenue (Monthly)</h3>
+                <p>Revenue trends over the last 12 months</p>
+            </div>
+            <div class="chart-container">
+                <canvas id="revenueChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Platform Commission Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3><i class="fas fa-chart-line"></i> Platform Commission (Monthly)</h3>
+                <p>Commission earnings over the last 12 months</p>
+            </div>
+            <div class="chart-container">
+                <canvas id="commissionChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bar and Pie Charts Row -->
+    <div class="charts-grid">
+        <!-- Top Selling Categories Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3><i class="fas fa-chart-bar"></i> Top Selling Categories</h3>
+                <p>Best performing product categories</p>
+            </div>
+            <div class="chart-container">
+                <canvas id="categoriesChart"></canvas>
+            </div>
+        </div>
+
+        <!-- Order Status Distribution Chart -->
+        <div class="chart-card">
+            <div class="chart-header">
+                <h3><i class="fas fa-chart-pie"></i> Order Status Distribution</h3>
+                <p>Current orders breakdown by status</p>
+            </div>
+            <div class="chart-container">
+                <canvas id="orderStatusChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Fetch chart data from API
+    fetch('/api/admin/dashboard_charts')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Network response was not ok');
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log('Chart data received:', data);
+            
+            if (data.error) {
+                console.error('API Error:', data.error);
+            }
+            
+            // Check if data exists before rendering
+            if (data.revenue && data.revenue.labels && data.revenue.labels.length > 0) {
+                renderRevenueChart(data.revenue);
+            } else {
+                console.warn('No revenue data available');
+            }
+            
+            if (data.commission && data.commission.labels && data.commission.labels.length > 0) {
+                renderCommissionChart(data.commission);
+            } else {
+                console.warn('No commission data available');
+            }
+            
+            if (data.categories && data.categories.labels && data.categories.labels.length > 0) {
+                renderCategoriesChart(data.categories);
+            } else {
+                console.warn('No categories data available');
+            }
+            
+            if (data.orderStatus && data.orderStatus.labels && data.orderStatus.labels.length > 0) {
+                renderOrderStatusChart(data.orderStatus);
+            } else {
+                console.warn('No order status data available');
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching chart data:', error);
+        });
+});
+
+function renderRevenueChart(revenueData) {
+    const ctx = document.getElementById('revenueChart').getContext('2d');
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: revenueData.labels,
+            datasets: [{
+                label: 'Total Revenue',
+                data: revenueData.values,
+                borderColor: '#2c3e50',
+                backgroundColor: 'rgba(44, 62, 80, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                pointBackgroundColor: '#2c3e50',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        font: {
+                            size: 12,
+                            weight: 'bold'
+                        },
+                        color: '#2c3e50'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(44, 62, 80, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#d4af37',
+                    borderWidth: 2,
+                    padding: 12,
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            return 'Revenue: ₱' + context.parsed.y.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '₱' + value.toLocaleString('en-PH');
+                        },
+                        color: '#6c757d',
+                        font: {
+                            size: 11
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#6c757d',
+                        font: {
+                            size: 11
+                        }
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderCommissionChart(commissionData) {
+    const ctx = document.getElementById('commissionChart').getContext('2d');
+    
+    new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: commissionData.labels,
+            datasets: [{
+                label: 'Platform Commission',
+                data: commissionData.values,
+                borderColor: '#d4af37',
+                backgroundColor: 'rgba(212, 175, 55, 0.1)',
+                borderWidth: 3,
+                fill: true,
+                tension: 0.4,
+                pointRadius: 5,
+                pointHoverRadius: 7,
+                pointBackgroundColor: '#d4af37',
+                pointBorderColor: '#fff',
+                pointBorderWidth: 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        font: {
+                            size: 12,
+                            weight: 'bold'
+                        },
+                        color: '#2c3e50'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(212, 175, 55, 0.9)',
+                    titleColor: '#2c3e50',
+                    bodyColor: '#2c3e50',
+                    borderColor: '#2c3e50',
+                    borderWidth: 2,
+                    padding: 12,
+                    displayColors: false,
+                    callbacks: {
+                        label: function(context) {
+                            return 'Commission: ₱' + context.parsed.y.toLocaleString('en-PH', {minimumFractionDigits: 2, maximumFractionDigits: 2});
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return '₱' + value.toLocaleString('en-PH');
+                        },
+                        color: '#6c757d',
+                        font: {
+                            size: 11
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#6c757d',
+                        font: {
+                            size: 11
+                        }
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderCategoriesChart(categoriesData) {
+    const ctx = document.getElementById('categoriesChart').getContext('2d');
+    
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels: categoriesData.labels,
+            datasets: [{
+                label: 'Units Sold',
+                data: categoriesData.values,
+                backgroundColor: [
+                    'rgba(212, 175, 55, 0.8)',
+                    'rgba(44, 62, 80, 0.8)',
+                    'rgba(52, 152, 219, 0.8)',
+                    'rgba(46, 204, 113, 0.8)',
+                    'rgba(155, 89, 182, 0.8)',
+                    'rgba(241, 196, 15, 0.8)',
+                    'rgba(230, 126, 34, 0.8)',
+                    'rgba(231, 76, 60, 0.8)'
+                ],
+                borderColor: [
+                    '#d4af37',
+                    '#2c3e50',
+                    '#3498db',
+                    '#2ecc71',
+                    '#9b59b6',
+                    '#f1c40f',
+                    '#e67e22',
+                    '#e74c3c'
+                ],
+                borderWidth: 2,
+                borderRadius: 8,
+                borderSkipped: false
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(44, 62, 80, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#d4af37',
+                    borderWidth: 2,
+                    padding: 12,
+                    displayColors: true,
+                    callbacks: {
+                        label: function(context) {
+                            return 'Units Sold: ' + context.parsed.y.toLocaleString();
+                        }
+                    }
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        callback: function(value) {
+                            return value.toLocaleString();
+                        },
+                        color: '#6c757d',
+                        font: {
+                            size: 11
+                        }
+                    },
+                    grid: {
+                        color: 'rgba(0, 0, 0, 0.05)'
+                    }
+                },
+                x: {
+                    ticks: {
+                        color: '#6c757d',
+                        font: {
+                            size: 11
+                        },
+                        maxRotation: 45,
+                        minRotation: 45
+                    },
+                    grid: {
+                        display: false
+                    }
+                }
+            }
+        }
+    });
+}
+
+function renderOrderStatusChart(orderStatusData) {
+    const ctx = document.getElementById('orderStatusChart').getContext('2d');
+    
+    new Chart(ctx, {
+        type: 'pie',
+        data: {
+            labels: orderStatusData.labels,
+            datasets: [{
+                data: orderStatusData.values,
+                backgroundColor: [
+                    'rgba(241, 196, 15, 0.8)',   // Pending - Yellow
+                    'rgba(52, 152, 219, 0.8)',   // Processing - Blue
+                    'rgba(155, 89, 182, 0.8)',   // Shipped - Purple
+                    'rgba(230, 126, 34, 0.8)',   // Out for Delivery - Orange
+                    'rgba(46, 204, 113, 0.8)',   // Delivered - Green
+                    'rgba(39, 174, 96, 0.8)',    // Completed/Received - Dark Green
+                    'rgba(231, 76, 60, 0.8)',    // Cancelled - Red
+                    'rgba(149, 165, 166, 0.8)'   // Other - Gray
+                ],
+                borderColor: [
+                    '#f1c40f',
+                    '#3498db',
+                    '#9b59b6',
+                    '#e67e22',
+                    '#2ecc71',
+                    '#27ae60',
+                    '#e74c3c',
+                    '#95a5a6'
+                ],
+                borderWidth: 2,
+                hoverOffset: 15
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'right',
+                    labels: {
+                        font: {
+                            size: 11
+                        },
+                        color: '#2c3e50',
+                        padding: 12,
+                        usePointStyle: true,
+                        pointStyle: 'circle'
+                    }
+                },
+                tooltip: {
+                    backgroundColor: 'rgba(44, 62, 80, 0.9)',
+                    titleColor: '#fff',
+                    bodyColor: '#fff',
+                    borderColor: '#d4af37',
+                    borderWidth: 2,
+                    padding: 12,
+                    displayColors: true,
+                    callbacks: {
+                        label: function(context) {
+                            const label = context.label || '';
+                            const value = context.parsed || 0;
+                            const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                            const percentage = ((value / total) * 100).toFixed(1);
+                            return label + ': ' + value + ' (' + percentage + '%)';
+                        }
+                    }
+                }
+            }
+        }
+    });
+}
+</script>
+
+{% endblock %}

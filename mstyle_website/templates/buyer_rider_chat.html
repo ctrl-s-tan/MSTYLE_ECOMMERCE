@@ -1,0 +1,66 @@
+<!-- Buyer-Rider Chat Modal -->
+ 
+<div class="buyer-rider-chat-modal" id="buyerRiderChatModal" style="display: none;">
+    <div class="rider-chat-modal-container">
+        <div class="rider-chat-modal-header">
+            <div class="rider-chat-header-info">
+                <div class="rider-avatar-chat" id="chatRiderAvatar">
+                    <img id="chatRiderProfilePic" src="" alt="Rider" class="rider-avatar-chat-img" style="display: none;">
+                    <div class="rider-avatar-chat-icon" id="chatRiderAvatarIcon">
+                        <i class="bi bi-bicycle"></i>
+                    </div>
+                </div>
+                <div class="rider-details-chat">
+                    <h3 id="chatRiderName">Rider Name</h3>
+                    <span class="online-status-chat">
+                        <i class="bi bi-circle-fill"></i> Delivering your order
+                    </span>
+                </div>
+            </div>
+            <button class="close-rider-chat-modal" onclick="closeRiderChat()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+
+        <div class="rider-chat-modal-body">
+            <!-- Order Context -->
+            <div class="rider-chat-order-context" id="chatOrderContext" style="display: none;">
+                <div class="order-context-icon">
+                    <i class="bi bi-box-seam"></i>
+                </div>
+                <div class="order-context-info">
+                    <span class="order-context-label">Order:</span>
+                    <span class="order-context-id" id="chatOrderId"></span>
+                </div>
+            </div>
+
+            <!-- Messages Container -->
+            <div class="rider-chat-messages-area" id="riderChatMessages">
+                <!-- Messages will be loaded here -->
+            </div>
+        </div>
+
+        <div class="rider-chat-modal-footer">
+            <form id="riderChatForm" onsubmit="sendRiderMessage(event)">
+                <input type="hidden" id="riderOrderId" name="order_id">
+                <input type="hidden" id="riderIdInput" name="rider_id">
+                <div class="rider-chat-input-wrapper">
+                    <textarea 
+                        id="riderMessageInput" 
+                        name="message"
+                        placeholder="Type your message to the rider..." 
+                        rows="1"
+                        maxlength="1000"
+                        required></textarea>
+                    <button type="submit" class="send-rider-message-btn">
+                        <i class="bi bi-send-fill"></i>
+                    </button>
+                </div>
+                <div class="rider-message-info">
+                    <span class="rider-char-count"><span id="charCount">0</span>/1000</span>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+<script src="{{ url_for('static', filename='js/buyer_rider_chat.js') }}"></script>

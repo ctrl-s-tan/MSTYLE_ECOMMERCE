@@ -1,0 +1,578 @@
+import 'package:flutter/material.dart';
+import 'login.dart';
+import 'buyer_homepage.dart';
+import 'buyer_cart.dart';
+import 'buyer_wishlist.dart';
+import 'profile.dart';
+import 'buyer_notifications.dart';
+import 'buyer_service.dart';
+import 'buyer_header.dart';
+import 'buyer_bottom_navbar.dart';
+import 'product_image_carousel.dart' show buildImageUrl;
+
+const Color _primary   = Color(0xFF1a1a1a);
+const Color _accent    = Color(0xFF2c3e50);
+const Color _gold      = Color(0xFFd4af37);
+const Color _goldLight = Color(0xFFF4D03F);
+const Color _textLight = Color(0xFF6c757d);
+const Color _bg        = Color(0xFFF8F9FA);
+const Color _border    = Color(0xFFE9ECEF);
+
+const _premiumGrad = LinearGradient(
+  begin: Alignment.topLeft, end: Alignment.bottomRight,
+  colors: [_primary, _accent],
+);
+const _goldGrad = LinearGradient(
+  begin: Alignment.topLeft, end: Alignment.bottomRight,
+  colors: [_gold, _goldLight],
+);
+
+// ─── Order model ──────────────────────────────────────────────────────────────
+enum OrderStatus { all, pending, shipped, delivered, completed, cancelled }
+
+class Order {
+  final String id;
+  final String name;
+  final double totalPrice;
+  final String date;
+  final String status;
+  final String? color;
+  final String? size;
+  final int quantity;
+
+  const Order({
+    required this.id,
+    required this.name,
+    required this.totalPrice,
+    required this.date,
+    required this.status,
+    this.color,
+    this.size,
+    required this.quantity,
+  });
+}
+
+// ─── Mock data ────────────────────────────────────────────────────────────────
+final _mockOrders = [
+  const Order(id: '1001', name: 'Oxford Button-Down', totalPrice: 1099.0, date: 'March 20, 2026', status: 'Pending',   color: 'White', size: 'M',  quantity: 1),
+  const Order(id: '1002', name: 'Slim Chino Pants',   totalPrice: 2748.0, date: 'March 18, 2026', status: 'Shipped',   color: 'Navy',  size: '32', quantity: 2),
+  const Order(id: '1003', name: 'Sports Hoodie',      totalPrice: 1999.0, date: 'March 10, 2026', status: 'Delivered', color: 'Black', size: 'L',  quantity: 1),
+  const Order(id: '1004', name: 'Leather Biker Jacket', totalPrice: 5249.0, date: 'March 5, 2026', status: 'Completed', color: 'Brown', size: 'XL', quantity: 1),
+  const Order(id: '1005', name: 'Running Shorts',     totalPrice: 1049.0, date: 'Feb 28, 2026',   status: 'Cancelled', color: 'Gray',  size: 'M',  quantity: 1),
+];
+
+class BuyerOrdersPage extends StatefulWidget {
+  final String userEmail;
+  const BuyerOrdersPage({super.key, required this.userEmail});
+  @override
+  State<BuyerOrdersPage> createState() => _BuyerOrdersPageState();
+}
+
+class _BuyerOrdersPageState extends State<BuyerOrdersPage> {
+  OrderStatus _filter = OrderStatus.all;
+  bool _loading = true;
+  List<Map<String, dynamic>> _orders = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _loadOrders();
+  }
+
+  Future<void> _loadOrders() async {
+    setState(() => _loading = true);
+    try {
+      final data = await BuyerService.getOrders(widget.userEmail);
+      if (mounted) setState(() { _orders = data; _loading = false; });
+    } catch (e) {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<Map<String, dynamic>> get _filtered {
+    if (_filter == OrderStatus.all) return _orders;
+    final statusName = _filter.name.toLowerCase();
+    return _orders.where((o) =>
+      (o['status'] as String? ?? '').toLowerCase() == statusName
+    ).toList();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: _bg,
+      bottomNavigationBar: BuyerBottomNavBar(userEmail: widget.userEmail, currentPage: BuyerPage.orders),
+      body: _loading
+        ? const Center(child: CircularProgressIndicator(color: _gold))
+        : CustomScrollView(
+            slivers: [
+              BuyerAppBar(userEmail: widget.userEmail),
+              SliverToBoxAdapter(child: _header()),
+              SliverToBoxAdapter(child: _filterTabs()),
+              if (_filtered.isEmpty)
+                SliverFillRemaining(child: _emptyState())
+              else
+                SliverList(
+                  delegate: SliverChildBuilderDelegate(
+                    (_, i) => _orderCard(_filtered[i]),
+                    childCount: _filtered.length,
+                  ),
+                ),
+              const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            ],
+          ),
+    );
+  }
+
+  // ─── App Bar ──────────────────────────────────────────────────────────────
+  // ─── Header ───────────────────────────────────────────────────────────────
+  Widget _header() => Container(
+    width: double.infinity,
+    padding: const EdgeInsets.fromLTRB(20, 28, 20, 24),
+    decoration: const BoxDecoration(gradient: _premiumGrad),
+    child: Column(children: [
+      Container(
+        width: 64, height: 64,
+        decoration: BoxDecoration(
+          shape: BoxShape.circle, gradient: _goldGrad,
+          boxShadow: [BoxShadow(color: _gold.withOpacity(0.4), blurRadius: 16)],
+        ),
+        child: const Icon(Icons.shopping_bag, color: _primary, size: 30),
+      ),
+      const SizedBox(height: 14),
+      const Text('My Orders',
+        style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800, letterSpacing: -0.5)),
+      const SizedBox(height: 6),
+      Text('Track and manage your orders',
+        style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 13)),
+    ]),
+  );
+
+  // ─── Filter Tabs ──────────────────────────────────────────────────────────
+  Widget _filterTabs() => Container(
+    color: Colors.white,
+    padding: const EdgeInsets.symmetric(vertical: 12),
+    child: SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      child: Row(
+        children: OrderStatus.values.map((s) {
+          final active = _filter == s;
+          return GestureDetector(
+            onTap: () => setState(() => _filter = s),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 200),
+              margin: const EdgeInsets.only(right: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: active ? _goldGrad : null,
+                color: active ? null : _bg,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: active ? _gold : _border),
+              ),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(_statusIcon(s), size: 13, color: active ? _primary : _textLight),
+                const SizedBox(width: 5),
+                Text(_statusLabel(s), style: TextStyle(
+                  color: active ? _primary : _textLight,
+                  fontSize: 12, fontWeight: active ? FontWeight.w700 : FontWeight.w500,
+                )),
+              ]),
+            ),
+          );
+        }).toList(),
+      ),
+    ),
+  );
+
+  IconData _statusIcon(OrderStatus s) {
+    switch (s) {
+      case OrderStatus.all:       return Icons.grid_view_rounded;
+      case OrderStatus.pending:   return Icons.hourglass_empty;
+      case OrderStatus.shipped:   return Icons.local_shipping_outlined;
+      case OrderStatus.delivered: return Icons.check_circle_outline;
+      case OrderStatus.completed: return Icons.check_circle;
+      case OrderStatus.cancelled: return Icons.cancel_outlined;
+    }
+  }
+
+  String _statusLabel(OrderStatus s) {
+    switch (s) {
+      case OrderStatus.all:       return 'All Orders';
+      case OrderStatus.pending:   return 'Pending';
+      case OrderStatus.shipped:   return 'Shipped';
+      case OrderStatus.delivered: return 'Delivered';
+      case OrderStatus.completed: return 'Completed';
+      case OrderStatus.cancelled: return 'Cancelled';
+    }
+  }
+
+  // ─── Order Card ───────────────────────────────────────────────────────────
+  Widget _orderCard(Map<String, dynamic> order) {
+    final status     = order['status'] as String? ?? 'Pending';
+    final statusColor = _statusColor(status);
+    final name       = order['name'] as String? ?? 'Order';
+    final totalPrice = double.tryParse(order['total_price']?.toString() ?? '0') ?? 0;
+    final date       = order['date'] as String? ?? '';
+    final color      = order['variations'] as String?;
+    final size       = order['size'] as String?;
+    final quantity   = order['quantity'] as int? ?? 1;
+    final orderId    = order['id'] as int? ?? 0;
+    final imageRaw   = order['image'] as String?;
+    final imageUrl   = buildImageUrl(imageRaw?.split(',').first.trim());
+
+    return Container(
+      margin: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 3))],
+      ),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Padding(
+          padding: const EdgeInsets.all(14),
+          child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+                  colors: [Color(0xFFECEFF1), Color(0xFFE9ECEF)]),
+              ),
+              child: imageUrl != null
+                ? ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: Image.network(
+                      imageUrl,
+                      width: 72, height: 72, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => const Center(
+                        child: Icon(Icons.image_outlined, color: Color(0xFFADB5BD), size: 30)),
+                    ),
+                  )
+                : const Center(child: Icon(Icons.image_outlined, color: Color(0xFFADB5BD), size: 30)),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(name, style: const TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 14),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Row(children: [
+                  const Icon(Icons.calendar_today_outlined, size: 11, color: _textLight),
+                  const SizedBox(width: 4),
+                  Text(date.length > 10 ? date.substring(0, 10) : date,
+                    style: const TextStyle(color: _textLight, fontSize: 11)),
+                ]),
+                const SizedBox(height: 6),
+                Wrap(spacing: 6, runSpacing: 4, children: [
+                  if (color != null && color.isNotEmpty) _chip(Icons.palette_outlined, color),
+                  if (size != null && size.isNotEmpty)   _chip(Icons.straighten_outlined, size),
+                  _chip(Icons.inventory_2_outlined, 'Qty: $quantity'),
+                ]),
+                const SizedBox(height: 8),
+                Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  Text('₱${totalPrice.toStringAsFixed(2)}',
+                    style: const TextStyle(color: _accent, fontWeight: FontWeight.w800, fontSize: 15)),
+                  _statusBadge(status, statusColor),
+                ]),
+              ]),
+            ),
+          ]),
+        ),
+        if (status != 'Cancelled')
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: _actionButtons(status, orderId, name),
+          ),
+        if (status == 'Cancelled')
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 0, 14, 14),
+            child: const Row(children: [
+              Icon(Icons.info_outline, size: 13, color: _textLight),
+              SizedBox(width: 6),
+              Text('This order has been cancelled', style: TextStyle(color: _textLight, fontSize: 12)),
+            ]),
+          ),
+      ]),
+    );
+  }
+
+  Widget _chip(IconData icon, String label) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+    decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(8), border: Border.all(color: _border)),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(icon, size: 10, color: _textLight),
+      const SizedBox(width: 3),
+      Text(label, style: const TextStyle(color: _textLight, fontSize: 10, fontWeight: FontWeight.w500)),
+    ]),
+  );
+
+  Widget _statusBadge(String status, Color color) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+    decoration: BoxDecoration(
+      color: color.withOpacity(0.12),
+      borderRadius: BorderRadius.circular(20),
+      border: Border.all(color: color.withOpacity(0.3)),
+    ),
+    child: Row(mainAxisSize: MainAxisSize.min, children: [
+      Icon(_statusIconFromString(status), size: 11, color: color),
+      const SizedBox(width: 4),
+      Text(status, style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.w700)),
+    ]),
+  );
+
+  Color _statusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':   return Colors.orange;
+      case 'shipped':   return Colors.blue;
+      case 'delivered': return Colors.teal;
+      case 'completed': return Colors.green;
+      case 'cancelled': return Colors.red;
+      default:          return _textLight;
+    }
+  }
+
+  IconData _statusIconFromString(String status) {
+    switch (status.toLowerCase()) {
+      case 'pending':   return Icons.hourglass_empty;
+      case 'shipped':   return Icons.local_shipping_outlined;
+      case 'delivered': return Icons.check_circle_outline;
+      case 'completed': return Icons.check_circle;
+      case 'cancelled': return Icons.cancel_outlined;
+      default:          return Icons.help_outline;
+    }
+  }
+
+  Widget _actionButtons(String status, int orderId, String orderName) {
+    return Wrap(spacing: 8, runSpacing: 8, children: [
+      if (status == 'Pending')
+        _actionBtn('Cancel Order', Icons.cancel_outlined, Colors.red,
+          () => _showCancelDialog(orderId)),
+      if (status == 'Shipped')
+        _actionBtn('Contact Rider', Icons.chat_outlined, Colors.blue, () {}),
+      if (status == 'Delivered')
+        _actionBtn('Confirm Receipt', Icons.check_circle_outline, Colors.green,
+          () => _showConfirmDialog(orderId)),
+      if (status == 'Completed')
+        _actionBtn('Leave Review', Icons.star_outline, _gold,
+          () => _showReviewDialog(orderId, orderName)),
+      if (status == 'Delivered' || status == 'Completed')
+        _actionBtn('Report Issue', Icons.flag_outlined, Colors.orange, () {}),
+      _actionBtn('Contact Seller', Icons.chat_bubble_outline, _accent, () {}),
+    ]);
+  }
+
+  Widget _actionBtn(String label, IconData icon, Color color, VoidCallback onTap) => GestureDetector(
+    onTap: onTap,
+    child: Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withOpacity(0.3)),
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Icon(icon, size: 13, color: color),
+        const SizedBox(width: 5),
+        Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w600)),
+      ]),
+    ),
+  );
+
+  // ─── Dialogs ──────────────────────────────────────────────────────────────
+  void _showCancelDialog(int orderId) {
+    final reasonCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(children: [
+          Icon(Icons.cancel_outlined, color: Colors.red),
+          SizedBox(width: 8),
+          Text('Cancel Order', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 18)),
+        ]),
+        content: Column(mainAxisSize: MainAxisSize.min, children: [
+          const Text('Reason for cancellation:', style: TextStyle(color: _textLight, fontSize: 13)),
+          const SizedBox(height: 10),
+          TextField(
+            controller: reasonCtrl,
+            maxLines: 3,
+            decoration: InputDecoration(
+              hintText: 'Please let us know why...',
+              hintStyle: const TextStyle(color: _textLight, fontSize: 13),
+              filled: true, fillColor: _bg,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _border)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _primary, width: 2)),
+            ),
+          ),
+        ]),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Close')),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await BuyerService.cancelOrder(orderId, reasonCtrl.text.trim());
+              await _loadOrders();
+              _showSuccessSnack('Order cancelled successfully.');
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: const Text('Confirm Cancel'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showConfirmDialog(int orderId) {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(children: [
+          Icon(Icons.check_circle_outline, color: Colors.green),
+          SizedBox(width: 8),
+          Text('Confirm Receipt', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 18)),
+        ]),
+        content: const Text('Confirm that you have received this order?', style: TextStyle(color: _textLight)),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          ElevatedButton(
+            onPressed: () async {
+              Navigator.pop(context);
+              await BuyerService.confirmReceipt(orderId);
+              await _loadOrders();
+              _showSuccessSnack('Receipt confirmed. You can now leave a review.');
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+            child: const Text('Confirm'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showReviewDialog(int orderId, String orderName) {
+    int rating = 0;
+    final reviewCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (_) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Row(children: [
+            Icon(Icons.star, color: _gold),
+            SizedBox(width: 8),
+            Text('Leave a Review', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 18)),
+          ]),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(orderName, style: const TextStyle(color: _accent, fontWeight: FontWeight.w600, fontSize: 13)),
+            const SizedBox(height: 12),
+            Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (i) => GestureDetector(
+              onTap: () => setS(() => rating = i + 1),
+              child: Icon(i < rating ? Icons.star : Icons.star_border, color: _gold, size: 32),
+            ))),
+            const SizedBox(height: 12),
+            TextField(
+              controller: reviewCtrl,
+              maxLines: 3,
+              decoration: InputDecoration(
+                hintText: 'Share your thoughts...',
+                hintStyle: const TextStyle(color: _textLight, fontSize: 13),
+                filled: true, fillColor: _bg,
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _border)),
+                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: _primary, width: 2)),
+              ),
+            ),
+          ]),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.pop(context);
+                _showSuccessSnack('Review submitted successfully.');
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: _primary, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+              child: const Text('Submit Review'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showSuccessSnack(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: _primary, behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+    );
+  }
+
+  // ─── Empty State ──────────────────────────────────────────────────────────
+  Widget _emptyState() => Center(
+    child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+      Container(
+        width: 90, height: 90,
+        decoration: BoxDecoration(shape: BoxShape.circle, color: _border),
+        child: const Icon(Icons.shopping_bag_outlined, size: 44, color: _textLight),
+      ),
+      const SizedBox(height: 20),
+      const Text('No Orders Yet', style: TextStyle(color: _accent, fontSize: 20, fontWeight: FontWeight.w700)),
+      const SizedBox(height: 8),
+      const Text("You haven't placed any orders yet.",
+        style: TextStyle(color: _textLight, fontSize: 13), textAlign: TextAlign.center),
+      const SizedBox(height: 24),
+      GestureDetector(
+        onTap: () => Navigator.pushAndRemoveUntil(context,
+          MaterialPageRoute(builder: (_) => BuyerHomePage(userEmail: widget.userEmail)), (_) => false),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 28, vertical: 13),
+          decoration: BoxDecoration(gradient: _premiumGrad, borderRadius: BorderRadius.circular(14),
+            boxShadow: [BoxShadow(color: _primary.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))]),
+          child: const Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.arrow_back, color: Colors.white, size: 16),
+            SizedBox(width: 8),
+            Text('Continue Shopping', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 14)),
+          ]),
+        ),
+      ),
+    ]),
+  );
+
+  // ─── Bottom Nav ───────────────────────────────────────────────────────────
+  void _showProfile() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Container(width: 40, height: 4, decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(height: 20),
+          Container(width: 64, height: 64, decoration: const BoxDecoration(gradient: _premiumGrad, shape: BoxShape.circle),
+            child: const Icon(Icons.person, color: Colors.white, size: 32)),
+          const SizedBox(height: 12),
+          Text(widget.userEmail, style: const TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 15)),
+          const SizedBox(height: 20),
+          ListTile(leading: const Icon(Icons.person_outline, color: _accent, size: 20),
+            title: const Text('My Profile', style: TextStyle(color: _accent, fontWeight: FontWeight.w600, fontSize: 14)),
+            trailing: const Icon(Icons.chevron_right, color: _textLight, size: 18),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4), onTap: () => Navigator.pop(context)),
+          ListTile(leading: const Icon(Icons.favorite_border, color: _accent, size: 20),
+            title: const Text('Wishlist', style: TextStyle(color: _accent, fontWeight: FontWeight.w600, fontSize: 14)),
+            trailing: const Icon(Icons.chevron_right, color: _textLight, size: 18),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4), onTap: () => Navigator.pop(context)),
+          const Divider(height: 24),
+          ListTile(leading: Icon(Icons.logout, color: Colors.red.shade400, size: 20),
+            title: Text('Logout', style: TextStyle(color: Colors.red.shade400, fontWeight: FontWeight.w600, fontSize: 14)),
+            trailing: Icon(Icons.chevron_right, color: Colors.red.shade300, size: 18),
+            contentPadding: const EdgeInsets.symmetric(horizontal: 4),
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => const LoginPage()), (_) => false);
+            }),
+        ]),
+      ),
+    );
+  }
+}

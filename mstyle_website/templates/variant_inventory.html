@@ -1,0 +1,798 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Variant Inventory</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/products.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/variant_inventory.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/success_message_modal.css') }}">
+    <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+</head>
+<body>
+    {% include 'seller_header.html' %}
+
+    <div class="products-container">
+        <div class="products-header">
+            <div class="products-avatar">
+                <i class="bi bi-boxes"></i>
+            </div>
+            <h1>Variant Inventory Management</h1>
+            <p>Manage stock levels for each color and size combination of your products</p>
+        </div>
+
+        <div class="filters-section">
+            <div class="filters-row">
+                <div class="filter-group">
+                    <label for="searchProduct"><i class="bi bi-search"></i> Search Product</label>
+                    <input type="text" id="searchProduct" placeholder="Search by product name...">
+                </div>
+                <div class="filter-group">
+                    <label for="filterCategory"><i class="bi bi-tags"></i> Category</label>
+                    <select id="filterCategory">
+                        <option value="">All Categories</option>
+                        <option value="SUITS">Suits</option>
+                        <option value="BLAZERS">Blazers</option>
+                        <option value="SHIRTS">Shirts</option>
+                        <option value="PANTS">Pants</option>
+                        <option value="OUTERWEAR">Outerwear</option>
+                        <option value="JACKETS">Jackets</option>
+                        <option value="ACTIVEWEAR">Activewear</option>
+                        <option value="SHOES">Shoes</option>
+                        <option value="GROOMING">Grooming</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="filterStock"><i class="bi bi-box-seam"></i> Stock Status</label>
+                    <select id="filterStock">
+                        <option value="">All Stock Levels</option>
+                        <option value="low">Low Stock</option>
+                        <option value="out">Out of Stock</option>
+                        <option value="available">In Stock</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="sortBy"><i class="bi bi-sort-down"></i> Sort By</label>
+                    <select id="sortBy">
+                        <option value="newest" selected>Newest First</option>
+                        <option value="oldest">Oldest First</option>
+                        <option value="stock_high">Stock: High to Low</option>
+                        <option value="stock_low">Stock: Low to High</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+
+        <div id="productsContainer" class="loading">
+            Loading products...
+        </div>
+    </div>
+
+    <!-- Variant Management Modal -->
+    <div id="variantModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-header-info">
+                    <div class="modal-header-icon">
+                        <i class="bi bi-boxes"></i>
+                    </div>
+                    <div>
+                        <h2 id="modalProductName">Manage Variants</h2>
+                        <div id="modalProductCategory" class="modal-category"></div>
+                    </div>
+                </div>
+                <button class="modal-close-btn" onclick="closeVariantModal()">
+                    <i class="bi bi-x-lg"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+
+                <!-- Bulk Update Section -->
+                <div class="bulk-update-section">
+                    <div class="bulk-section-title">
+                        <i class="bi bi-lightning-charge-fill"></i>
+                        <span>Bulk Update</span>
+                    </div>
+                    <p class="bulk-description">Set stock quantity for multiple variants at once</p>
+
+                    <div class="bulk-controls">
+                        <div class="bulk-input-group">
+                            <label for="bulkStockValue"><i class="bi bi-boxes"></i> Stock Quantity</label>
+                            <input type="number" id="bulkStockValue" min="0" placeholder="Enter quantity" class="bulk-input">
+                        </div>
+                        <div class="bulk-buttons">
+                            <button type="button" class="btn-bulk btn-bulk-all" onclick="applyBulkUpdate('all')">
+                                <i class="bi bi-check-all"></i> All Variants
+                            </button>
+                            <button type="button" class="btn-bulk btn-bulk-color" onclick="applyBulkUpdate('color')">
+                                <i class="bi bi-palette"></i> By Color
+                            </button>
+                            <button type="button" class="btn-bulk btn-bulk-size" onclick="applyBulkUpdate('size')">
+                                <i class="bi bi-rulers"></i> By Size
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="bulkColorSelection" class="bulk-selection" style="display: none;">
+                        <label><i class="bi bi-palette"></i> Color:</label>
+                        <select id="bulkColorSelect" class="bulk-select"></select>
+                        <button type="button" class="btn-apply-selection" onclick="applyColorBulk()">
+                            <i class="bi bi-check2"></i> Apply
+                        </button>
+                    </div>
+
+                    <div id="bulkSizeSelection" class="bulk-selection" style="display: none;">
+                        <label><i class="bi bi-rulers"></i> Size:</label>
+                        <select id="bulkSizeSelect" class="bulk-select"></select>
+                        <button type="button" class="btn-apply-selection" onclick="applySizeBulk()">
+                            <i class="bi bi-check2"></i> Apply
+                        </button>
+                    </div>
+
+                    <!-- Low Stock Threshold -->
+                    <div class="threshold-section">
+                        <div class="threshold-label">
+                            <i class="bi bi-exclamation-triangle-fill"></i>
+                            <label for="modalLowStockThreshold">Low Stock Threshold</label>
+                        </div>
+                        <div class="threshold-controls">
+                            <input type="number" id="modalLowStockThreshold" min="0" value="5" class="bulk-input threshold-input">
+                            <small>Variants at or below this quantity will be marked as Low Stock</small>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Variants Table -->
+                <div class="variants-table-wrapper">
+                    <table class="variants-table" id="modalVariantsTable">
+                        <thead>
+                            <tr>
+                                <th><i class="bi bi-palette-fill"></i> Color</th>
+                                <th><i class="bi bi-rulers"></i> Size</th>
+                                <th style="text-align:center;"><i class="bi bi-boxes"></i> Stock Quantity</th>
+                                <th style="text-align:center;"><i class="bi bi-info-circle-fill"></i> Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="modalVariantsBody"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="modal-footer">
+                <button type="button" class="cancel-btn" onclick="closeVariantModal()">
+                    <i class="bi bi-x-circle"></i> Cancel
+                </button>
+                <button type="button" class="submit-btn" id="saveVariantsBtn">
+                    <i class="bi bi-check-circle"></i> Save Changes
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Message Modal -->
+    <div id="successModal" class="success-modal">
+        <div class="success-modal-content">
+            <div class="success-icon">
+                <i class="bi bi-check-circle-fill success-checkmark"></i>
+            </div>
+            <h2>Success!</h2>
+            <p class="thank-you-message">Variants Updated Successfully</p>
+            <p class="order-message">Your product variant stock quantities have been saved and updated in the system.</p>
+            <div class="success-modal-buttons">
+                <button class="continue-shopping-btn" onclick="closeSuccessModal()">
+                    <i class="bi bi-check-lg"></i> OK
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let allProducts = [];
+        let currentProductId = null;
+        let currentPage = 1;
+        const itemsPerPage = 20;
+
+        document.addEventListener('DOMContentLoaded', function() {
+            loadProducts();
+        });
+
+        function sortProducts(products, sortBy) {
+            const sorted = [...products];
+            
+            switch(sortBy) {
+                case 'newest':
+                    return sorted.sort((a, b) => b.id - a.id);
+                case 'oldest':
+                    return sorted.sort((a, b) => a.id - b.id);
+                case 'name_asc':
+                    return sorted.sort((a, b) => a.name.localeCompare(b.name));
+                case 'name_desc':
+                    return sorted.sort((a, b) => b.name.localeCompare(a.name));
+                case 'stock_high':
+                    return sorted.sort((a, b) => (b.total_quantity || 0) - (a.total_quantity || 0));
+                case 'stock_low':
+                    return sorted.sort((a, b) => (a.total_quantity || 0) - (b.total_quantity || 0));
+                case 'category_asc':
+                    return sorted.sort((a, b) => a.category.localeCompare(b.category));
+                case 'category_desc':
+                    return sorted.sort((a, b) => b.category.localeCompare(a.category));
+                default:
+                    return sorted.sort((a, b) => b.id - a.id); // Default to newest
+            }
+        }
+
+        function loadProducts() {
+            const container = document.getElementById('productsContainer');
+            container.className = 'loading';
+            container.innerHTML = '<div class="loading">Loading products...</div>';
+
+            fetch('/api/seller/products-with-variants')
+                .then(response => response.json())
+                .then(data => {
+                    container.className = ''; // remove loading class once data arrives
+                    if (data.success) {
+                        allProducts = data.products;
+                        // Apply default sort (newest first)
+                        const sortBy = document.getElementById('sortBy').value;
+                        const sorted = sortProducts(allProducts, sortBy);
+                        displayProducts(sorted);
+                    } else {
+                        showAlert('error', data.error || 'Failed to load products');
+                        container.innerHTML = '<div class="no-products"><p>Error loading products</p></div>';
+                    }
+                })
+                .catch(error => {
+                    container.className = '';
+                    console.error('Error:', error);
+                    showAlert('error', 'Failed to load products');
+                    container.innerHTML = '<div class="no-products"><p>Error loading products</p></div>';
+                });
+        }
+
+        function displayProducts(products) {
+            const container = document.getElementById('productsContainer');
+            
+            if (!products || products.length === 0) {
+                container.innerHTML = `
+                    <div class="no-products">
+                        <h3>No Products Found</h3>
+                        <p>No products with variants available or no products match your filters.</p>
+                    </div>
+                `;
+                return;
+            }
+
+            // Calculate pagination
+            const totalPages = Math.ceil(products.length / itemsPerPage);
+            const startIndex = (currentPage - 1) * itemsPerPage;
+            const endIndex = startIndex + itemsPerPage;
+            const paginatedProducts = products.slice(startIndex, endIndex);
+
+            let tableHTML = `
+                <div class="product-table-container">
+                    <div class="table-wrapper">
+                        <table class="products-table">
+                            <thead>
+                                <tr>
+                                    <th><i class="bi bi-hash"></i> No.</th>
+                                    <th><i class="bi bi-box-seam"></i> Product Name</th>
+                                    <th><i class="bi bi-tag"></i> Category</th>
+                                    <th style="text-align:center;"><i class="bi bi-boxes"></i> Total Stock</th>
+                                    <th style="text-align:center;"><i class="bi bi-gear"></i> Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+
+            paginatedProducts.forEach((product, index) => {
+                const totalStock = product.total_quantity || 0;
+                const lowStockThreshold = product.low_stock_threshold || 5;
+                const hasVariants = product.colors && product.colors.length > 0 && product.sizes && product.sizes.length > 0;
+                const actualIndex = startIndex + index + 1;
+
+                // Check if stock has never been set (all variants are 0 = newly added)
+                const allVariantsZero = product.variants && product.variants.length > 0 &&
+                    product.variants.every(v => v.stock_quantity === 0);
+                const neverStocked = totalStock === 0 && allVariantsZero;
+
+                // Stock badge
+                let stockClass, stockBadgeHTML, stockLabelHTML;
+                if (neverStocked) {
+                    stockClass = '';
+                    stockBadgeHTML = `<span class="stock-badge" style="background:rgba(108,117,125,0.1);color:#6c757d;">—</span>`;
+                    stockLabelHTML = `<div style="font-size:11px;color:#6c757d;font-weight:600;margin-top:4px;"><i class="bi bi-dash-circle"></i> Not Set</div>`;
+                } else {
+                    stockClass = totalStock <= 0 ? 'out-of-stock' : totalStock <= lowStockThreshold ? 'low-stock' : 'in-stock';
+                    stockBadgeHTML = `<span class="stock-badge ${stockClass}">${totalStock}</span>`;
+                    stockLabelHTML = totalStock <= 0
+                        ? `<div style="font-size:11px;color:#dc3545;font-weight:600;margin-top:4px;"><i class="bi bi-x-circle"></i> Out of Stock</div>`
+                        : totalStock <= lowStockThreshold
+                        ? `<div style="font-size:11px;color:#ff9800;font-weight:600;margin-top:4px;"><i class="bi bi-exclamation-triangle"></i> Low Stock</div>`
+                        : '';
+                }
+
+                tableHTML += `
+                    <tr class="product-row">
+                        <td class="text-center">
+                            <span class="row-number">${actualIndex}</span>
+                        </td>
+                        <td class="product-name-cell">
+                            <div class="table-product-name">
+                                <span class="name-text">${product.name}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="category-tag">${product.category}</span>
+                        </td>
+                        <td class="text-center">
+                            ${stockBadgeHTML}
+                            ${stockLabelHTML}
+                        </td>
+                        <td class="text-center">
+                            <div class="table-actions">
+                                ${hasVariants ? `
+                                    <button class="btn-manage" onclick="openVariantModal(${product.id})" title="Manage Variants">
+                                        <i class="bi bi-gear"></i> Manage Variants
+                                    </button>
+                                ` : `
+                                    <span class="no-variants-text">No variants</span>
+                                `}
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+
+            // Add pagination
+            if (totalPages > 1) {
+                tableHTML += renderPagination(currentPage, totalPages, products.length);
+            }
+
+            container.innerHTML = tableHTML;
+        }
+
+        function renderPagination(page, totalPages, totalItems) {
+            const startItem = ((page - 1) * itemsPerPage) + 1;
+            const endItem = Math.min(page * itemsPerPage, totalItems);
+            
+            let paginationHTML = `
+                <div class="pagination-container">
+                    <div class="pagination-info">
+                        Showing ${startItem} to ${endItem} of ${totalItems} products
+                    </div>
+                    <div class="pagination">
+                        <button class="pagination-btn ${page === 1 ? 'disabled' : ''}" 
+                                onclick="changePage(${page - 1})" 
+                                ${page === 1 ? 'disabled' : ''}>
+                            <i class="bi bi-chevron-left"></i> Previous
+                        </button>
+                        <div class="page-numbers">
+            `;
+
+            // Generate page numbers
+            const maxVisiblePages = 5;
+            let startPage = Math.max(1, page - Math.floor(maxVisiblePages / 2));
+            let endPage = Math.min(totalPages, startPage + maxVisiblePages - 1);
+
+            if (endPage - startPage < maxVisiblePages - 1) {
+                startPage = Math.max(1, endPage - maxVisiblePages + 1);
+            }
+
+            if (startPage > 1) {
+                paginationHTML += `<button class="page-number" onclick="changePage(1)">1</button>`;
+                if (startPage > 2) {
+                    paginationHTML += `<span class="page-ellipsis">...</span>`;
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                paginationHTML += `
+                    <button class="page-number ${i === page ? 'active' : ''}" 
+                            onclick="changePage(${i})">${i}</button>
+                `;
+            }
+
+            if (endPage < totalPages) {
+                if (endPage < totalPages - 1) {
+                    paginationHTML += `<span class="page-ellipsis">...</span>`;
+                }
+                paginationHTML += `<button class="page-number" onclick="changePage(${totalPages})">${totalPages}</button>`;
+            }
+
+            paginationHTML += `
+                        </div>
+                        <button class="pagination-btn ${page === totalPages ? 'disabled' : ''}" 
+                                onclick="changePage(${page + 1})" 
+                                ${page === totalPages ? 'disabled' : ''}>
+                            Next <i class="bi bi-chevron-right"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+
+            return paginationHTML;
+        }
+
+        function changePage(newPage) {
+            currentPage = newPage;
+            const searchTerm = document.getElementById('searchProduct').value.toLowerCase();
+            const category = document.getElementById('filterCategory').value;
+            const stockFilter = document.getElementById('filterStock').value;
+
+            let filtered = allProducts.filter(product => {
+                const matchesSearch = product.name.toLowerCase().includes(searchTerm);
+                const matchesCategory = !category || product.category === category;
+                
+                let matchesStock = true;
+                if (stockFilter) {
+                    const totalStock = product.variants.reduce((sum, v) => sum + v.stock_quantity, 0);
+                    const hasLowStock = product.variants.some(v => v.stock_quantity > 0 && v.stock_quantity <= v.low_stock_threshold);
+                    
+                    if (stockFilter === 'out') {
+                        matchesStock = totalStock === 0;
+                    } else if (stockFilter === 'low') {
+                        matchesStock = hasLowStock;
+                    } else if (stockFilter === 'available') {
+                        matchesStock = totalStock > 0;
+                    }
+                }
+
+                return matchesSearch && matchesCategory && matchesStock;
+            });
+
+            displayProducts(filtered);
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function openVariantModal(productId) {
+            currentProductId = productId;
+            const product = allProducts.find(p => p.id === productId);
+            
+            if (!product) {
+                showAlert('error', 'Product not found');
+                return;
+            }
+
+            // Set modal title and category
+            document.getElementById('modalProductName').textContent = product.name;
+            document.getElementById('modalProductCategory').innerHTML = `<span class="product-category"><i class="bi bi-tag"></i> ${product.category}</span>`;
+
+            const colors = product.colors || [];
+            const sizes = product.sizes || [];
+
+            // Populate color and size selects for bulk update
+            const colorSelect = document.getElementById('bulkColorSelect');
+            const sizeSelect = document.getElementById('bulkSizeSelect');
+            
+            colorSelect.innerHTML = '<option value="">Select a color</option>' + 
+                colors.map(c => `<option value="${c}">${c}</option>`).join('');
+            
+            sizeSelect.innerHTML = '<option value="">Select a size</option>' + 
+                sizes.map(s => `<option value="${s}">${s}</option>`).join('');
+
+            // Build variants table
+            const tbody = document.getElementById('modalVariantsBody');
+            tbody.innerHTML = '';
+
+            // Determine if this product has never had stock set
+            const productNeverStocked = product.variants && product.variants.length > 0 &&
+                product.variants.every(v => v.stock_quantity === 0);
+
+            if (colors.length > 0 && sizes.length > 0) {
+                colors.forEach(color => {
+                    sizes.forEach(size => {
+                        const variant = product.variants.find(v => v.color === color && v.size === size) || {
+                            stock_quantity: 0,
+                            low_stock_threshold: 5
+                        };
+
+                        const neverSet = productNeverStocked && variant.stock_quantity === 0;
+                        const stockStatus = getStockStatus(variant.stock_quantity, variant.low_stock_threshold, neverSet);
+
+                        const iconMap = {
+                            'not-set':  'dash-circle',
+                            'out':      'x-circle',
+                            'low':      'exclamation-triangle',
+                            'medium':   'check-circle',
+                            'high':     'check-circle',
+                        };
+                        const icon = iconMap[stockStatus.class] || 'check-circle';
+
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td><strong>${color}</strong></td>
+                            <td>${size}</td>
+                            <td style="text-align:center;">
+                                <input type="number" 
+                                       class="stock-input variant-stock-input" 
+                                       value="${variant.stock_quantity}" 
+                                       min="0"
+                                       data-color="${color}"
+                                       data-size="${size}"
+                                       onchange="updateStockStatus(this)">
+                            </td>
+                            <td style="text-align:center;">
+                                <span class="stock-badge ${stockStatus.class}">
+                                    <i class="bi bi-${icon}"></i>
+                                    ${stockStatus.text}
+                                </span>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                });
+            }
+
+            // Reset bulk update fields
+            document.getElementById('bulkStockValue').value = '';
+            document.getElementById('bulkColorSelection').style.display = 'none';
+            document.getElementById('bulkSizeSelection').style.display = 'none';
+
+            // Set low stock threshold from product data
+            document.getElementById('modalLowStockThreshold').value = product.low_stock_threshold || 5;
+
+            // Show modal
+            const variantModal = document.getElementById('variantModal');
+            variantModal.style.display = 'flex';
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeVariantModal() {
+            document.getElementById('variantModal').style.display = 'none';
+            document.body.style.overflow = '';
+            currentProductId = null;
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('variantModal');
+            if (event.target === modal) {
+                closeVariantModal();
+            }
+        }
+
+        // Bulk Update Functions
+        function applyBulkUpdate(type) {
+            const bulkValue = document.getElementById('bulkStockValue').value;
+            
+            if (!bulkValue || bulkValue < 0) {
+                showAlert('error', 'Please enter a valid stock quantity');
+                return;
+            }
+
+            // Hide all selection dropdowns first
+            document.getElementById('bulkColorSelection').style.display = 'none';
+            document.getElementById('bulkSizeSelection').style.display = 'none';
+
+            if (type === 'all') {
+                // Apply to all variants
+                const inputs = document.querySelectorAll('.variant-stock-input');
+                inputs.forEach(input => {
+                    input.value = bulkValue;
+                    updateStockStatus(input);
+                });
+                showAlert('success', `Stock quantity set to ${bulkValue} for all variants`);
+            } else if (type === 'color') {
+                // Show color selection
+                document.getElementById('bulkColorSelection').style.display = 'flex';
+            } else if (type === 'size') {
+                // Show size selection
+                document.getElementById('bulkSizeSelection').style.display = 'flex';
+            }
+        }
+
+        function applyColorBulk() {
+            const bulkValue = document.getElementById('bulkStockValue').value;
+            const selectedColor = document.getElementById('bulkColorSelect').value;
+            
+            if (!selectedColor) {
+                showAlert('error', 'Please select a color');
+                return;
+            }
+
+            const inputs = document.querySelectorAll(`.variant-stock-input[data-color="${selectedColor}"]`);
+            inputs.forEach(input => {
+                input.value = bulkValue;
+                updateStockStatus(input);
+            });
+            
+            document.getElementById('bulkColorSelection').style.display = 'none';
+            showAlert('success', `Stock quantity set to ${bulkValue} for all ${selectedColor} variants`);
+        }
+
+        function applySizeBulk() {
+            const bulkValue = document.getElementById('bulkStockValue').value;
+            const selectedSize = document.getElementById('bulkSizeSelect').value;
+            
+            if (!selectedSize) {
+                showAlert('error', 'Please select a size');
+                return;
+            }
+
+            const inputs = document.querySelectorAll(`.variant-stock-input[data-size="${selectedSize}"]`);
+            inputs.forEach(input => {
+                input.value = bulkValue;
+                updateStockStatus(input);
+            });
+            
+            document.getElementById('bulkSizeSelection').style.display = 'none';
+            showAlert('success', `Stock quantity set to ${bulkValue} for all size ${selectedSize} variants`);
+        }
+
+        function updateStockStatus(input) {
+            const row = input.closest('tr');
+            const statusCell = row.querySelector('.stock-badge');
+            const quantity = parseInt(input.value) || 0;
+            const threshold = parseInt(document.getElementById('modalLowStockThreshold').value) || 5;
+
+            // Once the user edits a value, treat 0 as "Out of Stock" (not "Not Set")
+            const stockStatus = getStockStatus(quantity, threshold, false);
+
+            const iconMap = {
+                'not-set':  'dash-circle',
+                'out':      'x-circle',
+                'low':      'exclamation-triangle',
+                'medium':   'check-circle',
+                'high':     'check-circle',
+            };
+            const icon = iconMap[stockStatus.class] || 'check-circle';
+
+            statusCell.className = `stock-badge ${stockStatus.class}`;
+            statusCell.innerHTML = `
+                <i class="bi bi-${icon}"></i>
+                ${stockStatus.text}
+            `;
+        }
+
+        function getStockStatus(quantity, threshold, neverSet = false) {
+            if (neverSet || quantity === 0 && neverSet) {
+                return { class: 'not-set', text: 'Not Set' };
+            }
+            if (quantity === 0) {
+                return { class: 'out', text: 'Out of Stock' };
+            } else if (quantity <= threshold) {
+                return { class: 'low', text: 'Low Stock' };
+            } else if (quantity <= threshold * 2) {
+                return { class: 'medium', text: 'Medium' };
+            } else {
+                return { class: 'high', text: 'In Stock' };
+            }
+        }
+
+        // Save button handler
+        document.getElementById('saveVariantsBtn').addEventListener('click', function() {
+            if (!currentProductId) {
+                console.error('No product ID set');
+                showAlert('error', 'No product selected');
+                return;
+            }
+
+            const inputs = document.querySelectorAll('#modalVariantsBody input[type="number"]');
+            const variants = [];
+            const lowStockThreshold = parseInt(document.getElementById('modalLowStockThreshold').value) || 5;
+
+            inputs.forEach(input => {
+                variants.push({
+                    color: input.dataset.color,
+                    size: input.dataset.size,
+                    stock_quantity: parseInt(input.value) || 0
+                });
+            });
+
+            console.log('Saving variants for product:', currentProductId);
+            console.log('Variants data:', variants);
+            console.log('Low stock threshold:', lowStockThreshold);
+
+            const button = this;
+            button.disabled = true;
+            button.textContent = 'Saving...';
+
+            fetch('/api/seller/update-variants', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    product_id: currentProductId,
+                    variants: variants,
+                    low_stock_threshold: lowStockThreshold
+                })
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json();
+            })
+            .then(data => {
+                console.log('Response data:', data);
+                if (data.success) {
+                    closeVariantModal();
+                    showSuccessModal();
+                    loadProducts(); // Reload to show updated status
+                } else {
+                    showAlert('error', data.error || 'Failed to update variants');
+                }
+            })
+            .catch(error => {
+                console.error('Error saving variants:', error);
+                showAlert('error', 'Failed to update variants: ' + error.message);
+            })
+            .finally(() => {
+                button.disabled = false;
+                button.textContent = 'Save Changes';
+            });
+        });
+
+
+        // Filter and sort functionality
+        document.getElementById('searchProduct').addEventListener('input', filterProducts);
+        document.getElementById('filterCategory').addEventListener('change', filterProducts);
+        document.getElementById('filterStock').addEventListener('change', filterProducts);
+        document.getElementById('sortBy').addEventListener('change', filterProducts);
+
+        function filterProducts() {
+            currentPage = 1; // Reset to first page when filtering
+            const searchTerm = document.getElementById('searchProduct').value.toLowerCase();
+            const category = document.getElementById('filterCategory').value;
+            const stockFilter = document.getElementById('filterStock').value;
+            const sortBy = document.getElementById('sortBy').value;
+
+            let filtered = allProducts.filter(product => {
+                const matchesSearch = product.name.toLowerCase().includes(searchTerm);
+                const matchesCategory = !category || product.category === category;
+                
+                let matchesStock = true;
+                if (stockFilter) {
+                    const totalStock = product.variants.reduce((sum, v) => sum + v.stock_quantity, 0);
+                    const hasLowStock = product.variants.some(v => v.stock_quantity > 0 && v.stock_quantity <= v.low_stock_threshold);
+                    
+                    if (stockFilter === 'out') {
+                        matchesStock = totalStock === 0;
+                    } else if (stockFilter === 'low') {
+                        matchesStock = hasLowStock;
+                    } else if (stockFilter === 'available') {
+                        matchesStock = totalStock > 0;
+                    }
+                }
+
+                return matchesSearch && matchesCategory && matchesStock;
+            });
+
+            // Apply sorting
+            filtered = sortProducts(filtered, sortBy);
+
+            displayProducts(filtered);
+        }
+
+        // Success Modal Functions
+        function showSuccessModal() {
+            const modal = document.getElementById('successModal');
+            modal.classList.add('show');
+            document.body.style.overflow = 'hidden';
+        }
+
+        function closeSuccessModal() {
+            const modal = document.getElementById('successModal');
+            modal.classList.remove('show');
+            document.body.style.overflow = '';
+        }
+
+        // Close success modal when clicking outside
+        document.getElementById('successModal').addEventListener('click', function(event) {
+            if (event.target === this) {
+                closeSuccessModal();
+            }
+        });
+    </script>
+</body>
+</html>

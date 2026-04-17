@@ -1,0 +1,199 @@
+/* Success Message Cart Modal Styles */
+.success-cart-modal {
+    display: none;
+    position: fixed;
+    z-index: 3000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px);
+    animation: fadeInCart 0.3s ease-out;
+}
+
+.success-cart-modal.show {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.success-cart-modal-content {
+    background: linear-gradient(135deg, #ffffff 0%, #f8f9fa 100%);
+    border-radius: 20px;
+    padding: 40px;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    text-align: center;
+    position: relative;
+    animation: slideInUpCart 0.4s ease-out;
+}
+
+.success-cart-icon {
+    width: 80px;
+    height: 80px;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin: 0 auto 20px;
+    animation: scaleInCart 0.5s ease-out 0.2s both;
+}
+
+.success-cart-icon i {
+    font-size: 40px;
+    color: white;
+}
+
+.success-cart-checkmark {
+    animation: checkmarkCart 0.6s ease-out 0.4s both;
+}
+
+.success-cart-modal h2 {
+    color: #28a745;
+    font-size: 28px;
+    margin-bottom: 10px;
+    font-weight: 600;
+}
+
+.success-cart-modal .thank-you-cart-message {
+    font-size: 18px;
+    color: #2c3e50;
+    margin-bottom: 15px;
+    font-weight: 500;
+}
+
+.success-cart-modal .cart-message {
+    font-size: 16px;
+    color: #6c757d;
+    margin-bottom: 30px;
+    line-height: 1.6;
+}
+
+.success-cart-modal-buttons {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.success-cart-modal-buttons button {
+    padding: 12px 30px;
+    border: none;
+    border-radius: 8px;
+    font-size: 16px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.success-cart-modal-buttons .view-cart-btn {
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    color: white;
+}
+
+.success-cart-modal-buttons .view-cart-btn:hover {
+    background: linear-gradient(135deg, #1a252f, #2c3e50);
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(44, 62, 80, 0.3);
+}
+
+.success-cart-modal-buttons .continue-shopping-btn {
+    background: white;
+    color: #2c3e50;
+    border: 2px solid #2c3e50;
+}
+
+.success-cart-modal-buttons .continue-shopping-btn:hover {
+    background: #2c3e50;
+    color: white;
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(44, 62, 80, 0.2);
+}
+
+/* Animations */
+@keyframes fadeInCart {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideInUpCart {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+@keyframes scaleInCart {
+    from {
+        transform: scale(0);
+        opacity: 0;
+    }
+    to {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes checkmarkCart {
+    0% {
+        transform: scale(0) rotate(0deg);
+    }
+    50% {
+        transform: scale(1.2) rotate(180deg);
+    }
+    100% {
+        transform: scale(1) rotate(360deg);
+    }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .success-cart-modal-content {
+        padding: 30px 20px;
+        max-width: 90%;
+    }
+
+    .success-cart-icon {
+        width: 60px;
+        height: 60px;
+    }
+
+    .success-cart-icon i {
+        font-size: 30px;
+    }
+
+    .success-cart-modal h2 {
+        font-size: 24px;
+    }
+
+    .success-cart-modal .thank-you-cart-message {
+        font-size: 16px;
+    }
+
+    .success-cart-modal .cart-message {
+        font-size: 14px;
+    }
+
+    .success-cart-modal-buttons {
+        flex-direction: column;
+    }
+
+    .success-cart-modal-buttons button {
+        width: 100%;
+        justify-content: center;
+    }
+}

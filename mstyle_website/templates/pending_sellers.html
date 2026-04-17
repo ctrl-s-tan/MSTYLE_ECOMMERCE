@@ -1,0 +1,1093 @@
+﻿{% extends "admin_header.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/modal-improvements.css') }}">
+<style>
+    @keyframes slideInDown {
+        from {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateY(0);
+            opacity: 1;
+        }
+    }
+
+    @keyframes slideOutUp {
+        from {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        to {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+    }
+
+    .dynamic-alert {
+        margin-bottom: 20px;
+        z-index: 1000;
+        position: relative;
+    }
+
+    .enhanced-alert {
+        border-radius: 12px;
+        box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+        border: none;
+        overflow: hidden;
+        backdrop-filter: blur(10px);
+    }
+
+    .enhanced-alert .alert-content {
+        padding: 16px 20px;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .enhanced-alert .alert-message {
+        flex: 1;
+        display: flex;
+        align-items: flex-start;
+        gap: 12px;
+    }
+
+    .alert-icon-wrapper {
+        width: 36px;
+        height: 36px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        flex-shrink: 0;
+    }
+
+    .alert-success .alert-icon-wrapper {
+        color: #22c55e;
+        background: rgba(34, 197, 94, 0.2);
+    }
+
+    .alert-error .alert-icon-wrapper {
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.2);
+    }
+
+    .enhanced-alert .alert-icon {
+        font-size: 18px;
+        margin: 0;
+    }
+
+    .alert-text-content {
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .enhanced-alert .alert-text {
+        font-weight: 600;
+        font-size: 15px;
+        line-height: 1.4;
+        margin: 0;
+    }
+
+    .alert-details {
+        margin-top: 4px;
+    }
+
+    .alert-detail-text {
+        color: rgba(255, 255, 255, 0.8);
+        font-size: 13px;
+        line-height: 1.4;
+    }
+
+    .alert-timestamp {
+        margin-top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 11px;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .alert-timestamp i {
+        font-size: 10px;
+    }
+
+    .enhanced-close-btn {
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 18px;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+        width: 28px;
+        height: 28px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .enhanced-close-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .alert-progress-bar {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        width: 100%;
+        transition: width 6s linear;
+        border-radius: 0 0 12px 12px;
+    }
+
+    .success-progress {
+        background: linear-gradient(90deg, #22c55e, #16a34a);
+    }
+
+    .error-progress {
+        background: linear-gradient(90deg, #ef4444, #dc2626);
+    }
+
+    .warning-progress {
+        background: linear-gradient(90deg, #f59e0b, #d97706);
+    }
+
+    .info-progress {
+        background: linear-gradient(90deg, #3b82f6, #2563eb);
+    }
+
+    .approve-btn:disabled {
+        opacity: 0.6;
+        cursor: not-allowed;
+    }
+
+    .approve-btn  { background: linear-gradient(135deg,#28a745,#20c997)!important; color:#fff!important; }
+    .approve-btn:hover:not(:disabled) { background: linear-gradient(135deg,#218838,#1aab82)!important; transform:translateY(-1px); }
+    .reject-btn   { background: linear-gradient(135deg,#dc3545,#c82333)!important; color:#fff!important; }
+    .reject-btn:hover:not(:disabled) { background: linear-gradient(135deg,#c82333,#a71d2a)!important; transform:translateY(-1px); }
+
+    /* Keep action buttons on a single line */
+    .seller-actions .action-buttons {
+        flex-wrap: nowrap;
+        white-space: nowrap;
+    }
+
+    th:last-child,
+    td.seller-actions {
+        min-width: 120px;
+    }
+
+    .fa-spinner {
+        animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+        0% {
+            transform: rotate(0deg);
+        }
+
+        100% {
+            transform: rotate(360deg);
+        }
+    }
+
+    /* Status badge styles */
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 12px;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        white-space: nowrap;
+    }
+
+    .status-pending {
+        background: rgba(245, 158, 11, 0.2);
+        color: #f59e0b;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .status-approved {
+        background: rgba(34, 197, 94, 0.2);
+        color: #22c55e;
+        border: 1px solid rgba(34, 197, 94, 0.3);
+    }
+
+    .status-rejected {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+        border: 1px solid rgba(239, 68, 68, 0.3);
+    }
+
+    .status-badge i {
+        font-size: 10px;
+    }
+
+    /* Toast notification styles */
+    .toast-container {
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        z-index: 9999;
+        max-width: 400px;
+        pointer-events: none;
+    }
+
+    .toast-notification {
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 12px;
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+        margin-bottom: 12px;
+        overflow: hidden;
+        pointer-events: auto;
+        transform: translateX(100%);
+        opacity: 0;
+        transition: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    }
+
+    .toast-notification.show {
+        transform: translateX(0);
+        opacity: 1;
+    }
+
+    .toast-notification.hide {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+
+    .toast-header {
+        padding: 16px 20px 12px;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    }
+
+    .toast-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 16px;
+        flex-shrink: 0;
+    }
+
+    .toast-success .toast-icon {
+        background: rgba(34, 197, 94, 0.2);
+        color: #22c55e;
+    }
+
+    .toast-error .toast-icon {
+        background: rgba(239, 68, 68, 0.2);
+        color: #ef4444;
+    }
+
+    .toast-warning .toast-icon {
+        background: rgba(245, 158, 11, 0.2);
+        color: #f59e0b;
+    }
+
+    .toast-info .toast-icon {
+        background: rgba(59, 130, 246, 0.2);
+        color: #3b82f6;
+    }
+
+    .toast-content {
+        flex: 1;
+    }
+
+    .toast-title {
+        font-weight: 600;
+        font-size: 14px;
+        color: #1f2937;
+        margin: 0 0 4px 0;
+    }
+
+    .toast-message {
+        font-size: 13px;
+        color: #6b7280;
+        margin: 0;
+        line-height: 1.4;
+    }
+
+    .toast-close {
+        background: none;
+        border: none;
+        color: #9ca3af;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        transition: all 0.2s ease;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+
+    .toast-close:hover {
+        background: rgba(0, 0, 0, 0.1);
+        color: #374151;
+    }
+
+    .toast-body {
+        padding: 0 20px 16px;
+    }
+
+    .toast-details {
+        font-size: 12px;
+        color: #9ca3af;
+        margin-top: 8px;
+        line-height: 1.4;
+    }
+
+    .toast-timestamp {
+        font-size: 11px;
+        color: #d1d5db;
+        margin-top: 6px;
+        display: flex;
+        align-items: center;
+        gap: 4px;
+    }
+
+    .toast-progress {
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        height: 3px;
+        width: 100%;
+        transition: width 5s linear;
+        border-radius: 0 0 12px 12px;
+    }
+
+    .toast-success .toast-progress {
+        background: linear-gradient(90deg, #22c55e, #16a34a);
+    }
+
+    .toast-error .toast-progress {
+        background: linear-gradient(90deg, #ef4444, #dc2626);
+    }
+
+    .toast-warning .toast-progress {
+        background: linear-gradient(90deg, #f59e0b, #d97706);
+    }
+
+    .toast-info .toast-progress {
+        background: linear-gradient(90deg, #3b82f6, #2563eb);
+    }
+
+    /* Seller info styling to match admin_users */
+    .seller-info {
+        display: flex;
+        flex-direction: column;
+    }
+
+    .seller-info .name {
+        font-weight: 600;
+        color: var(--primary-color);
+    }
+
+    .seller-info .phone {
+        font-size: 0.85rem;
+        color: var(--text-light);
+        margin-top: 0.25rem;
+        font-family: 'Courier New', monospace;
+        letter-spacing: 0.5px;
+    }
+
+    /* Date styling */
+    td.seller-joined {
+        text-align: center;
+        vertical-align: middle;
+    }
+</style>
+<div class="admin-dashboard-content">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="dashboard-avatar">
+            <i class="bi bi-shop"></i>
+        </div>
+        <h1>Seller Applications</h1>
+        <p>Review and manage seller registrations</p>
+    </div>
+
+    <div class="dashboard-container">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show">
+            <div class="alert-content">
+                <div class="alert-message">
+                    {% if category == 'success' %}
+                    <i class="fas fa-check-circle alert-icon success-icon"></i>
+                    {% elif category == 'error' %}
+                    <i class="fas fa-exclamation-circle alert-icon error-icon"></i>
+                    {% elif category == 'warning' %}
+                    <i class="fas fa-exclamation-triangle alert-icon warning-icon"></i>
+                    {% else %}
+                    <i class="fas fa-info-circle alert-icon info-icon"></i>
+                    {% endif %}
+                    <span class="alert-text">{{ message }}</span>
+                </div>
+                <button type="button" class="alert-close-btn"
+                    onclick="this.parentElement.parentElement.style.display='none'">&times;</button>
+            </div>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+        <div class="table-container">
+            <table class="users-table">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-hashtag"></i>No.</th>
+                        <th><i class="fas fa-user"></i> Name</th>
+                        <th><i class="fas fa-store"></i> Business Name</th>
+                        <th><i class="fas fa-building"></i> Business Type</th>
+                        <th><i class="fas fa-envelope"></i> Email</th>
+                        <th><i class="fas fa-map-marker-alt"></i> Address</th>
+                        <th><i class="fas fa-calendar"></i> Registered On</th>
+                        <th><i class="fas fa-cogs"></i> Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if sellers %}
+                        {% for seller in sellers %}
+                        <tr class="seller-row" data-business-type="{{ seller.business_type.lower() }}"
+                            data-seller-id="{{ seller.id }}">
+                        <td class="sequence-number">
+                            <span class="sequence-badge">{{ loop.index }}</span>
+                        </td>
+                        <td class="seller-name">
+                            <div class="seller-info">
+                                <span class="name">{{ seller.first_name }} {{ seller.last_name }}</span>
+                                <span class="phone">
+                                    {% if seller.phone_number %}
+                                    {% set phone = seller.phone_number|string %}
+                                    {% if phone.startswith('63') and phone|length == 12 %}
+                                    +{{ phone[:2] }} {{ phone[2:5] }} {{ phone[5:8] }} {{ phone[8:] }}
+                                    {% elif phone.startswith('09') and phone|length == 11 %}
+                                    {{ phone[:4] }} {{ phone[4:7] }} {{ phone[7:] }}
+                                    {% elif phone|length >= 10 %}
+                                    {{ phone }}
+                                    {% else %}
+                                    {{ phone }}
+                                    {% endif %}
+                                    {% else %}
+                                    No phone
+                                    {% endif %}
+                                </span>
+                            </div>
+                        </td>
+                        <td class="business-name">
+                            <div class="business-info">
+                                <span class="business-title">{{ seller.business_name }}</span>
+                            </div>
+                        </td>
+                        <td class="business-type">
+                            <span class="type-badge type-{{ seller.business_type.lower().replace(' ', '-') }}">
+                                <i class="fas fa-{% if seller.business_type|lower == 'individual' %}user{% else %}building{% endif %}"></i>
+                                {{ seller.business_type.title() }}
+                            </span>
+                        </td>
+                        <td class="seller-email">{{ seller.email }}</td>
+                        <td class="seller-address">
+                            {% if seller.address %}
+                            {% set address_parts = seller.address.split(',') %}
+                            {% if address_parts|length >= 3 %}
+                            <div class="address-full">
+                                <span class="street">{{ address_parts[0] }}</span>
+                                <span class="location">Brgy. {{ address_parts[1].strip() }}, {{ address_parts[2].strip() }}</span>
+                                <span class="city">{{ address_parts[3].strip() }}, {{ address_parts[4].strip() }}</span>
+                            </div>
+                            {% else %}
+                            <span class="address-simple">{{ seller.address }}</span>
+                            {% endif %}
+                            {% else %}
+                            <span class="no-address">No address provided</span>
+                            {% endif %}
+                        </td>
+                        <td class="seller-joined">
+                            {% if seller.created_at %}
+                            {{ seller.created_at.strftime('%b %d, %Y') }}
+                            {% else %}
+                            Unknown
+                            {% endif %}
+                        </td>
+                        <td class="seller-actions">
+                            <div class="action-buttons">
+                                <button class="action-btn approve-btn" onclick="approveUser('{{ seller.id }}')"
+                                    title="Approve Seller">
+                                    <i class="fas fa-check"></i>
+                                </button>
+                                <button class="action-btn view-btn" onclick="viewDocument('{{ seller.id }}')"
+                                    title="View Documents">
+                                    <i class="fas fa-file-alt"></i>
+                                </button>
+                                <button class="action-btn reject-btn"
+                                    onclick="showRejectModal('{{ seller.id }}', '{{ seller.first_name }}')"
+                                    title="Reject Seller">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="8">
+                            <div class="empty-state">
+                                <div class="empty-icon"><i class="fas fa-store-slash"></i></div>
+                                <h3>No Seller Applications Found</h3>
+                                <p>No seller applications match your current filter criteria.</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Seller Documents Modal -->
+<div id="documentsModal" class="pu-overlay" style="display:none;">
+    <div class="pu-modal pu-modal--wide">
+        <div class="pu-modal__header pu-modal__header--docs">
+            <div class="pu-modal__header-left">
+                <div class="pu-modal__icon-wrap">
+                    <i class="fas fa-folder-open"></i>
+                </div>
+                <div>
+                    <h2 class="pu-modal__title">Seller Documents</h2>
+                    <p class="pu-modal__subtitle">Review submitted verification files</p>
+                </div>
+            </div>
+            <button class="pu-modal__close" onclick="closeDocumentsModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <div class="pu-modal__body" id="documentsModalBody">
+            <div class="pu-loading">
+                <div class="pu-loading__spinner"></div>
+                <p>Loading documents…</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Image Lightbox Modal -->
+<div id="imageModal" class="pu-overlay pu-overlay--dark" style="display:none;">
+    <div class="pu-lightbox">
+        <button class="pu-lightbox__close" onclick="closeImageModal()">
+            <i class="fas fa-times"></i>
+        </button>
+        <img id="fullImage" src="" alt="Document" class="pu-lightbox__img">
+    </div>
+</div>
+
+<!-- Reject Modal -->
+<div id="rejectModal" class="pu-overlay" style="display:none;">
+    <div class="pu-modal pu-modal--sm">
+        <div class="pu-modal__header pu-modal__header--danger">
+            <div class="pu-modal__header-left">
+                <div class="pu-modal__icon-wrap pu-modal__icon-wrap--danger">
+                    <i class="fas fa-store-slash"></i>
+                </div>
+                <div>
+                    <h2 class="pu-modal__title">Reject Application</h2>
+                    <p class="pu-modal__subtitle" id="rejectMessage">Confirm rejection</p>
+                </div>
+            </div>
+            <button class="pu-modal__close" onclick="closeRejectModal()">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+        <form id="rejectForm">
+            <div class="pu-modal__body">
+                <div class="pu-reject-warning">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <span>This action will notify the seller via email and cannot be undone.</span>
+                </div>
+                <div class="pu-field">
+                    <label class="pu-field__label" for="rejectionReason">
+                        <i class="fas fa-clipboard-list"></i> Reason for Rejection <span class="pu-required">*</span>
+                    </label>
+                    <textarea id="rejectionReason" name="rejection_reason" rows="4" required
+                        class="pu-field__textarea"
+                        placeholder="Provide a clear reason so the seller understands why their application was declined…"></textarea>
+                </div>
+            </div>
+            <div class="pu-modal__footer">
+                <button type="button" class="pu-btn pu-btn--ghost" onclick="closeRejectModal()">
+                    <i class="fas fa-arrow-left"></i> Cancel
+                </button>
+                <button type="submit" class="pu-btn pu-btn--danger" id="rejectSubmitBtn">
+                    <i class="fas fa-times-circle"></i> Reject Application
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+/* ── pu- modal system (matches pending_users.html) ──────────────────── */
+.pu-overlay {
+    position: fixed; inset: 0; z-index: 1050;
+    background: rgba(15,20,30,.65);
+    backdrop-filter: blur(4px);
+    display: flex; align-items: center; justify-content: center;
+    padding: 1rem;
+    animation: puFadeIn .18s ease;
+}
+.pu-overlay--dark { background: rgba(0,0,0,.88); }
+@keyframes puFadeIn { from { opacity:0 } to { opacity:1 } }
+
+.pu-modal {
+    background: #fff; border-radius: 20px;
+    box-shadow: 0 24px 64px rgba(0,0,0,.22), 0 4px 16px rgba(0,0,0,.1);
+    width: 100%; max-height: 90vh;
+    display: flex; flex-direction: column;
+    animation: puSlideUp .22s cubic-bezier(.34,1.56,.64,1);
+    overflow: hidden;
+}
+.pu-modal--wide { max-width: 960px; }
+.pu-modal--sm   { max-width: 480px; }
+@keyframes puSlideUp { from { opacity:0; transform:translateY(24px) } to { opacity:1; transform:translateY(0) } }
+
+.pu-modal__header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 1.25rem 1.5rem; border-bottom: 1px solid #f0f0f0; flex-shrink: 0;
+}
+.pu-modal__header--docs    { background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%); }
+.pu-modal__header--danger  { background: linear-gradient(135deg, #c0392b 0%, #e74c3c 100%); }
+.pu-modal__header-left { display: flex; align-items: center; gap: 1rem; }
+.pu-modal__icon-wrap {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: rgba(255,255,255,.15);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; color: #d4af37; flex-shrink: 0;
+}
+.pu-modal__icon-wrap--danger { color: #fff; }
+.pu-modal__title  { font-size: 17px; font-weight: 700; color: #fff; margin: 0; letter-spacing: -.3px; }
+.pu-modal__subtitle { font-size: 12px; color: rgba(255,255,255,.65); margin: 2px 0 0; font-weight: 400; }
+.pu-modal__close {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(255,255,255,.12); border: none;
+    color: rgba(255,255,255,.8); cursor: pointer; font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+    transition: background .15s, color .15s; flex-shrink: 0;
+}
+.pu-modal__close:hover { background: rgba(255,255,255,.25); color: #fff; }
+.pu-modal__body { padding: 1.5rem; overflow-y: auto; flex: 1; }
+.pu-modal__footer {
+    padding: 1rem 1.5rem; border-top: 1px solid #f0f0f0;
+    display: flex; gap: .75rem; justify-content: flex-end;
+    flex-shrink: 0; background: #fafafa;
+}
+
+.pu-loading {
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 3rem; gap: 1rem; color: #6c757d; font-size: 14px;
+}
+.pu-loading__spinner {
+    width: 40px; height: 40px; border-radius: 50%;
+    border: 3px solid #f0f0f0; border-top-color: #d4af37;
+    animation: puSpin .7s linear infinite;
+}
+@keyframes puSpin { to { transform: rotate(360deg) } }
+
+.pu-seller-card {
+    background: linear-gradient(135deg, #f8f9fa 0%, #fff 100%);
+    border: 1px solid #e9ecef; border-radius: 14px;
+    padding: 1.25rem 1.5rem; margin-bottom: 1.5rem;
+    display: flex; gap: 1.5rem; flex-wrap: wrap;
+}
+.pu-seller-card__avatar {
+    width: 56px; height: 56px; border-radius: 50%;
+    background: linear-gradient(135deg, #1a1a1a, #2c3e50);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; color: #d4af37; flex-shrink: 0;
+}
+.pu-seller-card__info { flex: 1; min-width: 0; }
+.pu-seller-card__name { font-size: 17px; font-weight: 700; color: #1a1a1a; margin: 0 0 4px; letter-spacing: -.3px; }
+.pu-seller-card__meta { display: flex; flex-wrap: wrap; gap: .5rem .75rem; margin-top: .5rem; }
+.pu-meta-item { display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: #495057; }
+.pu-meta-item i { color: #d4af37; width: 14px; text-align: center; }
+
+.pu-doc-section-title {
+    font-size: 12px; font-weight: 700; color: #6c757d;
+    text-transform: uppercase; letter-spacing: .6px;
+    margin-bottom: 1rem; display: flex; align-items: center; gap: 6px;
+}
+.pu-doc-section-title::after { content: ''; flex: 1; height: 1px; background: #e9ecef; }
+.pu-doc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px,1fr)); gap: 1.25rem; }
+.pu-doc-card {
+    border-radius: 14px; overflow: hidden; border: 1px solid #e9ecef;
+    box-shadow: 0 2px 8px rgba(0,0,0,.05); display: flex; flex-direction: column;
+    transition: box-shadow .2s, transform .2s;
+}
+.pu-doc-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,.1); transform: translateY(-2px); }
+.pu-doc-card__label {
+    padding: .6rem 1rem;
+    background: linear-gradient(135deg, #1a1a1a, #2c3e50);
+    display: flex; align-items: center; gap: 8px;
+    font-size: 12px; font-weight: 700; color: #d4af37;
+    text-transform: uppercase; letter-spacing: .5px;
+}
+.pu-doc-card__label i { font-size: 13px; }
+.pu-doc-img-wrap {
+    flex: 1; min-height: 190px; position: relative;
+    background: #f0f0f0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; overflow: hidden;
+}
+.pu-doc-img-wrap img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .3s; }
+.pu-doc-img-wrap:hover img { transform: scale(1.04); }
+.pu-doc-img-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(to top, rgba(0,0,0,.55) 0%, transparent 60%);
+    display: flex; align-items: flex-end; justify-content: center;
+    padding-bottom: 14px; opacity: 0; transition: opacity .2s;
+}
+.pu-doc-img-wrap:hover .pu-doc-img-overlay { opacity: 1; }
+.pu-doc-img-overlay span {
+    color: #fff; font-size: 12px; font-weight: 600;
+    display: flex; align-items: center; gap: 5px;
+    background: rgba(0,0,0,.4); padding: 4px 12px; border-radius: 20px;
+}
+
+.pu-lightbox { position: relative; max-width: 90vw; max-height: 90vh; animation: puSlideUp .2s ease; }
+.pu-lightbox__img {
+    max-width: 88vw; max-height: 88vh; object-fit: contain; display: block;
+    border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.6);
+}
+.pu-lightbox__close {
+    position: absolute; top: -14px; right: -14px;
+    width: 36px; height: 36px; border-radius: 50%;
+    background: #d4af37; border: none; color: #fff; font-size: 15px; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 4px 12px rgba(0,0,0,.3); transition: background .15s, transform .15s;
+}
+.pu-lightbox__close:hover { background: #b8962e; transform: scale(1.1); }
+
+.pu-reject-warning {
+    display: flex; align-items: flex-start; gap: .75rem;
+    background: #fff5f5; border: 1px solid #fecaca;
+    border-radius: 10px; padding: .875rem 1rem; margin-bottom: 1.25rem;
+    font-size: 13px; color: #b91c1c; line-height: 1.5;
+}
+.pu-reject-warning i { font-size: 16px; margin-top: 1px; flex-shrink: 0; }
+.pu-field__label {
+    display: block; font-size: 12.5px; font-weight: 700; color: #374151;
+    margin-bottom: .5rem; text-transform: uppercase; letter-spacing: .4px;
+}
+.pu-field__label i { color: #d4af37; margin-right: 4px; }
+.pu-required { color: #dc3545; }
+.pu-field__textarea {
+    width: 100%; padding: .75rem 1rem; border: 1.5px solid #e5e7eb; border-radius: 10px;
+    font-family: inherit; font-size: 13.5px; color: #1a1a1a;
+    resize: vertical; transition: border-color .15s, box-shadow .15s; outline: none; background: #fafafa;
+}
+.pu-field__textarea:focus { border-color: #d4af37; box-shadow: 0 0 0 3px rgba(212,175,55,.15); background: #fff; }
+.pu-btn {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: .6rem 1.25rem; border-radius: 10px;
+    font-size: 13.5px; font-weight: 700; cursor: pointer;
+    border: none; transition: all .15s; letter-spacing: .2px;
+}
+.pu-btn--ghost { background: #f3f4f6; color: #374151; border: 1.5px solid #e5e7eb; }
+.pu-btn--ghost:hover { background: #e5e7eb; }
+.pu-btn--danger { background: linear-gradient(135deg, #dc3545, #c82333); color: #fff; box-shadow: 0 4px 12px rgba(220,53,69,.3); }
+.pu-btn--danger:hover { background: linear-gradient(135deg, #c82333, #a71d2a); transform: translateY(-1px); }
+.pu-btn:disabled { opacity: .65; cursor: not-allowed; transform: none !important; }
+.pu-no-docs { text-align: center; padding: 2.5rem 1rem; color: #9ca3af; }
+.pu-no-docs i { font-size: 2.5rem; margin-bottom: .75rem; display: block; }
+.pu-no-docs p { font-size: 14px; margin: 0; }
+</style>
+
+<!-- Keep your existing JavaScript -->
+<script>
+    function approveUser(userId) {
+        if (confirm('Are you sure you want to approve this seller?')) {
+            const approveBtn = event.target.closest('.approve-btn');
+            const originalHTML = approveBtn.innerHTML;
+            approveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+            approveBtn.disabled = true;
+
+            fetch(`/approve/${userId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' } })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.success) {
+                        const sellerRow = approveBtn.closest('tr');
+                        const sellerName = sellerRow.querySelector('.seller-name .name')?.textContent.trim() || 'Seller';
+                        showToast('Seller Approved', `${sellerName} has been approved successfully!`, 'success',
+                            'The seller can now access their account and start listing products.');
+                        if (sellerRow) updateSellerStatusInUI(sellerRow, 'approved');
+                    } else {
+                        showToast('Approval Failed', 'Failed to approve seller', 'error', data.error || 'Please try again.');
+                    }
+                })
+                .catch(() => showToast('Network Error', 'Unable to connect to the server', 'error'))
+                .finally(() => { approveBtn.innerHTML = originalHTML; approveBtn.disabled = false; });
+        }
+    }
+
+    // ── View Documents ────────────────────────────────────────────────────
+    function viewDocument(userId) {
+        document.getElementById('documentsModal').style.display = 'flex';
+        document.getElementById('documentsModalBody').innerHTML = `
+            <div class="pu-loading">
+                <div class="pu-loading__spinner"></div>
+                <p>Loading documents…</p>
+            </div>`;
+
+        fetch(`/api/seller_documents/${userId}`)
+            .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
+            .then(data => {
+                if (data.success) showSellerDocumentsModal(data.seller_info, data.documents);
+                else showErrorInModal('Error loading documents: ' + (data.error || 'Unknown error'));
+            })
+            .catch(err => { showErrorInModal('Failed to load documents. Please try again.'); console.error(err); });
+    }
+
+    function showSellerDocumentsModal(sellerInfo, documents) {
+        const modalBody = document.getElementById('documentsModalBody');
+
+        let html = `
+            <div class="pu-seller-card">
+                <div class="pu-seller-card__avatar"><i class="fas fa-store"></i></div>
+                <div class="pu-seller-card__info">
+                    <p class="pu-seller-card__name">${sellerInfo.first_name} ${sellerInfo.last_name}</p>
+                    <div class="pu-seller-card__meta">
+                        ${sellerInfo.business_name ? `<span class="pu-meta-item"><i class="fas fa-store"></i>${sellerInfo.business_name}</span>` : ''}
+                        ${sellerInfo.business_type ? `<span class="pu-meta-item"><i class="fas fa-building"></i>${sellerInfo.business_type}</span>` : ''}
+                    </div>
+                </div>
+            </div>`;
+
+        function getUrl(urlField, variationsField) {
+            if (documents[urlField]) return { url: documents[urlField], variations: documents[variationsField] || [documents[urlField]] };
+            const vars = documents[variationsField];
+            if (vars && vars.length > 0 && vars[0]) return { url: vars[0], variations: vars };
+            return null;
+        }
+
+        const validId = getUrl('valid_id_url', 'valid_id_variations');
+        const dti     = getUrl('dti_url',      'dti_variations');
+        const bir     = getUrl('bir_url',      'bir_variations');
+        const bp      = getUrl('business_permit_url', 'business_permit_variations');
+
+        const hasAny = validId || dti || bir || bp;
+
+        if (hasAny) {
+            html += `<div class="pu-doc-section-title"><i class="fas fa-folder-open"></i> Submitted Documents</div>
+                     <div class="pu-doc-grid">`;
+            if (validId) html += docCard('Valid Government ID', 'fas fa-id-card',      validId.url, validId.variations);
+            if (dti)     html += docCard('DTI Certificate',     'fas fa-certificate',  dti.url,     dti.variations);
+            if (bir)     html += docCard('BIR Certificate',     'fas fa-file-invoice', bir.url,     bir.variations);
+            if (bp)      html += docCard('Business Permit',     'fas fa-building',     bp.url,      bp.variations);
+            html += `</div>`;
+        } else {
+            html += `<div class="pu-no-docs">
+                <i class="fas fa-folder-open"></i>
+                <p>No documents have been uploaded yet.</p>
+            </div>`;
+        }
+
+        modalBody.innerHTML = html;
+
+        modalBody.querySelectorAll('.pu-doc-img-wrap').forEach(wrap => {
+            wrap.addEventListener('click', () => {
+                const src = wrap.dataset.src;
+                if (src) openImageModal(src);
+            });
+        });
+    }
+
+    function docCard(title, iconClass, primaryUrl, variations) {
+        return `
+            <div class="pu-doc-card">
+                <div class="pu-doc-card__label"><i class="${iconClass}"></i>${title}</div>
+                <div class="pu-doc-img-wrap" data-src="${primaryUrl}">
+                    <img src="${primaryUrl}" alt="${title}"
+                         onerror="handleImageError(this, ${JSON.stringify(variations)}, 0)"
+                         loading="lazy">
+                    <div class="pu-doc-img-overlay">
+                        <span><i class="fas fa-expand-alt"></i> View Full Size</span>
+                    </div>
+                </div>
+            </div>`;
+    }
+
+    function handleImageError(img, variations, tried) {
+        if (tried < variations.length) {
+            img.src = variations[tried];
+            img.onerror = function() { handleImageError(img, variations, tried + 1); };
+        } else {
+            img.style.display = 'none';
+            img.parentElement.innerHTML = `<div style="padding:2rem; text-align:center; color:#6c757d;">
+                <i class="fas fa-image" style="font-size:2rem; margin-bottom:0.5rem; display:block;"></i>
+                <small>Image not available</small>
+            </div>`;
+        }
+    }
+
+    function showErrorInModal(msg) {
+        document.getElementById('documentsModalBody').innerHTML = `
+            <div class="pu-no-docs" style="color:#dc3545;">
+                <i class="fas fa-exclamation-circle"></i>
+                <p>${msg}</p>
+            </div>`;
+    }
+
+    function closeDocumentsModal() { document.getElementById('documentsModal').style.display = 'none'; }
+    function openImageModal(src)   { document.getElementById('fullImage').src = src; document.getElementById('imageModal').style.display = 'flex'; }
+    function closeImageModal()     { document.getElementById('imageModal').style.display = 'none'; document.getElementById('fullImage').src = ''; }
+
+    document.getElementById('documentsModal').addEventListener('click', function(e) { if (e.target === this) closeDocumentsModal(); });
+    document.getElementById('imageModal').addEventListener('click',     function(e) { if (e.target === this) closeImageModal(); });
+
+    // ── Reject modal ──────────────────────────────────────────────────────
+    function showRejectModal(userId, userName) {
+        document.getElementById('rejectMessage').textContent = `Are you sure you want to reject ${userName}'s seller application?`;
+        document.getElementById('rejectForm').dataset.userId = userId;
+        document.getElementById('rejectionReason').value = '';
+        document.getElementById('rejectModal').style.display = 'flex';
+    }
+
+    function closeRejectModal() {
+        document.getElementById('rejectModal').style.display = 'none';
+        document.getElementById('rejectForm').reset();
+    }
+
+    document.getElementById('rejectModal').addEventListener('click', function(e) { if (e.target === this) closeRejectModal(); });
+
+    document.getElementById('rejectForm').addEventListener('submit', function(e) {
+        e.preventDefault();
+        const userId = this.dataset.userId;
+        const rejectionReason = document.getElementById('rejectionReason').value.trim();
+        if (!rejectionReason) { alert('Please provide a reason for rejection.'); return; }
+
+        const btn = document.getElementById('rejectSubmitBtn');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Rejecting...';
+        btn.disabled = true;
+
+        fetch(`/reject_seller/${userId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ rejection_reason: rejectionReason })
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    closeRejectModal();
+                    showToast('Seller Rejected', 'Seller application has been rejected', 'success',
+                        'The seller has been notified via email and can re-register.');
+                    const sellerRow = document.querySelector(`tr[data-seller-id="${userId}"]`);
+                    if (sellerRow) {
+                        sellerRow.style.transition = 'all 0.4s';
+                        sellerRow.style.opacity = '0';
+                        sellerRow.style.transform = 'translateX(20px)';
+                        setTimeout(() => { sellerRow.remove(); }, 400);
+                    } else {
+                        setTimeout(() => window.location.reload(), 1500);
+                    }
+                } else {
+                    showToast('Rejection Failed', 'Failed to reject seller', 'error', data.error || 'Please try again.');
+                    btn.innerHTML = '<i class="fas fa-times-circle"></i> Reject Application';
+                    btn.disabled = false;
+                }
+            })
+            .catch(() => {
+                showToast('Network Error', 'Unable to process the rejection', 'error');
+                btn.innerHTML = '<i class="fas fa-times-circle"></i> Reject Application';
+                btn.disabled = false;
+            });
+    });
+
+    // ── Toast system ──────────────────────────────────────────────────────
+    function showToast(title, message, type = 'info', details = null) {
+        const toastContainer = document.getElementById('toastContainer');
+        if (!toastContainer) return;
+        const now = new Date();
+        const timeString = now.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true });
+        const icons = { success: 'fas fa-check-circle', error: 'fas fa-exclamation-circle', warning: 'fas fa-exclamation-triangle', info: 'fas fa-info-circle' };
+        const detailsHTML = details ? `<div class="toast-details">${details}</div>` : '';
+        const toastId = 'toast-' + Date.now();
+        toastContainer.insertAdjacentHTML('beforeend', `
+            <div class="toast-notification toast-${type}" id="${toastId}">
+                <div class="toast-header">
+                    <div class="toast-icon"><i class="${icons[type]}"></i></div>
+                    <div class="toast-content">
+                        <div class="toast-title">${title}</div>
+                        <div class="toast-message">${message}</div>
+                    </div>
+                    <button class="toast-close" onclick="closeToast('${toastId}')"><i class="fas fa-times"></i></button>
+                </div>
+                <div class="toast-body">${detailsHTML}<div class="toast-timestamp"><i class="fas fa-clock"></i> ${timeString}</div></div>
+                <div class="toast-progress toast-${type}"></div>
+            </div>`);
+        const toastElement = document.getElementById(toastId);
+        setTimeout(() => toastElement.classList.add('show'), 100);
+        if (type === 'success' || type === 'info') {
+            setTimeout(() => toastElement.querySelector('.toast-progress').style.width = '0%', 200);
+            setTimeout(() => closeToast(toastId), 5000);
+        }
+        const allToasts = toastContainer.querySelectorAll('.toast-notification');
+        if (allToasts.length > 3) closeToast(allToasts[0].id);
+    }
+
+    function closeToast(toastId) {
+        const toast = document.getElementById(toastId);
+        if (!toast) return;
+        toast.classList.remove('show'); toast.classList.add('hide');
+        setTimeout(() => { if (toast.parentElement) toast.remove(); }, 400);
+    }
+
+    function updateSellerStatusInUI(sellerRow, newStatus, rejectionReason = null) {
+        const statusCell = sellerRow.querySelector('.seller-status');
+        const actionsCell = sellerRow.querySelector('.seller-actions');
+        if (statusCell) {
+            const map = {
+                approved: { icon: 'fas fa-check-circle', cls: 'status-approved', text: 'Approved' },
+                rejected: { icon: 'fas fa-times-circle', cls: 'status-rejected', text: 'Rejected' },
+                pending:  { icon: 'fas fa-clock',        cls: 'status-pending',  text: 'Pending'  },
+            };
+            const s = map[newStatus.toLowerCase()] || map.pending;
+            statusCell.innerHTML = `<span class="status-badge ${s.cls}" title="${rejectionReason ? 'Reason: ' + rejectionReason : ''}"><i class="${s.icon}"></i>${s.text}</span>`;
+        }
+        if (actionsCell && newStatus.toLowerCase() === 'rejected') {
+            ['approve-btn', 'reject-btn'].forEach(cls => {
+                const btn = actionsCell.querySelector('.' + cls);
+                if (btn) { btn.disabled = true; btn.style.opacity = '0.5'; btn.style.cursor = 'not-allowed'; }
+            });
+        }
+        sellerRow.style.transition = 'all 0.3s ease';
+        sellerRow.style.backgroundColor = newStatus.toLowerCase() === 'rejected' ? 'rgba(239,68,68,0.1)' : 'rgba(34,197,94,0.1)';
+        setTimeout(() => { sellerRow.style.backgroundColor = ''; }, 2000);
+    }
+</script>
+
+<!-- Toast Container -->
+<div class="toast-container" id="toastContainer"></div>
+
+{% endblock %}

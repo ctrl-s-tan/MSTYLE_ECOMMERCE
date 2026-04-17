@@ -1,0 +1,57 @@
+<!-- Seller-Rider Chat Modal -->
+<div id="sellerRiderChatModal" class="seller-rider-chat-modal" style="display: none;">
+    <div class="seller-rider-chat-container">
+        <div class="seller-rider-chat-header">
+            <div class="chat-header-info">
+                <div class="rider-avatar-chat">R</div>
+                <div class="rider-details-chat">
+                    <h2 id="chatRiderName">Chat with Rider</h2>
+                    <p class="online-status-chat"><i class="bi bi-circle-fill"></i> Online</p>
+                </div>
+            </div>
+            <button class="close-seller-rider-chat" onclick="closeSellerRiderChatModal()">
+                <i class="bi bi-x"></i>
+            </button>
+        </div>
+        <div class="seller-rider-chat-body">
+            <!-- Order Context Info -->
+            <div class="order-context-info" id="riderOrderContextInfo" style="display: none;">
+                <div class="context-header">
+                    <i class="bi bi-box-seam"></i>
+                </div>
+                <div class="context-details">
+                    <div class="context-item">
+                        <span class="context-label">Order ID:</span>
+                        <span class="context-value" id="riderContextOrderId"></span>
+                    </div>
+                    <div class="context-item">
+                        <span class="context-label">Product:</span>
+                        <span class="context-value" id="riderContextProductName"></span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Messages Area -->
+            <div class="messages-area" id="sellerRiderMessagesArea">
+                <div class="chat-placeholder">
+                    <i class="bi bi-chat-text"></i>
+                    <h3>No conversation selected</h3>
+                    <p>Click "Contact Rider" from an order to start chatting</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Message Input Footer -->
+        <div class="chat-modal-footer" id="sellerRiderMessageInput" style="display: none;">
+            <textarea 
+                id="sellerRiderMessageText" 
+                placeholder="Type your message..." 
+                rows="1"
+                maxlength="1000"></textarea>
+            <button class="send-message-btn" onclick="sendSellerRiderMessage()">
+                <i class="bi bi-send-fill"></i>
+            </button>
+            <span class="char-count"><span id="riderCharCount">0</span>/1000</span>
+        </div>
+    </div>
+</div>

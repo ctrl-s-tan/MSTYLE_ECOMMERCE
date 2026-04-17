@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Order List</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/order_list.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/success_message_modal.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seller_buyer_chat_modal.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seller_rider_chat_modal.css') }}?v=2.0">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/report_issue_modal.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <meta name="seller-email" content="{{ session.get('email', '') }}">
+    <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/seller_buyer_chat_modal.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/seller_rider_chat_modal.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/report_issue_modal.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/order_list.js') }}"></script>
+</head>
+
+<body>
+    {% include 'seller_header.html' %}
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <!-- Flash Messages (hidden, will be converted to toasts) -->
+    <div id="flash-messages" style="display: none;">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash-message" data-category="{{ category }}">{{ message }}</div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    <div class="admin-dashboard-content">
+        <div class="dashboard-header">
+            <div class="dashboard-avatar">
+                <i class="bi bi-list-check"></i>
+            </div>
+            <h1>Order List</h1>
+            <p>Manage and track all customer orders</p>
+        </div>
+
+        <div class="dashboard-container">
+            <!-- Search and Filter Section -->
+            <div class="search-filter-section">
+                <div class="form-header">
+                    <div>
+                        <h3><i class="bi bi-funnel"></i> Filter & Search Orders</h3>
+                        <p>Find and filter orders quickly using the options below</p>
+                    </div>
+                </div>
+
+                <div class="filter-container">
+                    <div class="filter-group">
+                        <label for="statusFilter" class="filter-label">
+                            <i class="bi bi-flag"></i> Status
+                        </label>
+                        <select id="statusFilter" class="filter-select">
+                            <option value="">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="preparing">Preparing</option>
+                            <option value="waiting for pickup">Waiting for Pickup</option>
+                            <option value="confirmed">Confirmed</option>
+                            <option value="for pickup">For Pickup</option>
+                            <option value="heading to seller">Heading to Seller</option>
+                            <option value="shipped">Shipped</option>
+                            <option value="delivered">Delivered</option>
+                            <option value="rejected">Rejected</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="sortBy" class="filter-label">
+                            <i class="bi bi-sort-down"></i> Sort By
+                        </label>
+                        <select id="sortBy" class="filter-select">
+                            <option value="date-desc" selected>Date (Newest First)</option>
+                            <option value="date-asc">Date (Oldest First)</option>
+                            <option value="customer-asc">Customer A-Z</option>
+                            <option value="customer-desc">Customer Z-A</option>
+                            <option value="status-asc">Status A-Z</option>
+                            <option value="original-price-desc">Original Price (High to Low)</option>
+                            <option value="original-price-asc">Original Price (Low to High)</option>
+                            <option value="promotion-asc">Promotion A-Z</option>
+                            <option value="price-desc">Total Price (High to Low)</option>
+                            <option value="price-asc">Total Price (Low to High)</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="searchInput" class="filter-label">
+                            <i class="bi bi-search"></i> Search
+                        </label>
+                        <div class="search-input-container">
+                            <input type="text" id="searchInput" placeholder="Search by customer or product..." class="search-input">
+                            <button type="button" id="clearSearch" class="search-button" style="display: none;">
+                                <i class="bi bi-x"></i> Clear
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-card">
+                <div class="table-container">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th><i class="bi bi-hash"></i> No.</th>
+                                <th><i class="bi bi-person"></i> Customer Name</th>
+                                <th><i class="bi bi-geo-alt"></i> Address</th>
+                                <th><i class="bi bi-box"></i> Product</th>
+                                <th><i class="bi bi-gear"></i> Specifications</th>
+                                <th><i class="bi bi-box-seam"></i> Quantity</th>
+                                <th><i class="bi bi-currency-exchange"></i> Original Price</th>
+                                <th><i class="bi bi-tag"></i> Promotion</th>
+                                <th><i class="bi bi-currency-dollar"></i> Total Price</th>
+                                <th><i class="bi bi-calendar3"></i> Date</th>
+                                <th><i class="bi bi-flag"></i> Status</th>
+                                <th><i class="bi bi-tools"></i> Action</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% if orders %}
+                            {% for order in orders %}
+                            <tr>
+                                <td>
+                                    <span class="sequence-badge">{{ loop.index }}</span>
+                                </td>
+                                <td class="customer-info">
+                                    <div>
+                                        <div class="customer-name">{{ order.first_name }} {{ order.last_name }}</div>
+                                        <div class="customer-email">{{ order.email }}</div>
+                                    </div>
+                                </td>
+                                <td class="address-info">
+                                    {% if order.address %}
+                                    {% set address_parts = order.address.split(',') %}
+                                    {% if address_parts|length >= 3 %}
+                                    <div class="address-full">
+                                        <span class="street">{{ address_parts[0].strip() }}</span>
+                                        {% if address_parts|length >= 2 %}
+                                        <span class="location">
+                                            {% if address_parts[1].strip().lower().startswith('brgy') %}
+                                            {{ address_parts[1].strip() }}
+                                            {% else %}
+                                            Brgy. {{ address_parts[1].strip() }}
+                                            {% endif %}
+                                            {% if address_parts|length >= 3 %}
+                                            , {{ address_parts[2].strip() }}
+                                            {% endif %}
+                                        </span>
+                                        {% endif %}
+                                        {% if address_parts|length >= 4 %}
+                                        <span class="city">
+                                            {{ address_parts[3].strip() }}
+                                            {% if address_parts|length >= 5 %}
+                                            , {{ address_parts[4].strip() }}
+                                            {% endif %}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <div class="address-simple" title="{{ order.address }}">
+                                        {{ order.address[:50] }}{% if order.address|length > 50 %}...{% endif %}
+                                    </div>
+                                    {% endif %}
+                                    {% else %}
+                                    <span class="no-address">No address provided</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <div class="product-info">
+                                        {% if order.image_url %}
+                                        <img src="{{ order.image_url }}"
+                                            alt="{{ order.name }}" class="product-image"
+                                            onerror="this.onerror=null;this.src='/static/images/placeholder.png';">
+                                        {% elif order.image %}
+                                        <img src="{{ order.image|product_img }}"
+                                            alt="{{ order.name }}" class="product-image"
+                                            onerror="this.onerror=null;this.src='/static/images/placeholder.png';">
+                                        {% else %}
+                                        <div class="product-image" style="background:#f0f0f0;display:flex;align-items:center;justify-content:center;width:50px;height:50px;border-radius:6px;">
+                                            <i class="bi bi-image" style="color:#adb5bd;"></i>
+                                        </div>
+                                        {% endif %}
+                                        <div class="product-name">{{ order.name }}</div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <div class="specifications">
+                                        {% if order.variations and order.variations.strip() %}
+                                        <div class="spec-item color-spec">
+                                            <i class="bi bi-palette"></i>
+                                            <span>{{ order.variations }}</span>
+                                        </div>
+                                        {% endif %}
+                                        {% if order.size and order.size.strip() %}
+                                        <div class="spec-item size-spec">
+                                            <i class="bi bi-rulers"></i>
+                                            <span>{{ order.size }}</span>
+                                        </div>
+                                        {% elif order.product_sizes and order.product_sizes.strip() and
+                                        order.product_sizes != 'One Size' %}
+                                        <div class="spec-item size-spec no-spec missing-size">
+                                            <i class="bi bi-rulers"></i>
+                                            <span>Size not specified</span>
+                                        </div>
+                                        {% else %}
+                                        <div class="spec-item size-spec no-spec one-size">
+                                            <i class="bi bi-rulers"></i>
+                                            <span>One Size</span>
+                                        </div>
+                                        {% endif %}
+                                        {% if (not order.variations or not order.variations.strip()) and (not order.size
+                                        or not order.size.strip()) %}
+                                        <div class="spec-item no-spec">
+                                            <i class="bi bi-dash"></i>
+                                            <span>No specifications</span>
+                                        </div>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>{{ order.quantity }}</td>
+                                <td>
+                                    {% set original_price = order.original_price|float if order.original_price else order.total_price|float %}
+                                    {% set total_price = order.total_price|float %}
+                                    {% if original_price and original_price != total_price %}
+                                    <div class="original-price-info">
+                                        <span class="original-amount">₱{{ "%.2f"|format(original_price) }}</span>
+                                        {% if order.promotion_type in ['percentage', 'fixed'] %}
+                                        <span class="discount-indicator">
+                                            <i class="bi bi-arrow-down"></i>
+                                            ₱{{ "%.2f"|format(original_price - total_price) }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <span class="no-discount">₱{{ "%.2f"|format(total_price) }}</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if order.promotion_type %}
+                                    <div class="promotion-info">
+                                        {% if order.promotion_type == 'free_shipping' %}
+                                        <span class="promotion-badge free-shipping">
+                                            <i class="bi bi-truck"></i>
+                                            Free Shipping
+                                        </span>
+                                        {% elif order.promotion_type == 'buy_one_get_one' %}
+                                        <span class="promotion-badge bogo">
+                                            <i class="bi bi-plus-circle"></i>
+                                            Buy One Get One
+                                        </span>
+                                        {% elif order.promotion_type == 'percentage' %}
+                                        <span class="promotion-badge percentage">
+                                            <i class="bi bi-percent"></i>
+                                            {{ order.discount_percentage|default(0) }}% OFF
+                                        </span>
+                                        {% elif order.promotion_type == 'fixed' %}
+                                        <span class="promotion-badge fixed">
+                                            <i class="bi bi-dash-circle"></i>
+                                            ₱{{ "%.0f"|format(order.discount_amount|default(0)) }} OFF
+                                        </span>
+                                        {% else %}
+                                        <span class="promotion-badge other">
+                                            <i class="bi bi-tag"></i>
+                                            {{ order.promotion_name or order.promotion_type }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                    {% else %}
+                                    <span class="no-promotion">
+                                        <i class="bi bi-dash"></i>
+                                        No Promotion
+                                    </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% set original_price = order.original_price|float if order.original_price else order.total_price|float %}
+                                    {% set total_price = order.total_price|float %}
+                                    <div class="total-price-info">
+                                        <span class="total-amount">₱{{ "%.2f"|format(total_price) }}</span>
+                                        {% if order.promotion_type in ['percentage', 'fixed'] and original_price and original_price != total_price %}
+                                        <span class="savings-badge">
+                                            Save ₱{{ "%.2f"|format(original_price - total_price) }}
+                                        </span>
+                                        {% endif %}
+                                    </div>
+                                </td>
+                                <td>
+                                    {% if order.date %}
+                                    <div class="order-date">
+                                        <span class="date">{{ order.date }}</span>
+                                    </div>
+                                    {% else %}
+                                    <span class="no-date">Date not available</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <span class="status-badge status-{{ order.status|lower|replace(' ', '-') }}">
+                                        {% if order.status == 'Pending' %}<i class="bi bi-hourglass"></i>
+                                        {% elif order.status == 'Preparing' %}<i class="bi bi-tools"></i>
+                                        {% elif order.status == 'Waiting for Pickup' %}<i class="bi bi-box-seam"></i>
+                                        {% elif order.status == 'Confirmed' %}<i class="bi bi-check-circle"></i>
+                                        {% elif order.status == 'For Pickup' %}<i class="bi bi-person-check"></i>
+                                        {% elif order.status == 'Shipped' %}<i class="bi bi-truck"></i>
+                                        {% elif order.status == 'Delivered' %}<i class="bi bi-check-circle-fill"></i>
+                                        {% elif order.status == 'Rejected' %}<i class="bi bi-x-circle-fill"></i>
+                                        {% endif %}
+                                        {{ order.status }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="action-buttons">
+                                        {% if order.status == 'Pending' %}
+                                        <div class="action-buttons-group">
+                                            <button type="button" class="action-btn-icon confirm-btn-icon"
+                                                title="Confirm Order"
+                                                onclick="handleStatusUpdate({{ order.id }}, 'Confirmed', '{{ order.email }}', '{{ order.status }}', this)"
+                                                data-order-id="{{ order.id }}">
+                                                <i class="bi bi-check-circle"></i>
+                                            </button>
+                                            <button type="button" class="action-btn-icon reject-btn-icon"
+                                                title="Reject Order"
+                                                onclick="handleStatusUpdate({{ order.id }}, 'Rejected', '{{ order.email }}', '{{ order.status }}', this)"
+                                                data-order-id="{{ order.id }}">
+                                                <i class="bi bi-x-circle"></i>
+                                            </button>
+                                        </div>
+                                        {% endif %}
+
+                                        {% if order.status == 'Confirmed' %}
+                                        <div class="action-buttons-group">
+                                            <button type="button" class="action-btn-icon confirm-btn-icon"
+                                                title="Start Preparing Order"
+                                                onclick="handleStatusUpdate({{ order.id }}, 'Preparing', '{{ order.email }}', '{{ order.status }}', this)"
+                                                data-order-id="{{ order.id }}"
+                                                style="background:linear-gradient(135deg,#2c3e50,#34495e);color:white;padding:6px 12px;width:auto;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;">
+                                                <i class="bi bi-tools"></i> Start Preparing
+                                            </button>
+                                        </div>
+                                        {% endif %}
+
+                                        {% if order.status == 'Preparing' %}
+                                        <div class="action-buttons-group">
+                                            <button type="button" class="action-btn-icon confirm-btn-icon"
+                                                title="Mark as Ready for Pickup — riders will see this order"
+                                                onclick="handleStatusUpdate({{ order.id }}, 'Waiting for Pickup', '{{ order.email }}', '{{ order.status }}', this)"
+                                                data-order-id="{{ order.id }}"
+                                                style="background:linear-gradient(135deg,#d4af37,#f4d03f);color:#1a1a1a;padding:6px 12px;width:auto;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;">
+                                                <i class="bi bi-box-seam"></i> Ready for Pickup
+                                            </button>
+                                        </div>
+                                        {% endif %}
+
+                                        <!-- View Details Button - Always visible -->
+                                        <button type="button" class="view-details-btn" 
+                                                onclick="openOrderModal({{ order.id }}, '{{ order.first_name }} {{ order.last_name }}', '{{ order.email }}', '{{ order.address|replace("'", "\\'") }}', '{{ order.name|replace("'", "\\'") }}', '{{ order.image_url if order.image_url else (order.image|product_img) }}', '{{ order.variations or '' }}', '{{ order.size or '' }}', {{ order.quantity }}, {{ order.original_price or order.total_price }}, '{{ order.promotion_type or '' }}', {{ order.discount_percentage or 0 }}, {{ order.discount_amount or 0 }}, {{ order.total_price }}, '{{ order.date }}', '{{ order.status }}', '{{ order.promotion_name or '' }}', '{{ order.phone or '' }}', '{{ order.seller_business_name or '' }}', '{{ order.seller_address or '' }}', '{{ order.seller_phone or '' }}', {{ order.product_id or 'null' }}, '{{ order.rider_email or '' }}', '{{ order.rider_name or '' }}')">
+                                            <i class="bi bi-eye"></i>
+                                            <span>View Details</span>
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                            {% else %}
+                            <tr>
+                                <td colspan="12" class="empty-message">
+                                    <div class="empty-state">
+                                        <i class="bi bi-inbox"></i>
+                                        <h3>No Orders Yet</h3>
+                                        <p>You haven't received any orders yet. Orders will appear here once customers
+                                            start purchasing your products.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endif %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+    <!-- Success Message Modal -->
+    <div id="successModal" class="success-modal" aria-hidden="true" role="dialog" aria-labelledby="success-modal-title">
+        <div class="success-modal-content">
+            <div class="success-icon">
+                <i class="fas fa-check success-checkmark" aria-hidden="true"></i>
+            </div>
+            <h2 id="success-modal-title">Order Confirmed Successfully!</h2>
+            <p class="thank-you-message">Order Status Updated!</p>
+            <p class="order-message">
+                The order has been confirmed and is now available for riders to accept. The customer will be notified via email.
+            </p>
+            <div class="success-modal-buttons">
+                <button type="button" class="view-orders-btn" onclick="closeSuccessModal()">
+                    <i class="fas fa-list" aria-hidden="true"></i>
+                    View Orders
+                </button>
+                <button type="button" class="continue-shopping-btn" onclick="closeSuccessModal()">
+                    <i class="fas fa-check" aria-hidden="true"></i>
+                    Continue
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Order Details Modal -->
+    <div id="orderDetailsModal" class="modal-overlay">
+        <div class="modal-content-details">
+            <div class="modal-header-details">
+                <h2><i class="bi bi-receipt"></i> Order Details</h2>
+                <button class="modal-close-btn" onclick="closeOrderModal()">
+                    <i class="bi bi-x"></i>
+                </button>
+            </div>
+            <div class="modal-body-details">
+                <div class="order-details-grid">
+                    <!-- Customer Information -->
+                    <div class="details-section">
+                        <h3><i class="bi bi-person-circle"></i> Customer Information</h3>
+                        <div class="details-row">
+                            <span class="label">Name:</span>
+                            <span class="value" id="modal-customer-name"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Email:</span>
+                            <span class="value" id="modal-customer-email"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Address:</span>
+                            <span class="value address-value" id="modal-customer-address"></span>
+                        </div>
+                    </div>
+
+                    <!-- Order Information -->
+                    <div class="details-section">
+                        <h3><i class="bi bi-clipboard-data"></i> Order Information</h3>
+                        <div class="details-row">
+                            <span class="label">Order ID:</span>
+                            <span class="value" id="modal-order-id"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Date:</span>
+                            <span class="value" id="modal-order-date"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Status:</span>
+                            <span class="value status-value" id="modal-order-status"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Quantity:</span>
+                            <span class="value" id="modal-order-quantity"></span>
+                        </div>
+                    </div>
+
+                    <!-- Product Information -->
+                    <div class="details-section product-section">
+                        <h3><i class="bi bi-box-seam"></i> Product Information</h3>
+                        <div class="product-details">
+                            <div class="product-image-container">
+                                <img id="modal-product-image" class="modal-product-image" src="" alt="Product Image">
+                            </div>
+                            <div class="product-info-details">
+                                <div class="details-row">
+                                    <span class="label">Product Name:</span>
+                                    <span class="value" id="modal-product-name"></span>
+                                </div>
+                                <div class="details-row">
+                                    <span class="label">Color/Variation:</span>
+                                    <span class="value" id="modal-product-variation"></span>
+                                </div>
+                                <div class="details-row">
+                                    <span class="label">Size:</span>
+                                    <span class="value" id="modal-product-size"></span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pricing Information -->
+                    <div class="details-section">
+                        <h3><i class="bi bi-currency-dollar"></i> Pricing Information</h3>
+                        <div class="details-row">
+                            <span class="label">Original Price:</span>
+                            <span class="value" id="modal-original-price"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Promotion:</span>
+                            <span class="value" id="modal-promotion"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Discount:</span>
+                            <span class="value" id="modal-discount"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Shipping Fee:</span>
+                            <span class="value" id="modal-shipping-fee"></span>
+                        </div>
+                        <div class="details-row">
+                            <span class="label">Subtotal:</span>
+                            <span class="value" id="modal-subtotal"></span>
+                        </div>
+                        <div class="details-row total-row">
+                            <span class="label">Total Price:</span>
+                            <span class="value" id="modal-total-price"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer-details">
+                <button class="btn-contact-buyer" onclick="contactBuyer()">
+                    <i class="bi bi-chat-dots"></i>
+                    Contact Buyer
+                </button>
+                <button class="btn-contact-rider" onclick="contactRider()" id="contactRiderBtn" style="display: none;">
+                    <i class="bi bi-bicycle"></i>
+                    Contact Rider
+                </button>
+                <button class="btn-report-issue" onclick="openReportIssueModal()">
+                    <i class="bi bi-flag"></i>
+                    Report Issue
+                </button>
+                <button class="btn-print-invoice" onclick="printInvoice()">
+                    <i class="bi bi-printer"></i>
+                    Print Invoice
+                </button>
+                <button class="btn-close-modal" onclick="closeOrderModal()">
+                    <i class="bi bi-x-circle"></i>
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Include Seller-Buyer Chat Modal -->
+    {% include 'seller_buyer_chat_modal.html' %}
+
+    <!-- Include Seller-Rider Chat Modal -->
+    {% include 'seller_rider_chat_modal.html' %}
+
+    <!-- Include Report Issue Modal -->
+    {% include 'report_issue_modal.html' %}
+
+</body>
+
+</html>

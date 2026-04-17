@@ -1,0 +1,1282 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reports & Analytics</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/reports_analytics.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+</head>
+
+<body>
+    <!-- Include seller header -->
+    {% include 'seller_header.html' %}
+
+    <div class="admin-dashboard-content">
+        <div class="dashboard-header" data-date="">
+            <div class="dashboard-avatar">
+                <i class="bi bi-graph-up"></i>
+            </div>
+            <h1>Reports & Analytics</h1>
+            <p>Track your business performance and insights</p>
+            <div class="print-date" style="display: none; margin-top: 10px; font-size: 9pt; color: #95a5a6;">
+                <script>document.write('Generated on ' + new Date().toLocaleDateString('en-US', {year: 'numeric', month: 'long', day: 'numeric', hour: '2-digit', minute: '2-digit'}))</script>
+            </div>
+        </div>
+        
+        <style>
+            @media print {
+                .print-date {
+                    display: block !important;
+                }
+            }
+        </style>
+
+        <div class="dashboard-container">
+                <!-- Analytics Cards -->
+                <div class="stats-summary">
+                    <div class="stat-card">
+                        <div class="stat-icon">
+                            <i class="bi bi-currency-dollar"></i>
+                        </div>
+                        <div class="stat-value">₱{{ total_revenue }}</div>
+                        <div class="stat-label">Total Revenue</div>
+                        <div class="stat-description">Completed orders</div>
+                    </div>
+                    <div class="stat-card stat-card-success">
+                        <div class="stat-icon">
+                            <i class="bi bi-wallet2"></i>
+                        </div>
+                        <div class="stat-value">₱{{ total_earnings }}</div>
+                        <div class="stat-label">Net Earnings</div>
+                        <div class="stat-description">After fees & discounts</div>
+                    </div>
+                    <div class="stat-card stat-card-info">
+                        <div class="stat-icon">
+                            <i class="bi bi-bag-check"></i>
+                        </div>
+                        <div class="stat-value">{{ total_orders }}</div>
+                        <div class="stat-label">Total Orders</div>
+                        <div class="stat-description">Completed orders</div>
+                    </div>
+                    <div class="stat-card stat-card-warning">
+                        <div class="stat-icon">
+                            <i class="bi bi-graph-up-arrow"></i>
+                        </div>
+                        <div class="stat-value">₱{{ avg_order_value }}</div>
+                        <div class="stat-label">Avg Order Value</div>
+                        <div class="stat-description">Per completed order</div>
+                    </div>
+                </div>
+
+                <!-- Search and Filter Section -->
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card filter-card">
+                            <div class="card-body">
+                                <div class="form-header">
+                                    <div>
+                                        <h3><i class="bi bi-funnel"></i> Filter & Search Reports</h3>
+                                        <p>Find and filter your orders, products, and financial data</p>
+                                    </div>
+                                    <div class="d-flex gap-2">
+                                        <button class="btn btn-secondary" onclick="exportToExcel()">
+                                            <i class="bi bi-file-earmark-excel"></i> Export
+                                        </button>
+                                        <button class="btn btn-info" onclick="printReport()">
+                                            <i class="bi bi-printer"></i> Print
+                                        </button>
+                                    </div>
+                                </div>
+                                <div class="row align-items-end">
+                                    <div class="col-md-3">
+                                        <label class="form-label">
+                                            <i class="bi bi-filter"></i> Filter By
+                                        </label>
+                                        <select id="filterBySection" class="form-select" onchange="updateFilterOptions()">
+                                            <option value="all">All Sections</option>
+                                            <option value="top-products">Top Selling Products</option>
+                                            <option value="orders">Orders Analytics</option>
+                                            <option value="promotions">Promotion Performance</option>
+                                            <option value="financial">Financial Summary</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2">
+                                        <label class="form-label">
+                                            <i class="bi bi-search"></i> Search
+                                        </label>
+                                        <input type="text" id="searchInput" class="form-control" placeholder="Search...">
+                                    </div>
+                                    <div class="col-md-2" id="sortByContainer">
+                                        <label class="form-label">
+                                            <i class="bi bi-sort-down"></i> Sort By
+                                        </label>
+                                        <select id="sortBy" class="form-select" onchange="applyFilters()">
+                                            <option value="">Default</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-2" id="dateFromContainer">
+                                        <label class="form-label">
+                                            <i class="bi bi-calendar3"></i> Date From
+                                        </label>
+                                        <input type="date" id="dateFrom" class="form-control" onchange="toggleApplyButton()">
+                                    </div>
+                                    <div class="col-md-2" id="dateToContainer">
+                                        <label class="form-label">
+                                            <i class="bi bi-calendar3"></i> Date To
+                                        </label>
+                                        <input type="date" id="dateTo" class="form-control" onchange="toggleApplyButton()">
+                                    </div>
+                                    <div class="col-md-2" id="statusContainer">
+                                        <label class="form-label">
+                                            <i class="bi bi-flag"></i> Status
+                                        </label>
+                                        <select id="statusFilter" class="form-select" onchange="applyFilters()">
+                                            <option value="">All Status</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-1" id="applyButtonContainer" style="display: none;">
+                                        <button class="btn btn-primary w-100" onclick="applyFilters()" title="Apply Date Filter">
+                                            <i class="bi bi-funnel-fill"></i>
+                                        </button>
+                                    </div>
+                                    <div class="col-md-1">
+                                        <button class="btn btn-secondary w-100" onclick="resetFilters()" title="Reset Filters">
+                                            <i class="bi bi-arrow-clockwise"></i>
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Top Products Section -->
+                <div class="row" id="top-products-section">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-trophy"></i> Top Selling Products
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                {% if top_products %}
+                                <div class="table-responsive">
+                                    <table id="top-products-table" class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th>Rank</th>
+                                                <th>Product Name</th>
+                                                <th>Units Sold</th>
+                                                <th>Revenue</th>
+                                                <th>Stock Left</th>
+                                                <th>Rating</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for product in top_products %}
+                                            <tr>
+                                                <td>
+                                                    <span class="badge bg-primary">{{ loop.index }}</span>
+                                                </td>
+                                                <td>{{ product.name }}</td>
+                                                <td>{{ product.total_sold }}</td>
+                                                <td class="text-success fw-bold">₱{{ "%.2f"|format(product.revenue) }}</td>
+                                                <td>
+                                                    {% if product.stock_left > 10 %}
+                                                    <span class="badge bg-primary">{{ product.stock_left }}</span>
+                                                    {% elif product.stock_left > 0 %}
+                                                    <span class="badge bg-warning">{{ product.stock_left }}</span>
+                                                    {% else %}
+                                                    <span class="badge bg-danger">Out of Stock</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if product.avg_rating > 0 %}
+                                                    <div class="rating-display">
+                                                        <i class="bi bi-star-fill text-warning"></i>
+                                                        <span class="fw-bold">{{ "%.1f"|format(product.avg_rating) }}</span>
+                                                        <small class="text-muted">({{ product.review_count }})</small>
+                                                    </div>
+                                                    {% else %}
+                                                    <span class="text-muted">No reviews</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% else %}
+                                <div class="text-center py-4">
+                                    <i class="bi bi-graph-down text-muted" style="font-size: 3rem;"></i>
+                                    <h5 class="text-muted mt-3">No sales data available</h5>
+                                    <p class="text-muted">Start selling products to see your analytics here.</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Orders Analytics Section -->
+                <div class="row mt-4" id="orders-section">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-bar-chart-line"></i> Orders Analytics
+                                    {% if order_details %}
+                                    <span class="badge bg-primary ms-2">{{ order_details|length }} orders</span>
+                                    {% endif %}
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                {% if order_details and order_details|length > 0 %}
+                                <div class="table-responsive">
+                                    <table id="orders-analytics-table" class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 2%;"><i class="bi bi-hash"></i> No.</th>
+                                                <th style="width: 20%;">Product Name</th>
+                                                <th style="width: 7%;">Quantity</th>
+                                                <th style="width: 11%;">Order Status</th>
+                                                <th style="width: 13%;">Order Date</th>
+                                                <th style="width: 13%;">Completion Date</th>
+                                                <th style="width: 11%;">Total Amount</th>
+                                                <th style="width: 13%;">Buyer Name</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for order in order_details %}
+                                            <tr>
+                                                <td class="sequence-number">
+                                                    <span class="sequence-badge">{{ loop.index }}</span>
+                                                </td>
+                                                <td style="word-wrap: break-word; max-width: 200px;">{{ order.product_name }}</td>
+                                                <td>{{ order.quantity }}</td>
+                                                <td>
+                                                    {% if order.status == 'pending' %}
+                                                    <span class="status-badge status-pending">Pending</span>
+                                                    {% elif order.status == 'confirmed' %}
+                                                    <span class="status-badge status-confirmed">Confirmed</span>
+                                                    {% elif order.status == 'preparing' %}
+                                                    <span class="status-badge status-preparing">Preparing</span>
+                                                    {% elif order.status == 'ready_for_pickup' %}
+                                                    <span class="status-badge status-for-pickup">Ready for Pickup</span>
+                                                    {% elif order.status == 'out_for_delivery' %}
+                                                    <span class="status-badge status-shipped">Out for Delivery</span>
+                                                    {% elif order.status == 'delivered' %}
+                                                    <span class="status-badge status-delivered">Delivered</span>
+                                                    {% elif order.status == 'completed' %}
+                                                    <span class="status-badge status-completed">Completed</span>
+                                                    {% elif order.status == 'cancelled' %}
+                                                    <span class="status-badge status-cancelled">Cancelled</span>
+                                                    {% else %}
+                                                    <span class="status-badge status-pending">{{ order.status }}</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if order.order_date %}
+                                                    <div class="date-time-cell">
+                                                        <div class="date-part">{{ order.order_date.strftime('%b %d, %Y') }}</div>
+                                                        <div class="time-part">{{ order.order_date.strftime('%I:%M %p') }}</div>
+                                                    </div>
+                                                    {% else %}
+                                                    N/A
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if order.completion_date %}
+                                                    <div class="date-time-cell">
+                                                        <div class="date-part">{{ order.completion_date.strftime('%b %d, %Y') }}</div>
+                                                        <div class="time-part">{{ order.completion_date.strftime('%I:%M %p') }}</div>
+                                                    </div>
+                                                    {% else %}
+                                                    <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td class="text-success fw-bold">₱{{ "%.2f"|format(order.total_amount) }}</td>
+                                                <td>{{ order.buyer_name }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- Totals for Print -->
+                                <div class="table-totals-print">
+                                    <h4><i class="bi bi-calculator"></i> Orders Summary</h4>
+                                    <div class="total-row">
+                                        <span class="total-label">Total Orders:</span>
+                                        <span class="total-value">{{ order_details|length if order_details else 0 }}</span>
+                                    </div>
+                                    <div class="total-row grand-total">
+                                        <span class="total-label">Total Revenue:</span>
+                                        <span class="total-value">₱{{ total_revenue }}</span>
+                                    </div>
+                                </div>
+                               
+                                {% else %}
+                                <div class="text-center py-4">
+                                    <i class="bi bi-inbox text-muted" style="font-size: 3rem;"></i>
+                                    <h5 class="text-muted mt-3">No orders available</h5>
+                                    <p class="text-muted">Orders will appear here once customers start purchasing.</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Promotion Performance Section -->
+                <div class="row mt-4" id="promotions-section">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-percent"></i> Promotion Performance
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                {% if promotion_performance %}
+                                <div class="table-responsive">
+                                    <table id="promotion-performance-table" class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 2%;"><i class="bi bi-hash"></i> No.</th>
+                                                <th style="width: 18%;">Promo Name</th>
+                                                <th style="width: 10%;">Promo Type</th>
+                                                <th style="width: 10%;">Discount Value</th>
+                                                <th style="width: 16%;">Start & End Date</th>
+                                                <th style="width: 10%;">Number of Uses</th>
+                                                <th style="width: 14%;">Revenue Generated</th>
+                                                <th style="width: 10%;">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for promo in promotion_performance %}
+                                            <tr>
+                                                <td class="sequence-number">
+                                                    <span class="sequence-badge">{{ loop.index }}</span>
+                                                </td>
+                                                <td style="word-wrap: break-word;">{{ promo.name }}</td>
+                                                <td>
+                                                    {% if promo.type == 'percentage' %}
+                                                    <span class="badge bg-info">Percentage</span>
+                                                    {% elif promo.type == 'fixed_amount' %}
+                                                    <span class="badge bg-primary">Fixed Amount</span>
+                                                    {% elif promo.type == 'free_shipping' %}
+                                                    <span class="badge bg-success">Free Shipping</span>
+                                                    {% else %}
+                                                    <span class="badge bg-secondary">{{ promo.type }}</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    {% if promo.type == 'percentage' %}
+                                                    {{ promo.discount_value }}%
+                                                    {% elif promo.type == 'fixed_amount' %}
+                                                    ₱{{ "%.2f"|format(promo.discount_value) }}
+                                                    {% elif promo.type == 'free_shipping' %}
+                                                    Free Shipping
+                                                    {% else %}
+                                                    {{ promo.discount_value }}
+                                                    {% endif %}
+                                                </td>
+                                                <td>
+                                                    <small>
+                                                        {{ promo.start_date.strftime('%b %d, %Y') if promo.start_date else 'N/A' }}<br>
+                                                        to {{ promo.end_date.strftime('%b %d, %Y') if promo.end_date else 'N/A' }}
+                                                    </small>
+                                                </td>
+                                                <td class="text-center">
+                                                    <span class="badge bg-primary">{{ promo.usage_count }}</span>
+                                                </td>
+                                                <td class="text-success fw-bold">₱{{ "%.2f"|format(promo.revenue_generated) }}</td>
+                                                <td>
+                                                    {% if promo.status == 'active' %}
+                                                    <span class="badge bg-success">Active</span>
+                                                    {% elif promo.status == 'ended' %}
+                                                    <span class="badge bg-secondary">Ended</span>
+                                                    {% elif promo.status == 'expired' %}
+                                                    <span class="badge bg-danger">Expired</span>
+                                                    {% else %}
+                                                    <span class="badge bg-warning">{{ promo.status }}</span>
+                                                    {% endif %}
+                                                </td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                {% else %}
+                                <div class="text-center py-4">
+                                    <i class="bi bi-percent text-muted" style="font-size: 3rem;"></i>
+                                    <h5 class="text-muted mt-3">No promotions available</h5>
+                                    <p class="text-muted">Create promotions to track their performance here.</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Financial Summary Section -->
+                <div class="row mt-4" id="financial-section">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-cash-stack"></i> Financial Summary
+                                    {% if financial_summary %}
+                                    <span class="badge bg-primary ms-2">{{ financial_summary|length }} transactions</span>
+                                    {% endif %}
+                                </h5>
+                            </div>
+                            <div class="card-body">
+                                {% if financial_summary and financial_summary|length > 0 %}
+                                <div class="table-responsive">
+                                    <table id="financial-summary-table" class="table table-hover">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 2%;"><i class="bi bi-hash"></i> No.</th>
+                                                <th style="width: 7%;">Order ID</th>
+                                                <th style="width: 12%;">Date Completed</th>
+                                                <th style="width: 15%;">Product Name</th>
+                                                <th style="width: 10%;">Product Sales</th>
+                                                <th style="width: 9%;">Discounts</th>
+                                                <th style="width: 9%;">Net Sales</th>
+                                                <th style="width: 9%;">Shipping Fee</th>
+                                                <th style="width: 12%;">Platform Fee (5%)</th>
+                                                <th style="width: 11%;">Net Earnings</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% for item in financial_summary %}
+                                            <tr>
+                                                <td class="sequence-number">
+                                                    <span class="sequence-badge">{{ loop.index }}</span>
+                                                </td>
+                                                <td><span class="badge bg-secondary">#{{ item.order_id }}</span></td>
+                                                <td>
+                                                    {% if item.date_completed %}
+                                                    <div class="date-time-cell">
+                                                        <div class="date-part">{{ item.date_completed.strftime('%b %d, %Y') }}</div>
+                                                        <div class="time-part">{{ item.date_completed.strftime('%I:%M %p') }}</div>
+                                                    </div>
+                                                    {% else %}
+                                                    <span class="text-muted">-</span>
+                                                    {% endif %}
+                                                </td>
+                                                <td style="word-wrap: break-word; max-width: 200px;">{{ item.product_name }}</td>
+                                                <td class="text-success fw-bold">₱{{ "%.2f"|format(item.product_sales) }}</td>
+                                                <td class="text-danger">
+                                                    {% if item.discounts > 0 %}
+                                                    -₱{{ "%.2f"|format(item.discounts) }}
+                                                    {% else %}
+                                                    ₱0.00
+                                                    {% endif %}
+                                                </td>
+                                                <td class="text-primary fw-bold">₱{{ "%.2f"|format(item.net_sales) }}</td>
+                                                <td class="text-info">₱{{ "%.2f"|format(item.shipping_fee_collected) }}</td>
+                                                <td class="text-warning">-₱{{ "%.2f"|format(item.platform_commission if item.platform_commission is defined else (item.net_sales * 0.05)) }}</td>
+                                                <td class="text-success fw-bold">₱{{ "%.2f"|format(item.net_earnings) }}</td>
+                                            </tr>
+                                            {% endfor %}
+                                        </tbody>
+                                    </table>
+                                </div>
+                                
+                                <!-- Totals for Print -->
+                                <div class="table-totals-print">
+                                    <h4><i class="bi bi-calculator"></i> Financial Summary</h4>
+                                    <div class="total-row">
+                                        <span class="total-label">Total Transactions:</span>
+                                        <span class="total-value">{{ financial_summary|length if financial_summary else 0 }}</span>
+                                    </div>
+                                    <div class="total-row grand-total">
+                                        <span class="total-label">Total Net Earnings:</span>
+                                        <span class="total-value">₱{{ total_earnings }}</span>
+                                    </div>
+                                </div>
+                                
+                                {% else %}
+                                <div class="text-center py-4">
+                                    <i class="bi bi-cash-stack text-muted" style="font-size: 3rem;"></i>
+                                    <h5 class="text-muted mt-3">No financial data available</h5>
+                                    <p class="text-muted">Complete orders will appear here with detailed financial breakdown.</p>
+                                </div>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+     <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <script>
+        // Filter options configuration
+        const filterConfig = {
+            'all': {
+                sortOptions: [],
+                hasDate: false,
+                hasStatus: false,
+                searchPlaceholder: 'Search all sections...'
+            },
+            'top-products': {
+                sortOptions: [
+                    { value: 'units-desc', text: 'Units Sold (High to Low)' },
+                    { value: 'units-asc', text: 'Units Sold (Low to High)' },
+                    { value: 'revenue-desc', text: 'Revenue (High to Low)' },
+                    { value: 'revenue-asc', text: 'Revenue (Low to High)' },
+                    { value: 'stock-desc', text: 'Stock (High to Low)' },
+                    { value: 'stock-asc', text: 'Stock (Low to High)' },
+                    { value: 'rating-desc', text: 'Rating (High to Low)' },
+                    { value: 'rating-asc', text: 'Rating (Low to High)' }
+                ],
+                hasDate: false,
+                hasStatus: false,
+                searchPlaceholder: 'Search product name...'
+            },
+            'orders': {
+                sortOptions: [
+                    { value: 'date-desc', text: 'Order Date (Newest)' },
+                    { value: 'date-asc', text: 'Order Date (Oldest)' },
+                    { value: 'amount-desc', text: 'Amount (High to Low)' },
+                    { value: 'amount-asc', text: 'Amount (Low to High)' },
+                    { value: 'quantity-desc', text: 'Quantity (High to Low)' },
+                    { value: 'quantity-asc', text: 'Quantity (Low to High)' }
+                ],
+                hasDate: true,
+                hasStatus: true,
+                statusOptions: [
+                    { value: 'pending', text: 'Pending' },
+                    { value: 'confirmed', text: 'Confirmed' },
+                    { value: 'for pickup', text: 'For Pickup' },
+                    { value: 'heading to seller', text: 'Heading to Seller' },
+                    { value: 'shipped', text: 'Shipped' },
+                    { value: 'delivered', text: 'Delivered' },
+                    { value: 'completed', text: 'Completed' },
+                    { value: 'cancelled', text: 'Cancelled' },
+                    { value: 'rejected', text: 'Rejected' }
+                ],
+                searchPlaceholder: 'Search product name or buyer...'
+            },
+            'promotions': {
+                sortOptions: [
+                    { value: 'uses-desc', text: 'Uses (High to Low)' },
+                    { value: 'uses-asc', text: 'Uses (Low to High)' },
+                    { value: 'revenue-desc', text: 'Revenue (High to Low)' },
+                    { value: 'revenue-asc', text: 'Revenue (Low to High)' },
+                    { value: 'discount-desc', text: 'Discount (High to Low)' },
+                    { value: 'discount-asc', text: 'Discount (Low to High)' }
+                ],
+                hasDate: true,
+                hasStatus: true,
+                statusOptions: [
+                    { value: 'active', text: 'Active' },
+                    { value: 'ended', text: 'Ended' },
+                    { value: 'expired', text: 'Expired' }
+                ],
+                searchPlaceholder: 'Search promotion name...'
+            },
+            'financial': {
+                sortOptions: [
+                    { value: 'date-desc', text: 'Date (Newest)' },
+                    { value: 'date-asc', text: 'Date (Oldest)' },
+                    { value: 'sales-desc', text: 'Sales (High to Low)' },
+                    { value: 'sales-asc', text: 'Sales (Low to High)' },
+                    { value: 'earnings-desc', text: 'Earnings (High to Low)' },
+                    { value: 'earnings-asc', text: 'Earnings (Low to High)' }
+                ],
+                hasDate: true,
+                hasStatus: false,
+                searchPlaceholder: 'Search product name...'
+            }
+        };
+
+        // Toggle Apply Filter button visibility based on date inputs
+        function toggleApplyButton() {
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo = document.getElementById('dateTo').value;
+            const applyButtonContainer = document.getElementById('applyButtonContainer');
+            
+            // Show apply button if either date field has a value
+            if (dateFrom || dateTo) {
+                applyButtonContainer.style.display = 'block';
+            } else {
+                applyButtonContainer.style.display = 'none';
+            }
+        }
+
+        // Update filter options based on selected section
+        function updateFilterOptions() {
+            const section = document.getElementById('filterBySection').value;
+            const config = filterConfig[section];
+            
+            // Update search placeholder
+            document.getElementById('searchInput').placeholder = config.searchPlaceholder;
+            
+            // Update sort options
+            const sortBy = document.getElementById('sortBy');
+            sortBy.innerHTML = '<option value="">Default</option>';
+            config.sortOptions.forEach(opt => {
+                sortBy.innerHTML += `<option value="${opt.value}">${opt.text}</option>`;
+            });
+            
+            // Show/hide date filters
+            document.getElementById('dateFromContainer').style.display = config.hasDate ? 'block' : 'none';
+            document.getElementById('dateToContainer').style.display = config.hasDate ? 'block' : 'none';
+            
+            // Show/hide and update status filter
+            const statusContainer = document.getElementById('statusContainer');
+            const statusFilter = document.getElementById('statusFilter');
+            if (config.hasStatus) {
+                statusContainer.style.display = 'block';
+                statusFilter.innerHTML = '<option value="">All Status</option>';
+                config.statusOptions.forEach(opt => {
+                    statusFilter.innerHTML += `<option value="${opt.value}">${opt.text}</option>`;
+                });
+            } else {
+                statusContainer.style.display = 'none';
+            }
+            
+            // Show/hide sections based on filter selection
+            showHideSections(section);
+            
+            // Reset filters
+            resetFilters();
+        }
+        
+        // Show/hide section cards based on filter selection
+        function showHideSections(section) {
+            const topProductsSection = document.getElementById('top-products-section');
+            const ordersSection = document.getElementById('orders-section');
+            const promotionsSection = document.getElementById('promotions-section');
+            const financialSection = document.getElementById('financial-section');
+            
+            if (section === 'all') {
+                // Show all sections
+                if (topProductsSection) topProductsSection.style.display = '';
+                if (ordersSection) ordersSection.style.display = '';
+                if (promotionsSection) promotionsSection.style.display = '';
+                if (financialSection) financialSection.style.display = '';
+            } else {
+                // Hide all first
+                if (topProductsSection) topProductsSection.style.display = 'none';
+                if (ordersSection) ordersSection.style.display = 'none';
+                if (promotionsSection) promotionsSection.style.display = 'none';
+                if (financialSection) financialSection.style.display = 'none';
+                
+                // Show only selected section
+                if (section === 'top-products' && topProductsSection) {
+                    topProductsSection.style.display = '';
+                } else if (section === 'orders' && ordersSection) {
+                    ordersSection.style.display = '';
+                } else if (section === 'promotions' && promotionsSection) {
+                    promotionsSection.style.display = '';
+                } else if (section === 'financial' && financialSection) {
+                    financialSection.style.display = '';
+                }
+            }
+        }
+
+        // Search and Filter Functionality
+        function applyFilters() {
+            const section = document.getElementById('filterBySection').value;
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const sortBy = document.getElementById('sortBy').value;
+            const dateFrom = document.getElementById('dateFrom').value;
+            const dateTo = document.getElementById('dateTo').value;
+            const status = document.getElementById('statusFilter').value.toLowerCase();
+
+            if (section === 'all' || section === 'top-products') {
+                filterTopProducts(searchTerm, sortBy);
+            }
+            if (section === 'all' || section === 'orders') {
+                filterOrders(searchTerm, sortBy, dateFrom, dateTo, status);
+            }
+            if (section === 'all' || section === 'promotions') {
+                filterPromotions(searchTerm, sortBy, dateFrom, dateTo, status);
+            }
+            if (section === 'all' || section === 'financial') {
+                filterFinancial(searchTerm, sortBy, dateFrom, dateTo);
+            }
+        }
+
+        function filterTopProducts(searchTerm, sortBy) {
+            const table = document.getElementById('top-products-table');
+            if (!table) return;
+
+            const tbody = table.getElementsByTagName('tbody')[0];
+            const rows = Array.from(tbody.getElementsByTagName('tr'));
+            let visibleCount = 0;
+            
+            // Filter
+            rows.forEach(row => {
+                const productName = row.getElementsByTagName('td')[1].textContent.toLowerCase();
+                const show = !searchTerm || productName.includes(searchTerm);
+                row.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+            
+            // Sort
+            if (sortBy) {
+                const visibleRows = rows.filter(row => row.style.display !== 'none');
+                visibleRows.sort((a, b) => {
+                    const [field, order] = sortBy.split('-');
+                    let valA, valB;
+                    
+                    switch(field) {
+                        case 'units':
+                            valA = parseInt(a.cells[2].textContent);
+                            valB = parseInt(b.cells[2].textContent);
+                            break;
+                        case 'revenue':
+                            valA = parseFloat(a.cells[3].textContent.replace(/[₱,]/g, ''));
+                            valB = parseFloat(b.cells[3].textContent.replace(/[₱,]/g, ''));
+                            break;
+                        case 'stock':
+                            valA = parseInt(a.cells[4].textContent) || 0;
+                            valB = parseInt(b.cells[4].textContent) || 0;
+                            break;
+                        case 'rating':
+                            valA = parseFloat(a.cells[5].textContent) || 0;
+                            valB = parseFloat(b.cells[5].textContent) || 0;
+                            break;
+                    }
+                    
+                    return order === 'asc' ? valA - valB : valB - valA;
+                });
+                
+                visibleRows.forEach(row => tbody.appendChild(row));
+            } else {
+                // Restore original order (by rank)
+                const visibleRows = rows.filter(row => row.style.display !== 'none');
+                visibleRows.sort((a, b) => {
+                    const rankA = parseInt(a.cells[0].textContent);
+                    const rankB = parseInt(b.cells[0].textContent);
+                    return rankA - rankB;
+                });
+                visibleRows.forEach(row => tbody.appendChild(row));
+            }
+            
+            // Show/hide empty message
+            showEmptyMessage('top-products-table', visibleCount, 'No products found matching your filters.');
+        }
+
+        function filterOrders(searchTerm, sortBy, dateFrom, dateTo, status) {
+            const table = document.getElementById('orders-analytics-table');
+            if (!table) return;
+
+            const tbody = table.getElementsByTagName('tbody')[0];
+            const rows = Array.from(tbody.getElementsByTagName('tr'));
+            let visibleCount = 0;
+            
+            // Filter
+            rows.forEach(row => {
+                let show = true;
+                const cells = row.getElementsByTagName('td');
+                
+                // Search - Product Name (cell 1) and Buyer Name (cell 7)
+                if (searchTerm) {
+                    const productName = cells[1].textContent.toLowerCase();
+                    const buyerName = cells[7].textContent.toLowerCase();
+                    if (!productName.includes(searchTerm) && !buyerName.includes(searchTerm)) {
+                        show = false;
+                    }
+                }
+                
+                // Status - Order Status (cell 3)
+                if (status && show) {
+                    const rowStatus = cells[3].textContent.toLowerCase().trim();
+                    if (!rowStatus.includes(status.toLowerCase())) {
+                        show = false;
+                    }
+                }
+                
+                // Date - Order Date (cell 4)
+                if ((dateFrom || dateTo) && show) {
+                    const dateCell = cells[4].querySelector('.date-part');
+                    if (dateCell) {
+                        // Parse date from format like "Nov 26, 2025" or "Dec 01, 2025"
+                        const dateText = dateCell.textContent.trim();
+                        const rowDate = new Date(dateText + ' 00:00:00');
+                        
+                        // Check if date is valid
+                        if (!isNaN(rowDate.getTime())) {
+                            // Get date components
+                            const rowYear = rowDate.getFullYear();
+                            const rowMonth = rowDate.getMonth();
+                            const rowDay = rowDate.getDate();
+                            
+                            // Filter by Date From - show only dates on or after this date
+                            if (dateFrom) {
+                                const fromDate = new Date(dateFrom + 'T00:00:00');
+                                const fromYear = fromDate.getFullYear();
+                                const fromMonth = fromDate.getMonth();
+                                const fromDay = fromDate.getDate();
+                                
+                                // Compare year, month, day
+                                if (rowYear < fromYear || 
+                                    (rowYear === fromYear && rowMonth < fromMonth) ||
+                                    (rowYear === fromYear && rowMonth === fromMonth && rowDay < fromDay)) {
+                                    show = false;
+                                }
+                            }
+                            
+                            // Filter by Date To - show only dates on or before this date
+                            if (dateTo && show) {
+                                const toDate = new Date(dateTo + 'T00:00:00');
+                                const toYear = toDate.getFullYear();
+                                const toMonth = toDate.getMonth();
+                                const toDay = toDate.getDate();
+                                
+                                // Compare year, month, day
+                                if (rowYear > toYear || 
+                                    (rowYear === toYear && rowMonth > toMonth) ||
+                                    (rowYear === toYear && rowMonth === toMonth && rowDay > toDay)) {
+                                    show = false;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                row.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+            
+            // Sort
+            if (sortBy) {
+                const visibleRows = rows.filter(row => row.style.display !== 'none');
+                visibleRows.sort((a, b) => {
+                    const [field, order] = sortBy.split('-');
+                    let valA, valB;
+                    
+                    switch(field) {
+                        case 'date':
+                            const datePartA = a.cells[4].querySelector('.date-part');
+                            const datePartB = b.cells[4].querySelector('.date-part');
+                            valA = datePartA ? new Date(datePartA.textContent) : new Date(0);
+                            valB = datePartB ? new Date(datePartB.textContent) : new Date(0);
+                            break;
+                        case 'amount':
+                            valA = parseFloat(a.cells[6].textContent.replace(/[₱,]/g, ''));
+                            valB = parseFloat(b.cells[6].textContent.replace(/[₱,]/g, ''));
+                            break;
+                        case 'quantity':
+                            valA = parseInt(a.cells[2].textContent);
+                            valB = parseInt(b.cells[2].textContent);
+                            break;
+                    }
+                    
+                    return order === 'asc' ? valA - valB : valB - valA;
+                });
+                
+                visibleRows.forEach(row => tbody.appendChild(row));
+            } else {
+                // Restore original order when no sort is selected
+                const visibleRows = rows.filter(row => row.style.display !== 'none');
+                visibleRows.sort((a, b) => {
+                    const seqA = parseInt(a.cells[0].textContent);
+                    const seqB = parseInt(b.cells[0].textContent);
+                    return seqA - seqB;
+                });
+                visibleRows.forEach(row => tbody.appendChild(row));
+            }
+            
+            updateBadgeCount('orders-analytics-table', visibleCount);
+            showEmptyMessage('orders-analytics-table', visibleCount, 'No orders found matching your filters.');
+        }
+
+        function filterPromotions(searchTerm, sortBy, dateFrom, dateTo, status) {
+            const table = document.getElementById('promotion-performance-table');
+            if (!table) return;
+
+            const tbody = table.getElementsByTagName('tbody')[0];
+            const rows = Array.from(tbody.getElementsByTagName('tr'));
+            
+            // Filter
+            rows.forEach(row => {
+                let show = true;
+                const cells = row.getElementsByTagName('td');
+                
+                // Search
+                if (searchTerm) {
+                    const promoName = cells[0].textContent.toLowerCase();
+                    if (!promoName.includes(searchTerm)) {
+                        show = false;
+                    }
+                }
+                
+                // Status
+                if (status && show) {
+                    const rowStatus = cells[6].textContent.toLowerCase();
+                    if (!rowStatus.includes(status)) {
+                        show = false;
+                    }
+                }
+                
+                // Date (check if promo is active in date range)
+                if ((dateFrom || dateTo) && show) {
+                    const dateText = cells[4].querySelector('small');
+                    if (dateText) {
+                        const dates = dateText.textContent.split('to');
+                        if (dates.length === 2) {
+                            const startDate = new Date(dates[0].trim());
+                            const endDate = new Date(dates[1].trim());
+                            
+                            // Check if dates are valid
+                            if (!isNaN(startDate.getTime()) && !isNaN(endDate.getTime())) {
+                                startDate.setHours(0, 0, 0, 0);
+                                endDate.setHours(23, 59, 59, 999);
+                                
+                                if (dateFrom) {
+                                    const fromDate = new Date(dateFrom);
+                                    fromDate.setHours(0, 0, 0, 0);
+                                    // Show only if promo end date is on or after the from date
+                                    if (endDate < fromDate) {
+                                        show = false;
+                                    }
+                                }
+                                if (dateTo && show) {
+                                    const toDate = new Date(dateTo);
+                                    toDate.setHours(23, 59, 59, 999);
+                                    // Show only if promo start date is on or before the to date
+                                    if (startDate > toDate) {
+                                        show = false;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                row.style.display = show ? '' : 'none';
+            });
+            
+            // Sort
+            if (sortBy) {
+                const visibleRows = rows.filter(row => row.style.display !== 'none');
+                visibleRows.sort((a, b) => {
+                    const [field, order] = sortBy.split('-');
+                    let valA, valB;
+                    
+                    switch(field) {
+                        case 'uses':
+                            valA = parseInt(a.cells[5].textContent);
+                            valB = parseInt(b.cells[5].textContent);
+                            break;
+                        case 'revenue':
+                            valA = parseFloat(a.cells[6].textContent.replace(/[₱,]/g, ''));
+                            valB = parseFloat(b.cells[6].textContent.replace(/[₱,]/g, ''));
+                            break;
+                        case 'discount':
+                            valA = parseFloat(a.cells[3].textContent.replace(/[₱,%]/g, ''));
+                            valB = parseFloat(b.cells[3].textContent.replace(/[₱,%]/g, ''));
+                            break;
+                    }
+                    
+                    return order === 'asc' ? valA - valB : valB - valA;
+                });
+                
+                visibleRows.forEach(row => tbody.appendChild(row));
+            } else {
+                // Restore original order
+                const visibleRows = rows.filter(row => row.style.display !== 'none');
+                visibleRows.sort((a, b) => {
+                    const seqA = parseInt(a.cells[0].textContent);
+                    const seqB = parseInt(b.cells[0].textContent);
+                    return seqA - seqB;
+                });
+                visibleRows.forEach(row => tbody.appendChild(row));
+            }
+            
+            // Count visible rows
+            let visibleCount = rows.filter(row => row.style.display !== 'none').length;
+            showEmptyMessage('promotion-performance-table', visibleCount, 'No promotions found matching your filters.');
+        }
+
+        function filterFinancial(searchTerm, sortBy, dateFrom, dateTo) {
+            const table = document.getElementById('financial-summary-table');
+            if (!table) return;
+
+            const tbody = table.getElementsByTagName('tbody')[0];
+            const rows = Array.from(tbody.getElementsByTagName('tr'));
+            let visibleCount = 0;
+            
+            // Filter
+            rows.forEach(row => {
+                let show = true;
+                const cells = row.getElementsByTagName('td');
+                
+                // Search
+                if (searchTerm) {
+                    const productName = cells[2].textContent.toLowerCase();
+                    if (!productName.includes(searchTerm)) {
+                        show = false;
+                    }
+                }
+                
+                // Date - Date Completed (cell 2)
+                if ((dateFrom || dateTo) && show) {
+                    const dateCell = cells[2].querySelector('.date-part');
+                    if (dateCell) {
+                        // Parse date from format like "Nov 26, 2025" or "Dec 01, 2025"
+                        const dateText = dateCell.textContent.trim();
+                        const rowDate = new Date(dateText + ' 00:00:00');
+                        
+                        // Check if date is valid
+                        if (!isNaN(rowDate.getTime())) {
+                            // Get date components
+                            const rowYear = rowDate.getFullYear();
+                            const rowMonth = rowDate.getMonth();
+                            const rowDay = rowDate.getDate();
+                            
+                            // Filter by Date From - show only dates on or after this date
+                            if (dateFrom) {
+                                const fromDate = new Date(dateFrom + 'T00:00:00');
+                                const fromYear = fromDate.getFullYear();
+                                const fromMonth = fromDate.getMonth();
+                                const fromDay = fromDate.getDate();
+                                
+                                // Compare year, month, day
+                                if (rowYear < fromYear || 
+                                    (rowYear === fromYear && rowMonth < fromMonth) ||
+                                    (rowYear === fromYear && rowMonth === fromMonth && rowDay < fromDay)) {
+                                    show = false;
+                                }
+                            }
+                            
+                            // Filter by Date To - show only dates on or before this date
+                            if (dateTo && show) {
+                                const toDate = new Date(dateTo + 'T00:00:00');
+                                const toYear = toDate.getFullYear();
+                                const toMonth = toDate.getMonth();
+                                const toDay = toDate.getDate();
+                                
+                                // Compare year, month, day
+                                if (rowYear > toYear || 
+                                    (rowYear === toYear && rowMonth > toMonth) ||
+                                    (rowYear === toYear && rowMonth === toMonth && rowDay > toDay)) {
+                                    show = false;
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                row.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+            
+            // Sort
+            if (sortBy) {
+                const visibleRows = rows.filter(row => row.style.display !== 'none');
+                visibleRows.sort((a, b) => {
+                    const [field, order] = sortBy.split('-');
+                    let valA, valB;
+                    
+                    switch(field) {
+                        case 'date':
+                            const datePartA = a.cells[2].querySelector('.date-part');
+                            const datePartB = b.cells[2].querySelector('.date-part');
+                            valA = datePartA ? new Date(datePartA.textContent) : new Date(0);
+                            valB = datePartB ? new Date(datePartB.textContent) : new Date(0);
+                            break;
+                        case 'sales':
+                            valA = parseFloat(a.cells[4].textContent.replace(/[₱,]/g, ''));
+                            valB = parseFloat(b.cells[4].textContent.replace(/[₱,]/g, ''));
+                            break;
+                        case 'earnings':
+                            valA = parseFloat(a.cells[9].textContent.replace(/[₱,]/g, ''));
+                            valB = parseFloat(b.cells[9].textContent.replace(/[₱,]/g, ''));
+                            break;
+                    }
+                    
+                    return order === 'asc' ? valA - valB : valB - valA;
+                });
+                
+                visibleRows.forEach(row => tbody.appendChild(row));
+            } else {
+                // Restore original order
+                const visibleRows = rows.filter(row => row.style.display !== 'none');
+                visibleRows.sort((a, b) => {
+                    const seqA = parseInt(a.cells[0].textContent);
+                    const seqB = parseInt(b.cells[0].textContent);
+                    return seqA - seqB;
+                });
+                visibleRows.forEach(row => tbody.appendChild(row));
+            }
+            
+            updateBadgeCount('financial-summary-table', visibleCount);
+            showEmptyMessage('financial-summary-table', visibleCount, 'No financial records found matching your filters.');
+        }
+
+        function updateBadgeCount(tableId, count) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            
+            const card = table.closest('.card');
+            const badge = card.querySelector('.card-header .badge');
+            if (badge) {
+                const text = tableId.includes('orders') ? 'orders' : 'transactions';
+                badge.textContent = `${count} ${text}`;
+            }
+        }
+        
+        function showEmptyMessage(tableId, visibleCount, message) {
+            const table = document.getElementById(tableId);
+            if (!table) return;
+            
+            const cardBody = table.closest('.card-body');
+            const existingEmpty = cardBody.querySelector('.filter-empty-state');
+            
+            if (visibleCount === 0) {
+                // Hide table and show empty message
+                table.closest('.table-responsive').style.display = 'none';
+                
+                if (!existingEmpty) {
+                    const emptyDiv = document.createElement('div');
+                    emptyDiv.className = 'filter-empty-state text-center py-4';
+                    emptyDiv.innerHTML = `
+                        <i class="bi bi-search text-muted" style="font-size: 3rem;"></i>
+                        <h5 class="text-muted mt-3">No Results Found</h5>
+                        <p class="text-muted">${message}</p>
+                        <button class="btn btn-secondary mt-2" onclick="resetFilters()">
+                            <i class="bi bi-arrow-clockwise"></i> Clear Filters
+                        </button>
+                    `;
+                    cardBody.appendChild(emptyDiv);
+                }
+            } else {
+                // Show table and hide empty message
+                table.closest('.table-responsive').style.display = '';
+                if (existingEmpty) {
+                    existingEmpty.remove();
+                }
+            }
+        }
+
+        function resetFilters() {
+            document.getElementById('searchInput').value = '';
+            document.getElementById('sortBy').value = '';
+            document.getElementById('dateFrom').value = '';
+            document.getElementById('dateTo').value = '';
+            document.getElementById('statusFilter').value = '';
+
+            // Hide apply button
+            document.getElementById('applyButtonContainer').style.display = 'none';
+
+            // Show all rows and remove empty messages
+            const tables = ['top-products-table', 'orders-analytics-table', 'promotion-performance-table', 'financial-summary-table'];
+            tables.forEach(tableId => {
+                const table = document.getElementById(tableId);
+                if (table) {
+                    const tbody = table.getElementsByTagName('tbody')[0];
+                    const rows = tbody.getElementsByTagName('tr');
+                    for (let row of rows) {
+                        row.style.display = '';
+                    }
+                    // Reset badge counts
+                    if (tableId.includes('orders') || tableId.includes('financial')) {
+                        updateBadgeCount(tableId, rows.length);
+                    }
+                    // Remove empty message and show table
+                    const cardBody = table.closest('.card-body');
+                    const existingEmpty = cardBody.querySelector('.filter-empty-state');
+                    if (existingEmpty) {
+                        existingEmpty.remove();
+                    }
+                    table.closest('.table-responsive').style.display = '';
+                }
+            });
+        }
+
+     
+
+        // Export to Excel (CSV format)
+        function exportToExcel() {
+            let csv = 'MSTYLE - Reports & Analytics Export\n\n';
+            
+            // Export Analytics Summary
+            csv += 'ANALYTICS SUMMARY\n';
+            csv += 'Total Revenue,Total Earnings,Total Orders,Avg Order Value\n';
+            csv += `{{ total_revenue }},{{ total_earnings }},{{ total_orders }},{{ avg_order_value }}\n\n`;
+
+            // Export Top Products
+            csv += 'TOP SELLING PRODUCTS\n';
+            csv += 'Rank,Product Name,Units Sold,Revenue,Stock Left,Rating\n';
+            {% if top_products %}
+            {% for product in top_products %}
+            csv += '{{ loop.index }},"{{ product.name|replace('"', '""') }}",{{ product.total_sold }},{{ "%.2f"|format(product.revenue) }},{{ product.stock_left }},{{ "%.1f"|format(product.avg_rating) if product.avg_rating > 0 else "N/A" }}\n';
+            {% endfor %}
+            {% endif %}
+            csv += '\n';
+
+            // Export Orders Analytics
+            csv += 'ORDERS ANALYTICS\n';
+            csv += 'Product Name,Quantity,Status,Order Date,Completion Date,Total Amount,Buyer Name\n';
+            {% if order_details %}
+            {% for order in order_details %}
+            csv += '"{{ order.product_name|replace('"', '""') }}",{{ order.quantity }},{{ order.status }},"=""{{ order.order_date.strftime("%Y-%m-%d %I:%M %p") if order.order_date else "N/A" }}""","=""{{ order.completion_date.strftime("%Y-%m-%d %I:%M %p") if order.completion_date else "N/A" }}""",{{ "%.2f"|format(order.total_amount) }},"{{ order.buyer_name }}"\n';
+            {% endfor %}
+            {% endif %}
+            csv += '\n';
+
+            // Export Promotion Performance
+            csv += 'PROMOTION PERFORMANCE\n';
+            csv += 'Promo Name,Promo Type,Discount Value,Start Date,End Date,Number of Uses,Revenue Generated,Status\n';
+            {% if promotion_performance %}
+            {% for promo in promotion_performance %}
+            csv += '"{{ promo.name|replace('"', '""') }}",{{ promo.type }},{% if promo.type == "percentage" %}{{ promo.discount_value }}%{% elif promo.type == "fixed_amount" %}{{ "%.2f"|format(promo.discount_value) }}{% else %}Free Shipping{% endif %},"=""{{ promo.start_date.strftime("%Y-%m-%d") if promo.start_date else "N/A" }}""","=""{{ promo.end_date.strftime("%Y-%m-%d") if promo.end_date else "N/A" }}""",{{ promo.usage_count }},{{ "%.2f"|format(promo.revenue_generated) }},{{ promo.status }}\n';
+            {% endfor %}
+            {% endif %}
+            csv += '\n';
+
+            // Export Financial Summary
+            csv += 'FINANCIAL SUMMARY\n';
+            csv += 'Order ID,Date Completed,Product Name,Product Sales,Discounts,Net Sales,Shipping Fee,Platform Commission (5%),Net Earnings\n';
+            {% if financial_summary %}
+            {% for item in financial_summary %}
+            csv += '{{ item.order_id }},"=""{{ item.date_completed.strftime("%Y-%m-%d %I:%M %p") if item.date_completed else "N/A" }}""","{{ item.product_name|replace('"', '""') }}",{{ "%.2f"|format(item.product_sales) }},{{ "%.2f"|format(item.discounts) }},{{ "%.2f"|format(item.net_sales) }},{{ "%.2f"|format(item.shipping_fee_collected) }},{{ "%.2f"|format(item.platform_commission if item.platform_commission is defined else (item.net_sales * 0.05)) }},{{ "%.2f"|format(item.net_earnings) }}\n';
+            {% endfor %}
+            {% endif %}
+
+            // Download CSV
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            const url = URL.createObjectURL(blob);
+            link.setAttribute('href', url);
+            link.setAttribute('download', `MStyle_Reports_${new Date().toISOString().split('T')[0]}.csv`);
+            link.style.visibility = 'hidden';
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+
+        // Print Report
+        function printReport() {
+            window.print();
+        }
+
+        // Real-time search
+        document.getElementById('searchInput').addEventListener('input', function() {
+            if (this.value.length >= 2 || this.value.length === 0) {
+                applyFilters();
+            }
+        });
+    </script>
+</body>
+
+</html>

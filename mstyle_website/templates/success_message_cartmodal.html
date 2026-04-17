@@ -1,0 +1,51 @@
+<!-- Success Message Cart Modal -->
+<div id="successCartModal" class="success-cart-modal" aria-hidden="true" role="dialog" aria-labelledby="success-cart-modal-title">
+    <div class="success-cart-modal-content">
+        <div class="success-cart-icon">
+            <i class="fas fa-check success-cart-checkmark" aria-hidden="true"></i>
+        </div>
+        <h2 id="success-cart-modal-title">Item Added to Cart!</h2>
+        <p class="thank-you-cart-message">Success!</p>
+        <p class="cart-message">
+            Your item has been added to your cart successfully. 
+            You can continue shopping or proceed to checkout.
+        </p>
+        <div class="success-cart-modal-buttons">
+            <button type="button" class="view-cart-btn" onclick="goToCart()">
+                <i class="fas fa-shopping-cart" aria-hidden="true"></i>
+                View Cart
+            </button>
+            <button type="button" class="continue-shopping-btn" onclick="closeSuccessCartModal()">
+                <i class="fas fa-shopping-bag" aria-hidden="true"></i>
+                Continue Shopping
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Success cart modal functions
+    function showSuccessCartModal() {
+        const modal = document.getElementById('successCartModal');
+        modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeSuccessCartModal() {
+        const modal = document.getElementById('successCartModal');
+        modal.classList.remove('show');
+        modal.setAttribute('aria-hidden', 'true');
+    }
+
+    function goToCart() {
+        window.location.href = "{{ url_for('cart') }}";
+    }
+
+    // Close modal when clicking outside
+    window.addEventListener('click', function(event) {
+        const modal = document.getElementById('successCartModal');
+        if (event.target === modal) {
+            closeSuccessCartModal();
+        }
+    });
+</script>

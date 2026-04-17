@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reviews & Ratings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seller_reviews.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+</head>
+<body>
+    {% include 'seller_header.html' %}
+
+    <div class="admin-dashboard-content">
+        <div class="dashboard-header">
+            <div class="dashboard-avatar">
+                <i class="bi bi-star-fill"></i>
+            </div>
+            <h1>Reviews & Ratings</h1>
+            <p>Manage and respond to customer reviews for your products</p>
+        </div>
+
+        <div class="dashboard-container">
+            <!-- Statistics Cards -->
+            <div class="stats-summary">
+                <div class="stat-card">
+                    <div class="stat-icon">
+                        <i class="bi bi-chat-square-text"></i>
+                    </div>
+                    <div class="stat-value">{{ stats.total_reviews or 0 }}</div>
+                    <div class="stat-label">Total Reviews</div>
+                    <div class="stat-description">All customer reviews</div>
+                </div>
+                <div class="stat-card stat-card-warning">
+                    <div class="stat-icon">
+                        <i class="bi bi-star-fill"></i>
+                    </div>
+                    <div class="stat-value">
+                        {% if stats.average_rating %}
+                            {{ "%.1f"|format(stats.average_rating) }}
+                        {% else %}
+                            N/A
+                        {% endif %}
+                    </div>
+                    <div class="stat-label">Average Rating</div>
+                    <div class="stat-description">Overall rating score</div>
+                </div>
+                <div class="stat-card stat-card-success">
+                    <div class="stat-icon">
+                        <i class="bi bi-star-half"></i>
+                    </div>
+                    <div class="stat-value">{{ stats.five_star or 0 }}</div>
+                    <div class="stat-label">5-Star Reviews</div>
+                    <div class="stat-description">Excellent ratings</div>
+                </div>
+                <div class="stat-card stat-card-info">
+                    <div class="stat-icon">
+                        <i class="bi bi-clock-history"></i>
+                    </div>
+                    <div class="stat-value">{{ reviews[:7]|length }}</div>
+                    <div class="stat-label">Recent Reviews</div>
+                    <div class="stat-description">Last 7 days</div>
+                </div>
+            </div>
+
+        <!-- Rating Breakdown -->
+        {% if stats.total_reviews > 0 %}
+        <div class="rating-breakdown">
+            <h2>Rating Distribution</h2>
+            <div class="rating-bar">
+                <span class="stars">5 ★★★★★</span>
+                <div class="bar">
+                    <div class="bar-fill" style="width: {{ (stats.five_star / stats.total_reviews * 100) if stats.total_reviews > 0 else 0 }}%"></div>
+                </div>
+                <span class="count">{{ stats.five_star or 0 }}</span>
+            </div>
+            <div class="rating-bar">
+                <span class="stars">4 ★★★★☆</span>
+                <div class="bar">
+                    <div class="bar-fill" style="width: {{ (stats.four_star / stats.total_reviews * 100) if stats.total_reviews > 0 else 0 }}%"></div>
+                </div>
+                <span class="count">{{ stats.four_star or 0 }}</span>
+            </div>
+            <div class="rating-bar">
+                <span class="stars">3 ★★★☆☆</span>
+                <div class="bar">
+                    <div class="bar-fill" style="width: {{ (stats.three_star / stats.total_reviews * 100) if stats.total_reviews > 0 else 0 }}%"></div>
+                </div>
+                <span class="count">{{ stats.three_star or 0 }}</span>
+            </div>
+            <div class="rating-bar">
+                <span class="stars">2 ★★☆☆☆</span>
+                <div class="bar">
+                    <div class="bar-fill" style="width: {{ (stats.two_star / stats.total_reviews * 100) if stats.total_reviews > 0 else 0 }}%"></div>
+                </div>
+                <span class="count">{{ stats.two_star or 0 }}</span>
+            </div>
+            <div class="rating-bar">
+                <span class="stars">1 ★☆☆☆☆</span>
+                <div class="bar">
+                    <div class="bar-fill" style="width: {{ (stats.one_star / stats.total_reviews * 100) if stats.total_reviews > 0 else 0 }}%"></div>
+                </div>
+                <span class="count">{{ stats.one_star or 0 }}</span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Reviews List -->
+        <div class="reviews-section">
+            <h2>Customer Reviews</h2>
+            
+            {% if reviews %}
+                {% for review in reviews %}
+                <div class="review-card">
+                    <div class="review-header">
+                        <div class="reviewer-info">
+                            <div class="reviewer-avatar">
+                                {{ review.customer_first_name[0] if review.customer_first_name else '?' }}
+                            </div>
+                            <div class="reviewer-details">
+                                <h4>{{ review.customer_name }}</h4>
+                                <div class="review-rating">{{ review.rating_stars }}</div>
+                                <div class="review-time">{{ review.time_ago }}</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="product-info">
+                        <img src="{{ url_for('static', filename='images/uploads/' + review.product_image.split(',')[0]) }}" 
+                             alt="{{ review.product_name }}" 
+                             class="product-image">
+                        <div class="product-details">
+                            <h5>{{ review.product_name }}</h5>
+                            <span class="price">₱{{ "%.2f"|format(review.product_price|float) }}</span>
+                        </div>
+                    </div>
+
+                    <div class="review-text">
+                        <strong>Customer Review:</strong>
+                        <p>{{ review.review_text }}</p>
+                    </div>
+
+                    <!-- Seller Response Section -->
+                    {% if review.seller_response %}
+                    <div class="seller-response">
+                        <div class="response-header">
+                            <i class="bi bi-shop"></i>
+                            <strong>Your Response</strong>
+                            <span class="response-date">{{ review.response_time_ago if review.response_time_ago else '' }}</span>
+                        </div>
+                        <div class="response-text">
+                            {{ review.seller_response }}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="response-form" id="response-form-{{ review.id }}">
+                        <textarea 
+                            class="response-textarea" 
+                            id="response-text-{{ review.id }}" 
+                            placeholder="Write your response to this review..."
+                            rows="3"></textarea>
+                        <div class="response-actions">
+                            <button class="btn btn-primary" onclick="submitResponse({{ review.id }})">
+                                <i class="bi bi-send"></i> Post Response
+                            </button>
+                        </div>
+                    </div>
+                    {% endif %}
+
+                    <div class="review-actions">
+                        <button class="btn btn-primary" onclick="viewOrder({{ review.order_id }})">
+                            <i class="bi bi-box-seam"></i> View Order
+                        </button>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="no-reviews">
+                    <i class="bi bi-star"></i>
+                    <p>No reviews yet</p>
+                    <small style="color: #999;">Customer reviews will appear here once they rate your products</small>
+                </div>
+            {% endif %}
+        </div>
+    </div>
+
+    <script>
+        function viewOrder(orderId) {
+            window.location.href = `/orders_list?order_id=${orderId}`;
+        }
+
+        function submitResponse(reviewId) {
+            const textarea = document.getElementById(`response-text-${reviewId}`);
+            const responseText = textarea.value.trim();
+
+            if (!responseText) {
+                alert('Please write a response before submitting.');
+                return;
+            }
+
+            // Disable textarea and button during submission
+            textarea.disabled = true;
+            const btn = event.target.closest('button');
+            const originalHTML = btn.innerHTML;
+            btn.disabled = true;
+            btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Posting...';
+
+            console.log('Submitting response for review:', reviewId);
+            console.log('Response text:', responseText);
+
+            fetch('/api/seller/review/respond', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    review_id: reviewId,
+                    response_text: responseText
+                })
+            })
+            .then(response => {
+                console.log('Response status:', response.status);
+                return response.json().then(data => ({
+                    status: response.status,
+                    data: data
+                }));
+            })
+            .then(result => {
+                console.log('Response data:', result.data);
+                
+                if (result.data.success) {
+                    // Show success message
+                    alert('Response posted successfully!');
+                    // Reload page to show the response
+                    window.location.reload();
+                } else {
+                    const errorMsg = result.data.error || 'Failed to post response';
+                    console.error('API Error:', errorMsg);
+                    alert('Error: ' + errorMsg);
+                    // Re-enable form
+                    textarea.disabled = false;
+                    btn.disabled = false;
+                    btn.innerHTML = originalHTML;
+                }
+            })
+            .catch(error => {
+                console.error('Fetch Error:', error);
+                alert('An error occurred while posting your response. Please check the console for details.');
+                // Re-enable form
+                textarea.disabled = false;
+                btn.disabled = false;
+                btn.innerHTML = originalHTML;
+            });
+        }
+    </script>
+    <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+</body>
+</html>

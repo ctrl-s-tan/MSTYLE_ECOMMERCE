@@ -1,0 +1,57 @@
+/* Suits page specific hero carousel images and tweaks */
+
+/* Scope all overrides to the suits hero only */
+.casual-hero .hero-image-bg {
+  background-size: cover;              /* match homepage */
+  background-position: center;
+  /* Avoid 'fixed' due to transforms/perspective on ancestors; ensures visibility */
+  background-attachment: scroll;
+}
+
+/* Keep the homepage angled right panel */
+.casual-hero .hero-image-section {
+  clip-path: polygon(15% 0, 100% 0, 100% 100%, 0 100%);
+  background: linear-gradient(135deg, rgba(248, 249, 250, 0.9) 0%, rgba(255, 255, 255, 0.95) 100%);
+  min-height: 92vh; /* guarantee space for carousel visuals */
+}
+
+/* Use the same overlay as homepage for consistency */
+.casual-hero .hero-image-overlay {
+  background: linear-gradient(
+    135deg,
+    rgba(26, 26, 26, 0.3) 0%,
+    rgba(44, 62, 80, 0.2) 50%,
+    rgba(212, 175, 55, 0.1) 100%
+  );
+}
+
+/* Slide images and desktop focal points (minimize face cropping with cover) */
+.casual-hero .slide-1 { background-image: url('../images/men13.jpg');     background-position: 50% 22%; }
+.casual-hero .slide-2 { background-image: url('../images/menmodel1.jpg'); background-position: 50% 24%; }
+.casual-hero .slide-3 { background-image: url('../images/menmodel2.jpg'); background-position: 50% 26%; }
+.casual-hero .slide-4 { background-image: url('../images/men13.jpg');     background-position: 50% 24%; }
+
+/* On tablets/phones: ensure no cropping while keeping the same hero style */
+@media (max-width: 1024px) {
+  .casual-hero .hero-image-bg {
+    background-size: contain;           /* show full image (no cropping) */
+    background-repeat: no-repeat;
+    background-position: center center;
+    background-attachment: scroll;      /* avoid mobile issues */
+  }
+  /* Fill surrounding space gracefully when image is contained */
+  .casual-hero .hero-image-container {
+    background: radial-gradient(circle at 70% 30%, rgba(212, 175, 55, 0.06) 0%, transparent 50%),
+                radial-gradient(circle at 30% 70%, rgba(44, 62, 80, 0.04) 0%, transparent 50%);
+  }
+}
+
+@media (max-width: 768px) {
+  .casual-hero .hero-image-bg { background-position: center center; }
+}
+
+.casual-hero .hero-buttons .hero-btn { animation: casualFadeInUp 1s ease-out both; }
+
+/* Safety: hide any leftover secondary hero button */
+.casual-hero .hero-btn.secondary,
+.casual-hero .hero-btn.secondary:hover { display: none !important; }

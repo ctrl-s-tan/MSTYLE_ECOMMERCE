@@ -1,0 +1,190 @@
+/* Image Overlay Buttons for Edit Modal */
+.preview-item {
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.preview-item.removed {
+  opacity: 0.5;
+  filter: grayscale(100%);
+}
+
+.image-overlay-buttons {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  display: flex;
+  gap: 4px;
+  opacity: 0;
+  transition: opacity 0.3s ease;
+  z-index: 10;
+}
+
+.preview-item:hover .image-overlay-buttons {
+  opacity: 1;
+}
+
+.image-action-btn {
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.image-action-btn.remove-btn {
+  background: #dc3545;
+  color: white;
+}
+
+.image-action-btn.remove-btn:hover {
+  background: #c82333;
+  transform: scale(1.1);
+}
+
+.image-action-btn.change-btn {
+  background: #007bff;
+  color: white;
+}
+
+.image-action-btn.change-btn:hover {
+  background: #0056b3;
+  transform: scale(1.1);
+}
+
+.current-image-badge {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  background: #6c757d;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  z-index: 5;
+}
+
+.current-image-badge i {
+  font-size: 10px;
+}
+
+/* Upload new card styling */
+.upload-new-card {
+  border: 2px dashed #007bff;
+  background: rgba(0, 123, 255, 0.05);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  min-height: 150px;
+}
+
+.upload-new-card:hover {
+  border-color: #0056b3;
+  background: rgba(0, 123, 255, 0.1);
+}
+
+.upload-new-content {
+  text-align: center;
+  color: #007bff;
+}
+
+.upload-new-content i {
+  font-size: 32px;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.upload-new-content h5 {
+  margin: 0 0 4px 0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.upload-new-content p {
+  margin: 0;
+  font-size: 12px;
+  opacity: 0.8;
+}
+
+/* Enhanced preview grid */
+.preview-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.preview-item .preview-image {
+  position: relative;
+  width: 100%;
+  height: 150px;
+  border-radius: 8px;
+  overflow: hidden;
+  background: #f8f9fa;
+}
+
+.preview-item .preview-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.image-details {
+  margin-top: 8px;
+  text-align: center;
+}
+
+.image-details .file-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: #333;
+  margin-bottom: 2px;
+  word-break: break-word;
+}
+
+.image-details .file-size {
+  font-size: 11px;
+  color: #666;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .preview-grid {
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 12px;
+  }
+  
+  .preview-item .preview-image {
+    height: 120px;
+  }
+  
+  .image-action-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 12px;
+  }
+  
+  .image-overlay-buttons {
+    top: 4px;
+    right: 4px;
+  }
+  
+  .current-image-badge {
+    top: 4px;
+    left: 4px;
+    padding: 2px 6px;
+    font-size: 10px;
+  }
+}

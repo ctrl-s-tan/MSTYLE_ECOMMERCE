@@ -1,0 +1,1333 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MStyle — Sign Up</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/login.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/register.css') }}">
+    <style>
+        /* Register page overrides */
+        .form-panel { padding: 32px 44px; }
+        .form-inner  { max-width: 440px; width: 100%; padding: 0; }
+
+        /* Step 1 centered — same as forgot_password */
+        .form-panel.step1-active {
+            align-items: center;
+            justify-content: center;
+        }
+        /* Step 2 (OTP) centered */
+        .form-panel.step2-active {
+            align-items: center;
+            justify-content: center;
+        }
+        /* Other steps: center horizontally, scroll vertically */
+        .form-panel.step-other {
+            align-items: center;
+            justify-content: flex-start;
+        }
+    </style>
+</head>
+
+<body>
+<div class="page-wrap">
+
+    <!-- ── LEFT hero panel ──────────────────────────────────────────────── -->
+    <div class="hero-panel">
+        <div class="hero-inner">
+            <div class="logo-ring">
+                <img src="{{ url_for('static', filename='images/MStyle Logos/MStyle_logo1.png') }}"
+                     alt="MStyle" class="logo-img"
+                     onerror="this.style.display='none';this.nextElementSibling.style.display='flex'">
+                <span class="logo-fallback">M</span>
+            </div>
+            <h1 class="hero-title">Join MStyle</h1>
+            <div class="gold-bar"></div>
+            <p class="hero-sub">Premium Men's Fashion &amp; Style</p>
+        </div>
+    </div>
+
+    <!-- ── RIGHT form panel ─────────────────────────────────────────────── -->
+    <div class="form-panel" style="overflow-y:auto; max-height:100vh;">
+    <div class="form-inner">
+
+        <!-- ── Step 1: Email ── -->
+        <div id="step1" class="form-step active">
+            <h3 class="form-title">Create Your Account</h3>
+            <div class="title-bar"></div>
+            <p class="form-subtitle">Enter your email to get started</p>
+
+            <div class="field-wrap">
+                <span class="field-icon">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
+                        <polyline points="22,6 12,13 2,6"/>
+                    </svg>
+                </span>
+                <input type="email" id="email" name="email" placeholder=" " required autocomplete="email">
+                <label for="email">Email Address</label>
+            </div>
+
+            <div id="step1-error" class="error-banner" style="display:none"></div>
+
+            <button type="button" class="auth-button" id="sendOtpBtn" onclick="sendOTP()">
+                <span class="btn-text">SEND OTP</span>
+                <span class="btn-spinner" style="display:none">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="spin"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                </span>
+            </button>
+
+            <div class="auth-links">
+                Already have an account? <a href="/login">Login here</a>
+            </div>
+        </div>
+
+        <!-- ── Step 2: OTP Verification ── -->
+        <div id="step2" class="form-step">
+            <h3 class="form-title">Verify Your Email</h3>
+            <div class="title-bar"></div>
+            <p class="form-subtitle">We've sent a 6-digit code to <strong id="email-display"></strong></p>
+
+            <div id="otp-error" class="error-banner" style="display:none"></div>
+
+            <div class="otp-input" id="otp-form">
+                <input type="text" maxlength="1" inputmode="numeric" pattern="\d" autocomplete="off">
+                <input type="text" maxlength="1" inputmode="numeric" pattern="\d" autocomplete="off">
+                <input type="text" maxlength="1" inputmode="numeric" pattern="\d" autocomplete="off">
+                <input type="text" maxlength="1" inputmode="numeric" pattern="\d" autocomplete="off">
+                <input type="text" maxlength="1" inputmode="numeric" pattern="\d" autocomplete="off">
+                <input type="text" maxlength="1" inputmode="numeric" pattern="\d" autocomplete="off">
+            </div>
+
+            <button type="button" class="auth-button" id="verifyBtn" onclick="verifyOTP()">
+                <span class="btn-text">VERIFY &amp; CONTINUE</span>
+                <span class="btn-spinner" style="display:none">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="spin"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+                </span>
+            </button>
+
+            <p class="resend-otp">
+                Didn't receive the code? <a href="#" onclick="resendOTP(); return false;">Resend OTP</a>
+            </p>
+        </div>
+
+        <!-- ── User Type Modal ── -->
+        <div id="userTypeModal" class="modal">
+            <div class="modal-content">
+                <h2>Choose Account Type</h2>
+                <p>Please select how you want to use MStyle</p>
+                <div class="user-type-buttons">
+                    <button type="button" class="user-type-btn" onclick="selectUserType('buyer')">🛍️<br>Buyer</button>
+                    <button type="button" class="user-type-btn" onclick="selectUserType('rider')">🏍️<br>Rider</button>
+                </div>
+            </div>
+        </div>
+
+
+
+        <!-- ── Step 3: Buyer Personal Info ── -->
+        <div id="step3-buyer-personal" class="form-step">
+            <h3 class="form-title">Complete Your Profile</h3>
+            <div class="title-bar"></div>
+            <p class="form-subtitle">Fill in your personal details</p>
+
+            {% if error %}<div class="message error">{{ error }}</div>{% endif %}
+            <div id="buyer-personal-error" class="error-banner" style="display:none"></div>
+
+            <!-- First & Last Name row — mirrors Row(children:[Expanded, Expanded]) -->
+            <div class="form-row">
+                <div class="input-group has-icon">
+                    <span class="ig-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </span>
+                    <input type="text" id="first_name_buyer" placeholder=" " required>
+                    <label for="first_name_buyer">First Name</label>
+                </div>
+                <div class="input-group has-icon">
+                    <span class="ig-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </span>
+                    <input type="text" id="last_name_buyer" placeholder=" " required>
+                    <label for="last_name_buyer">Last Name</label>
+                </div>
+            </div>
+
+            <!-- Phone with +63 prefix — mirrors mobile phone row -->
+            <div class="phone-input">
+                <span class="phone-prefix">+63</span>
+                <input type="text" id="phone_number_buyer" placeholder="Phone Number" maxlength="10" inputmode="numeric">
+            </div>
+
+            <!-- House & Street -->
+            <div class="input-group has-icon">
+                <span class="ig-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </span>
+                <input type="text" id="house_no_street_buyer" placeholder=" " required>
+                <label for="house_no_street_buyer">House No. &amp; Street Name</label>
+            </div>
+
+            <!-- Region — full width -->
+            <div class="input-group has-icon">
+                <span class="ig-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </span>
+                <select id="region_buyer" class="address-select" onchange="updateProvinces('buyer')">
+                    <option value="">Select Region</option>
+                </select>
+            </div>
+
+            <!-- Province + City row -->
+            <div class="form-row">
+                <div class="input-group has-icon">
+                    <span class="ig-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    </span>
+                    <select id="province_buyer" class="address-select" onchange="updateMunicipalities('buyer')" disabled>
+                        <option value="">Select Province</option>
+                    </select>
+                </div>
+                <div class="input-group has-icon">
+                    <span class="ig-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    </span>
+                    <select id="municipality_buyer" class="address-select" onchange="updateBarangays('buyer')" disabled>
+                        <option value="">Select City/Municipality</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Barangay — full width -->
+            <div class="input-group has-icon">
+                <span class="ig-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                </span>
+                <select id="barangay_buyer" class="address-select" disabled>
+                    <option value="">Select Barangay</option>
+                </select>
+            </div>
+
+            <!-- ZIP Code -->
+            <div class="input-group has-icon">
+                <span class="ig-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                </span>
+                <input type="text" id="zip_code_buyer" placeholder=" " required>
+                <label for="zip_code_buyer">ZIP Code</label>
+            </div>
+
+            <button type="button" class="auth-button" onclick="nextToBuyerPassword()">NEXT</button>
+        </div>
+
+        <!-- ── Step 4: Buyer Password ── -->
+        <div id="step4-buyer-password" class="form-step">
+            <h3 class="form-title">Set Your Password</h3>
+            <div class="title-bar"></div>
+            <p class="form-subtitle">Create a secure password for your account</p>
+            <div id="buyer-password-error" class="error-banner" style="display:none"></div>
+
+            <div class="input-group password-group has-icon">
+                <span class="ig-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+                <input type="password" id="password_buyer" placeholder=" " required minlength="6" maxlength="8">
+                <label for="password_buyer">Password</label>
+                <button type="button" class="toggle-password" onclick="togglePasswordField('password_buyer')">
+                    <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path class="eye-open" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle class="eye-open" cx="12" cy="12" r="3"/>
+                        <path class="eye-closed" style="display:none" d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line class="eye-closed" style="display:none" x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="input-group password-group has-icon">
+                <span class="ig-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+                <input type="password" id="confirm_password_buyer" placeholder=" " required minlength="6" maxlength="8">
+                <label for="confirm_password_buyer">Confirm Password</label>
+                <button type="button" class="toggle-password" onclick="togglePasswordField('confirm_password_buyer')">
+                    <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path class="eye-open" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle class="eye-open" cx="12" cy="12" r="3"/>
+                        <path class="eye-closed" style="display:none" d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line class="eye-closed" style="display:none" x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="form-navigation">
+                <button type="button" class="auth-button secondary" onclick="backToBuyerPersonal()">BACK</button>
+                <button type="button" class="auth-button" onclick="nextToBuyerDocuments()">NEXT</button>
+            </div>
+        </div>
+
+        <!-- ── Step 5: Buyer Documents ── -->
+        <form id="step5-buyer-documents" action="/register" method="POST" enctype="multipart/form-data" class="form-step">
+            <h3 class="form-title">Upload Documents</h3>
+            <div class="title-bar"></div>
+            <p class="form-subtitle">Upload your required documents to complete registration</p>
+            <div id="buyer-docs-error" class="error-banner" style="display:none"></div>
+
+            <input type="hidden" id="form-email-buyer" name="email">
+            <input type="hidden" id="form-otp-buyer" name="otp">
+            <input type="hidden" name="user_type" value="buyer">
+            <input type="hidden" id="hidden-first-name-buyer" name="first_name">
+            <input type="hidden" id="hidden-last-name-buyer" name="last_name">
+            <input type="hidden" id="hidden-phone-buyer" name="phone_number">
+            <input type="hidden" id="hidden-house-buyer" name="house_no_street">
+            <input type="hidden" id="hidden-region-buyer" name="region">
+            <input type="hidden" id="hidden-province-buyer" name="province">
+            <input type="hidden" id="hidden-municipality-buyer" name="municipality">
+            <input type="hidden" id="hidden-barangay-buyer" name="barangay">
+            <input type="hidden" id="hidden-zip-buyer" name="zip_code">
+            <input type="hidden" id="hidden-password-buyer" name="password">
+            <input type="hidden" id="hidden-confirm-password-buyer" name="confirm_password">
+
+            <!-- Doc tile — mirrors _docUploadTile() -->
+            <label for="valid_id_buyer" class="document-group" id="doc-tile-buyer">
+                <div class="doc-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                </div>
+                <div>
+                    <label for="valid_id_buyer">Valid Government ID</label>
+                    <small>Passport, Driver's License, UMID</small>
+                </div>
+                <input type="file" name="valid_id" id="valid_id_buyer" accept="image/*" required
+                       onchange="markDocUploaded('doc-tile-buyer', this)">
+            </label>
+
+            <!-- Terms — mirrors _stepDocs() terms container -->
+            <div class="terms-agreement">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="terms-agreement-buyer" name="terms_agreement" required>
+                    <label for="terms-agreement-buyer" class="checkbox-label">
+                        <span class="checkmark"></span>
+                        <span class="checkbox-text">
+                            I agree to the <a href="/terms_conditions" target="_blank" class="terms-link">Terms and Conditions</a>
+                            and <a href="/privacy_policy" target="_blank" class="terms-link">Privacy Policy</a>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-navigation">
+                <button type="button" class="auth-button secondary" onclick="backToBuyerPassword()">BACK</button>
+                <button type="submit" class="auth-button" onclick="validateBuyerForm(event)">SUBMIT</button>
+            </div>
+        </form>
+
+        <!-- ── Step 3: Rider Personal Info ── -->
+        <div id="step3-rider-personal" class="form-step">
+            <h3 class="form-title">Complete Your Profile</h3>
+            <div class="title-bar"></div>
+            <p class="form-subtitle">Fill in your personal details</p>
+
+            {% if error %}<div class="message error">{{ error }}</div>{% endif %}
+            <div id="rider-personal-error" class="error-banner" style="display:none"></div>
+
+            <div class="form-row">
+                <div class="input-group has-icon">
+                    <span class="ig-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </span>
+                    <input type="text" id="first_name_rider" placeholder=" " required>
+                    <label for="first_name_rider">First Name</label>
+                </div>
+                <div class="input-group has-icon">
+                    <span class="ig-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    </span>
+                    <input type="text" id="last_name_rider" placeholder=" " required>
+                    <label for="last_name_rider">Last Name</label>
+                </div>
+            </div>
+
+            <div class="phone-input">
+                <span class="phone-prefix">+63</span>
+                <input type="text" id="phone_number_rider" placeholder="Phone Number" maxlength="10" inputmode="numeric">
+            </div>
+
+            <div class="input-group has-icon">
+                <span class="ig-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+                </span>
+                <input type="text" id="house_no_street_rider" placeholder=" " required>
+                <label for="house_no_street_rider">House No. &amp; Street Name</label>
+            </div>
+
+            <div class="input-group has-icon">
+                <span class="ig-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                </span>
+                <select id="region_rider" class="address-select" onchange="updateProvinces('rider')">
+                    <option value="">Select Region</option>
+                </select>
+            </div>
+
+            <div class="form-row">
+                <div class="input-group has-icon">
+                    <span class="ig-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    </span>
+                    <select id="province_rider" class="address-select" onchange="updateMunicipalities('rider')" disabled>
+                        <option value="">Select Province</option>
+                    </select>
+                </div>
+                <div class="input-group has-icon">
+                    <span class="ig-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    </span>
+                    <select id="municipality_rider" class="address-select" onchange="updateBarangays('rider')" disabled>
+                        <option value="">Select City/Municipality</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="input-group has-icon">
+                <span class="ig-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                </span>
+                <select id="barangay_rider" class="address-select" disabled>
+                    <option value="">Select Barangay</option>
+                </select>
+            </div>
+
+            <div class="input-group has-icon">
+                <span class="ig-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                </span>
+                <input type="text" id="zip_code_rider" placeholder=" " required>
+                <label for="zip_code_rider">ZIP Code</label>
+            </div>
+
+            <button type="button" class="auth-button" onclick="nextToRiderPassword()">NEXT</button>
+        </div>
+
+        <!-- ── Step 4: Rider Password ── -->
+        <div id="step4-rider-password" class="form-step">
+            <h3 class="form-title">Set Your Password</h3>
+            <div class="title-bar"></div>
+            <p class="form-subtitle">Create a secure password for your account</p>
+            <div id="rider-password-error" class="error-banner" style="display:none"></div>
+
+            <div class="input-group password-group has-icon">
+                <span class="ig-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+                <input type="password" id="password_rider" placeholder=" " required minlength="6" maxlength="8">
+                <label for="password_rider">Password</label>
+                <button type="button" class="toggle-password" onclick="togglePasswordField('password_rider')">
+                    <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path class="eye-open" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle class="eye-open" cx="12" cy="12" r="3"/>
+                        <path class="eye-closed" style="display:none" d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line class="eye-closed" style="display:none" x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="input-group password-group has-icon">
+                <span class="ig-icon">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                </span>
+                <input type="password" id="confirm_password_rider" placeholder=" " required minlength="6" maxlength="8">
+                <label for="confirm_password_rider">Confirm Password</label>
+                <button type="button" class="toggle-password" onclick="togglePasswordField('confirm_password_rider')">
+                    <svg class="eye-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path class="eye-open" d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                        <circle class="eye-open" cx="12" cy="12" r="3"/>
+                        <path class="eye-closed" style="display:none" d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/>
+                        <line class="eye-closed" style="display:none" x1="1" y1="1" x2="23" y2="23"/>
+                    </svg>
+                </button>
+            </div>
+
+            <div class="form-navigation">
+                <button type="button" class="auth-button secondary" onclick="backToRiderPersonal()">BACK</button>
+                <button type="button" class="auth-button" onclick="nextToRiderVehicle()">NEXT</button>
+            </div>
+        </div>
+
+        <!-- ── Step 5: Rider Vehicle Info ── -->
+        <div id="step5-rider-vehicle" class="form-step">
+            <h3 class="form-title">Vehicle Information</h3>
+            <div class="title-bar"></div>
+            <p class="form-subtitle">Provide your vehicle details</p>
+            <div id="rider-vehicle-error" class="error-banner" style="display:none"></div>
+
+            <div class="form-row">
+                <div class="input-group has-icon">
+                    <span class="ig-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="3" width="15" height="13" rx="1"/><path d="M16 8h4l3 3v5h-7V8z"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+                    </span>
+                    <select id="vehicle_type">
+                        <option value="">Select Vehicle Type</option>
+                        <option value="motorcycle">Motorcycle</option>
+                        <option value="bicycle">Bicycle</option>
+                        <option value="car">Car</option>
+                        <option value="tricycle">Tricycle</option>
+                    </select>
+                </div>
+                <div class="input-group has-icon">
+                    <span class="ig-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/></svg>
+                    </span>
+                    <input type="text" id="plate_number" placeholder=" " required>
+                    <label for="plate_number">Plate Number</label>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="input-group has-icon">
+                    <span class="ig-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+                    </span>
+                    <input type="text" id="vehicle_model" placeholder=" " required>
+                    <label for="vehicle_model">Vehicle Model</label>
+                </div>
+                <div class="input-group has-icon">
+                    <span class="ig-icon">
+                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    </span>
+                    <input type="number" id="year_model" placeholder=" " required min="1990" max="2025">
+                    <label for="year_model">Year Model</label>
+                </div>
+            </div>
+
+            <div class="form-navigation">
+                <button type="button" class="auth-button secondary" onclick="backToRiderPassword()">BACK</button>
+                <button type="button" class="auth-button" onclick="nextToRiderDocuments()">NEXT</button>
+            </div>
+        </div>
+
+        <!-- ── Step 6: Rider Documents ── -->
+        <form id="step6-rider-documents" action="/register" method="POST" enctype="multipart/form-data" class="form-step">
+            <h3 class="form-title">Upload Documents</h3>
+            <div class="title-bar"></div>
+            <p class="form-subtitle">Upload your required documents to complete registration</p>
+            <div id="rider-docs-error" class="error-banner" style="display:none"></div>
+
+            <input type="hidden" id="form-email-rider" name="email">
+            <input type="hidden" id="form-otp-rider" name="otp">
+            <input type="hidden" name="user_type" value="rider">
+            <input type="hidden" id="hidden-first-name-rider" name="first_name">
+            <input type="hidden" id="hidden-last-name-rider" name="last_name">
+            <input type="hidden" id="hidden-phone-rider" name="phone_number">
+            <input type="hidden" id="hidden-house-rider" name="house_no_street">
+            <input type="hidden" id="hidden-region-rider" name="region">
+            <input type="hidden" id="hidden-province-rider" name="province">
+            <input type="hidden" id="hidden-municipality-rider" name="municipality">
+            <input type="hidden" id="hidden-barangay-rider" name="barangay">
+            <input type="hidden" id="hidden-zip-rider" name="zip_code">
+            <input type="hidden" id="hidden-password-rider" name="password">
+            <input type="hidden" id="hidden-confirm-password-rider" name="confirm_password">
+            <input type="hidden" id="hidden-vehicle-type" name="vehicle_type">
+            <input type="hidden" id="hidden-plate-number" name="plate_number">
+            <input type="hidden" id="hidden-vehicle-model" name="vehicle_model">
+            <input type="hidden" id="hidden-year-model" name="year_model">
+
+            <label for="valid_id_rider" class="document-group" id="doc-tile-rider-id">
+                <div class="doc-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg>
+                </div>
+                <div>
+                    <label for="valid_id_rider">Valid Government ID</label>
+                    <small>Passport, Driver's License, UMID</small>
+                </div>
+                <input type="file" name="valid_id" id="valid_id_rider" accept="image/*" required
+                       onchange="markDocUploaded('doc-tile-rider-id', this)">
+            </label>
+
+            <label for="or_cr" class="document-group" id="doc-tile-rider-orcr">
+                <div class="doc-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                </div>
+                <div>
+                    <label for="or_cr">OR / CR</label>
+                    <small>Official Receipt / Certificate of Registration</small>
+                </div>
+                <input type="file" name="or_cr" id="or_cr" accept="image/*" required
+                       onchange="markDocUploaded('doc-tile-rider-orcr', this)">
+            </label>
+
+            <label for="nbi_clearance" class="document-group" id="doc-tile-rider-nbi">
+                <div class="doc-icon">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                </div>
+                <div>
+                    <label for="nbi_clearance">NBI Clearance</label>
+                    <small>Upload a clear photo of your NBI clearance</small>
+                </div>
+                <input type="file" name="nbi_clearance" id="nbi_clearance" accept="image/*" required
+                       onchange="markDocUploaded('doc-tile-rider-nbi', this)">
+            </label>
+
+            <div class="terms-agreement">
+                <div class="checkbox-container">
+                    <input type="checkbox" id="terms-agreement-rider" name="terms_agreement" required>
+                    <label for="terms-agreement-rider" class="checkbox-label">
+                        <span class="checkmark"></span>
+                        <span class="checkbox-text">
+                            I agree to the <a href="/terms_conditions" target="_blank" class="terms-link">Terms and Conditions</a>
+                            and <a href="/privacy_policy" target="_blank" class="terms-link">Privacy Policy</a>
+                        </span>
+                    </label>
+                </div>
+            </div>
+
+            <div class="form-navigation">
+                <button type="button" class="auth-button secondary" onclick="backToRiderVehicle()">BACK</button>
+                <button type="submit" class="auth-button" onclick="validateRiderForm(event)">SUBMIT</button>
+            </div>
+        </form>
+
+    </div><!-- /form-inner -->
+    </div><!-- /form-panel -->
+</div><!-- /page-wrap -->
+
+<script>
+        // Global variables
+        let userEmail = '';
+        let otpVerified = false;
+
+        // DOM elements
+        const step1 = document.getElementById('step1');
+        const step2 = document.getElementById('step2');
+        const step3BuyerPersonal = document.getElementById('step3-buyer-personal');
+        const step4BuyerPassword = document.getElementById('step4-buyer-password');
+        const step5BuyerDocuments = document.getElementById('step5-buyer-documents');
+        const step3RiderPersonal = document.getElementById('step3-rider-personal');
+        const step4RiderPassword = document.getElementById('step4-rider-password');
+        const step5RiderVehicle = document.getElementById('step5-rider-vehicle');
+        const step6RiderDocuments = document.getElementById('step6-rider-documents');
+        const userTypeModal = document.getElementById('userTypeModal');
+        const emailInput = document.getElementById('email');
+        const emailDisplay = document.getElementById('email-display');
+        const otpInputs = document.querySelectorAll('#otp-form input');
+
+        let selectedUserType = '';
+
+        // Handle OTP input navigation
+        otpInputs.forEach((input, index) => {
+            input.addEventListener('input', (e) => {
+                if (e.target.value.length === 1 && index < otpInputs.length - 1) {
+                    otpInputs[index + 1].focus();
+                }
+            });
+
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Backspace' && !e.target.value && index > 0) {
+                    otpInputs[index - 1].focus();
+                }
+            });
+        });
+
+        // Change step function
+        const formPanel = document.querySelector('.form-panel');
+
+        function setStepPanel(isStep1) {
+            if (isStep1) {
+                formPanel.classList.add('step1-active');
+                formPanel.classList.remove('step2-active', 'step-other');
+            } else {
+                formPanel.classList.remove('step1-active');
+                formPanel.classList.remove('step2-active');
+                formPanel.classList.add('step-other');
+            }
+        }
+
+        // Init: step 1 is active on load
+        setStepPanel(true);
+
+        function changeStep(step) {
+            document.querySelectorAll('.form-step').forEach(stepElement => {
+                stepElement.classList.remove('active');
+            });
+
+            if (step === 1) {
+                step1.classList.add('active');
+                setStepPanel(true);
+            } else if (step === 2) {
+                step2.classList.add('active');
+                formPanel.classList.remove('step1-active', 'step-other');
+                formPanel.classList.add('step2-active');
+                emailDisplay.textContent = userEmail;
+            } else if (step === 3) {
+                // Show modal to select user type
+                userTypeModal.style.display = 'block';
+                setStepPanel(false);
+            }
+        }
+
+        // Select user type function
+        function selectUserType(userType) {
+            selectedUserType = userType;
+            userTypeModal.style.display = 'none';
+
+            if (userType === 'buyer') {
+                step3BuyerPersonal.classList.add('active');
+                loadRegions('buyer');
+            } else if (userType === 'rider') {
+                step3RiderPersonal.classList.add('active');
+                loadRegions('rider');
+            }
+        }
+
+        // Navigation functions for buyer
+        function nextToBuyerPassword() {
+            if (validateBuyerPersonalInfo()) {
+                step3BuyerPersonal.classList.remove('active');
+                step4BuyerPassword.classList.add('active');
+            }
+        }
+
+        function backToBuyerPersonal() {
+            step4BuyerPassword.classList.remove('active');
+            step3BuyerPersonal.classList.add('active');
+        }
+
+        function nextToBuyerDocuments() {
+            if (validateBuyerPasswordInfo()) {
+                step4BuyerPassword.classList.remove('active');
+                step5BuyerDocuments.classList.add('active');
+
+                // Set hidden form values
+                document.getElementById('form-email-buyer').value = userEmail;
+                document.getElementById('form-otp-buyer').value = Array.from(otpInputs).map(input => input.value).join('');
+
+                // Copy personal info to hidden fields
+                copyBuyerPersonalInfo();
+            }
+        }
+
+        function backToBuyerPassword() {
+            step5BuyerDocuments.classList.remove('active');
+            step4BuyerPassword.classList.add('active');
+        }
+
+        // Navigation functions for rider
+        function nextToRiderPassword() {
+            if (validateRiderPersonalInfo()) {
+                step3RiderPersonal.classList.remove('active');
+                step4RiderPassword.classList.add('active');
+            }
+        }
+
+        function backToRiderPersonal() {
+            step4RiderPassword.classList.remove('active');
+            step3RiderPersonal.classList.add('active');
+        }
+
+        function nextToRiderVehicle() {
+            if (validateRiderPasswordInfo()) {
+                step4RiderPassword.classList.remove('active');
+                step5RiderVehicle.classList.add('active');
+            }
+        }
+
+        function backToRiderPassword() {
+            step5RiderVehicle.classList.remove('active');
+            step4RiderPassword.classList.add('active');
+        }
+
+        function nextToRiderDocuments() {
+            if (validateRiderVehicleInfo()) {
+                step5RiderVehicle.classList.remove('active');
+                step6RiderDocuments.classList.add('active');
+
+                // Set hidden form values
+                document.getElementById('form-email-rider').value = userEmail;
+                document.getElementById('form-otp-rider').value = Array.from(otpInputs).map(input => input.value).join('');
+
+                // Copy all info to hidden fields
+                copyRiderAllInfo();
+            }
+        }
+
+        function backToRiderVehicle() {
+            step6RiderDocuments.classList.remove('active');
+            step5RiderVehicle.classList.add('active');
+        }
+
+        // Copy functions
+        function copyBuyerPersonalInfo() {
+            document.getElementById('hidden-first-name-buyer').value = document.getElementById('first_name_buyer').value;
+            document.getElementById('hidden-last-name-buyer').value = document.getElementById('last_name_buyer').value;
+            document.getElementById('hidden-phone-buyer').value = document.getElementById('phone_number_buyer').value;
+            document.getElementById('hidden-house-buyer').value = document.getElementById('house_no_street_buyer').value;
+            document.getElementById('hidden-region-buyer').value = document.getElementById('region_buyer').value;
+            document.getElementById('hidden-province-buyer').value = document.getElementById('province_buyer').value;
+            document.getElementById('hidden-municipality-buyer').value = document.getElementById('municipality_buyer').value;
+            document.getElementById('hidden-barangay-buyer').value = document.getElementById('barangay_buyer').value;
+            document.getElementById('hidden-zip-buyer').value = document.getElementById('zip_code_buyer').value;
+            document.getElementById('hidden-password-buyer').value = document.getElementById('password_buyer').value;
+            document.getElementById('hidden-confirm-password-buyer').value = document.getElementById('confirm_password_buyer').value;
+        }
+
+        function copyRiderAllInfo() {
+            // Personal info
+            document.getElementById('hidden-first-name-rider').value = document.getElementById('first_name_rider').value;
+            document.getElementById('hidden-last-name-rider').value = document.getElementById('last_name_rider').value;
+            document.getElementById('hidden-phone-rider').value = document.getElementById('phone_number_rider').value;
+            document.getElementById('hidden-house-rider').value = document.getElementById('house_no_street_rider').value;
+            document.getElementById('hidden-region-rider').value = document.getElementById('region_rider').value;
+            document.getElementById('hidden-province-rider').value = document.getElementById('province_rider').value;
+            document.getElementById('hidden-municipality-rider').value = document.getElementById('municipality_rider').value;
+            document.getElementById('hidden-barangay-rider').value = document.getElementById('barangay_rider').value;
+            document.getElementById('hidden-zip-rider').value = document.getElementById('zip_code_rider').value;
+            document.getElementById('hidden-password-rider').value = document.getElementById('password_rider').value;
+            document.getElementById('hidden-confirm-password-rider').value = document.getElementById('confirm_password_rider').value;
+
+            // Vehicle info
+            document.getElementById('hidden-vehicle-type').value = document.getElementById('vehicle_type').value;
+            document.getElementById('hidden-plate-number').value = document.getElementById('plate_number').value;
+            document.getElementById('hidden-vehicle-model').value = document.getElementById('vehicle_model').value;
+            document.getElementById('hidden-year-model').value = document.getElementById('year_model').value;
+        }
+
+        // ── Helper: show/hide inline error banner ────────────────────────
+        function showError(bannerId, msg) {
+            const el = document.getElementById(bannerId);
+            if (!el) return;
+            el.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg> ${msg}`;
+            el.style.display = 'flex';
+        }
+        function hideError(bannerId) {
+            const el = document.getElementById(bannerId);
+            if (el) el.style.display = 'none';
+        }
+
+        // ── Helper: button loading state ─────────────────────────────────
+        function setBtnLoading(btnId, loading) {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+            btn.querySelector('.btn-text').style.display  = loading ? 'none' : '';
+            btn.querySelector('.btn-spinner').style.display = loading ? 'flex' : 'none';
+            btn.disabled = loading;
+        }
+
+        // Send OTP — mirrors mobile _sendOtp() using Supabase signInWithOtp
+        async function sendOTP() {
+            const email = emailInput.value.trim();
+            hideError('step1-error');
+
+            if (!email) {
+                showError('step1-error', 'Please enter your email address.');
+                return;
+            }
+
+            setBtnLoading('sendOtpBtn', true);
+            try {
+                const res = await fetch('/api/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    userEmail = email;
+                    changeStep(2);
+                } else {
+                    showError('step1-error', data.message || 'Failed to send OTP. Please try again.');
+                }
+            } catch (err) {
+                showError('step1-error', 'An error occurred. Please try again.');
+            } finally {
+                setBtnLoading('sendOtpBtn', false);
+            }
+        }
+
+        // Verify OTP — mirrors mobile _verifyOtp() using Supabase verifyOTP
+        async function verifyOTP() {
+            const otp = Array.from(otpInputs).map(i => i.value).join('');
+            hideError('otp-error');
+
+            if (otp.length !== 6) {
+                showError('otp-error', 'Please enter the complete 6-digit code.');
+                otpInputs.forEach(b => {
+                    b.style.borderColor = '#dc3545';
+                    setTimeout(() => b.style.borderColor = '', 1500);
+                });
+                return;
+            }
+
+            setBtnLoading('verifyBtn', true);
+            try {
+                const res = await fetch('/api/verify-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: userEmail, otp })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    otpVerified = true;
+                    changeStep(3); // shows user type modal
+                } else {
+                    showError('otp-error', data.message || 'Invalid or expired OTP. Please try again.');
+                    otpInputs.forEach(b => {
+                        b.style.borderColor = '#dc3545';
+                        setTimeout(() => b.style.borderColor = '', 1500);
+                    });
+                }
+            } catch (err) {
+                showError('otp-error', 'An error occurred. Please try again.');
+            } finally {
+                setBtnLoading('verifyBtn', false);
+            }
+        }
+
+        // Resend OTP — mirrors mobile resend tap
+        async function resendOTP() {
+            if (!userEmail) return;
+            hideError('otp-error');
+            otpInputs.forEach(i => i.value = '');
+            otpInputs[0].focus();
+            try {
+                const res = await fetch('/api/send-otp', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: userEmail })
+                });
+                const data = await res.json();
+                if (!data.success) {
+                    showError('otp-error', data.message || 'Failed to resend OTP.');
+                }
+            } catch (err) {
+                showError('otp-error', 'Failed to resend OTP. Please try again.');
+            }
+        }
+
+
+
+        // Address handling
+        const PHILIPPINES_API = 'https://psgc.gitlab.io/api';
+        const addressCache = {
+            regions: [],
+            provinces: {},
+            municipalities: {},
+            barangays: {}
+        };
+
+        // Load all regions
+        async function loadRegions(userType = '') {
+            try {
+                const response = await fetch(`${PHILIPPINES_API}/regions`);
+                const regions = await response.json();
+                addressCache.regions = regions;
+
+                const regionSelectId = userType ? `region_${userType}` : 'region';
+                const regionSelect = document.getElementById(regionSelectId);
+
+                if (!regionSelect) return;
+
+                regionSelect.innerHTML = '<option value="">Select Region</option>';
+
+                regions.forEach(region => {
+                    const option = document.createElement('option');
+                    option.value = region.name;
+                    option.setAttribute('data-code', region.code);
+                    option.textContent = region.name;
+                    regionSelect.appendChild(option);
+                });
+
+                // Enable region select
+                regionSelect.disabled = false;
+            } catch (error) {
+                console.error('Error loading regions:', error);
+            }
+        }
+
+        // Update provinces based on selected region
+        async function updateProvinces(userType = '') {
+            const suffix = userType ? `_${userType}` : '';
+            const regionSelect = document.getElementById(`region${suffix}`);
+            const provinceSelect = document.getElementById(`province${suffix}`);
+            const municipalitySelect = document.getElementById(`municipality${suffix}`);
+            const barangaySelect = document.getElementById(`barangay${suffix}`);
+
+            const regionCode = regionSelect.selectedOptions[0]?.getAttribute('data-code') || regionSelect.value;
+
+            // Reset dependent selects
+            provinceSelect.innerHTML = '<option value="">Select Province</option>';
+            municipalitySelect.innerHTML = '<option value="">Select Municipality/City</option>';
+            barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
+
+            if (!regionCode) {
+                provinceSelect.disabled = true;
+                municipalitySelect.disabled = true;
+                barangaySelect.disabled = true;
+                return;
+            }
+
+            try {
+                let provinces = [];
+
+                if (addressCache.provinces[regionCode]) {
+                    provinces = addressCache.provinces[regionCode];
+                } else {
+                    const response = await fetch(`${PHILIPPINES_API}/regions/${regionCode}/provinces`);
+                    provinces = await response.json();
+                    addressCache.provinces[regionCode] = provinces;
+                }
+
+                provinces.forEach(province => {
+                    const option = document.createElement('option');
+                    option.value = province.name;
+                    option.setAttribute('data-code', province.code);
+                    option.textContent = province.name;
+                    provinceSelect.appendChild(option);
+                });
+
+                provinceSelect.disabled = false;
+                municipalitySelect.disabled = true;
+                barangaySelect.disabled = true;
+            } catch (error) {
+                console.error('Error loading provinces:', error);
+            }
+        }
+
+        // Update municipalities based on selected province
+        async function updateMunicipalities(userType = '') {
+            const suffix = userType ? `_${userType}` : '';
+            const provinceSelect = document.getElementById(`province${suffix}`);
+            const municipalitySelect = document.getElementById(`municipality${suffix}`);
+            const barangaySelect = document.getElementById(`barangay${suffix}`);
+
+            const provinceCode = provinceSelect.selectedOptions[0]?.getAttribute('data-code') || provinceSelect.value;
+
+            // Reset dependent selects
+            municipalitySelect.innerHTML = '<option value="">Select Municipality/City</option>';
+            barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
+
+            if (!provinceCode) {
+                municipalitySelect.disabled = true;
+                barangaySelect.disabled = true;
+                return;
+            }
+
+            try {
+                let municipalities = [];
+
+                if (addressCache.municipalities[provinceCode]) {
+                    municipalities = addressCache.municipalities[provinceCode];
+                } else {
+                    const response = await fetch(`${PHILIPPINES_API}/provinces/${provinceCode}/cities-municipalities`);
+                    municipalities = await response.json();
+                    addressCache.municipalities[provinceCode] = municipalities;
+                }
+
+                municipalities.forEach(municipality => {
+                    const option = document.createElement('option');
+                    option.value = municipality.name;
+                    option.setAttribute('data-code', municipality.code);
+                    option.textContent = municipality.name;
+                    municipalitySelect.appendChild(option);
+                });
+
+                municipalitySelect.disabled = false;
+                barangaySelect.disabled = true;
+            } catch (error) {
+                console.error('Error loading municipalities:', error);
+            }
+        }
+
+        // Update barangays based on selected municipality
+        async function updateBarangays(userType = '') {
+            const suffix = userType ? `_${userType}` : '';
+            const municipalitySelect = document.getElementById(`municipality${suffix}`);
+            const barangaySelect = document.getElementById(`barangay${suffix}`);
+
+            const municipalityCode = municipalitySelect.selectedOptions[0]?.getAttribute('data-code') || municipalitySelect.value;
+
+            // Reset barangay select
+            barangaySelect.innerHTML = '<option value="">Select Barangay</option>';
+
+            if (!municipalityCode) {
+                barangaySelect.disabled = true;
+                return;
+            }
+
+            try {
+                let barangays = [];
+
+                if (addressCache.barangays[municipalityCode]) {
+                    barangays = addressCache.barangays[municipalityCode];
+                } else {
+                    const response = await fetch(`${PHILIPPINES_API}/cities-municipalities/${municipalityCode}/barangays`);
+                    barangays = await response.json();
+                    addressCache.barangays[municipalityCode] = barangays;
+                }
+
+                barangays.forEach(barangay => {
+                    const option = document.createElement('option');
+                    option.value = barangay.name;
+                    option.setAttribute('data-code', barangay.code);
+                    option.textContent = barangay.name;
+                    barangaySelect.appendChild(option);
+                });
+
+                barangaySelect.disabled = false;
+            } catch (error) {
+                console.error('Error loading barangays:', error);
+            }
+        }
+
+        // Validation functions
+        function validateBuyerPersonalInfo() {
+            hideError('buyer-personal-error');
+            const requiredFields = [
+                'first_name_buyer', 'last_name_buyer', 'phone_number_buyer', 'house_no_street_buyer',
+                'region_buyer', 'province_buyer', 'municipality_buyer', 'barangay_buyer', 'zip_code_buyer'
+            ];
+            let isValid = true;
+            let firstEmptyField = null;
+            for (const fieldId of requiredFields) {
+                const field = document.getElementById(fieldId);
+                if (!field.value.trim()) {
+                    isValid = false;
+                    if (!firstEmptyField) firstEmptyField = field;
+                    field.style.borderColor = '#dc3545';
+                } else {
+                    field.style.borderColor = '';
+                }
+            }
+            const phoneNumber = document.getElementById('phone_number_buyer').value;
+            if (!/^\d{10}$/.test(phoneNumber)) {
+                showError('buyer-personal-error', 'Phone number must be exactly 10 digits.');
+                document.getElementById('phone_number_buyer').style.borderColor = '#dc3545';
+                return false;
+            }
+            if (!isValid) {
+                showError('buyer-personal-error', 'Please fill in all required fields.');
+                if (firstEmptyField) firstEmptyField.focus();
+                return false;
+            }
+            return true;
+        }
+
+        function validateBuyerPasswordInfo() {
+            hideError('buyer-password-error');
+            const password = document.getElementById('password_buyer').value;
+            const confirmPassword = document.getElementById('confirm_password_buyer').value;
+            if (!password) {
+                showError('buyer-password-error', 'Please enter a password.');
+                document.getElementById('password_buyer').style.borderColor = '#dc3545';
+                return false;
+            }
+            if (password.length < 6 || password.length > 8) {
+                showError('buyer-password-error', 'Password must be between 6–8 characters.');
+                document.getElementById('password_buyer').style.borderColor = '#dc3545';
+                return false;
+            }
+            if (password !== confirmPassword) {
+                showError('buyer-password-error', 'Passwords do not match.');
+                document.getElementById('confirm_password_buyer').style.borderColor = '#dc3545';
+                return false;
+            }
+            document.getElementById('password_buyer').style.borderColor = '';
+            document.getElementById('confirm_password_buyer').style.borderColor = '';
+            return true;
+        }
+
+        function validateBuyerForm(event) {
+            hideError('buyer-docs-error');
+            const validIdFile = document.getElementById('valid_id_buyer');
+            if (!validIdFile.files || validIdFile.files.length === 0) {
+                showError('buyer-docs-error', 'Valid Government ID is required.');
+                event.preventDefault();
+                return false;
+            }
+            const termsCheckbox = document.getElementById('terms-agreement-buyer');
+            if (!termsCheckbox.checked) {
+                showError('buyer-docs-error', 'You must agree to the Terms and Conditions and Privacy Policy.');
+                event.preventDefault();
+                return false;
+            }
+            return true;
+        }
+
+        function validateRiderPersonalInfo() {
+            hideError('rider-personal-error');
+            const requiredFields = [
+                'first_name_rider', 'last_name_rider', 'phone_number_rider', 'house_no_street_rider',
+                'region_rider', 'province_rider', 'municipality_rider', 'barangay_rider', 'zip_code_rider'
+            ];
+            let isValid = true;
+            let firstEmptyField = null;
+            for (const fieldId of requiredFields) {
+                const field = document.getElementById(fieldId);
+                if (!field.value.trim()) {
+                    isValid = false;
+                    if (!firstEmptyField) firstEmptyField = field;
+                    field.style.borderColor = '#dc3545';
+                } else {
+                    field.style.borderColor = '';
+                }
+            }
+            const phoneNumber = document.getElementById('phone_number_rider').value;
+            if (!/^\d{10}$/.test(phoneNumber)) {
+                showError('rider-personal-error', 'Phone number must be exactly 10 digits.');
+                document.getElementById('phone_number_rider').style.borderColor = '#dc3545';
+                return false;
+            }
+            if (!isValid) {
+                showError('rider-personal-error', 'Please fill in all required fields.');
+                if (firstEmptyField) firstEmptyField.focus();
+                return false;
+            }
+            return true;
+        }
+
+        function validateRiderPasswordInfo() {
+            hideError('rider-password-error');
+            const password = document.getElementById('password_rider').value;
+            const confirmPassword = document.getElementById('confirm_password_rider').value;
+            if (!password) {
+                showError('rider-password-error', 'Please enter a password.');
+                document.getElementById('password_rider').style.borderColor = '#dc3545';
+                return false;
+            }
+            if (password.length < 6 || password.length > 8) {
+                showError('rider-password-error', 'Password must be between 6–8 characters.');
+                document.getElementById('password_rider').style.borderColor = '#dc3545';
+                return false;
+            }
+            if (password !== confirmPassword) {
+                showError('rider-password-error', 'Passwords do not match.');
+                document.getElementById('confirm_password_rider').style.borderColor = '#dc3545';
+                return false;
+            }
+            document.getElementById('password_rider').style.borderColor = '';
+            document.getElementById('confirm_password_rider').style.borderColor = '';
+            return true;
+        }
+
+        function validateRiderVehicleInfo() {
+            hideError('rider-vehicle-error');
+            const requiredFields = ['vehicle_type', 'plate_number', 'vehicle_model', 'year_model'];
+            let isValid = true;
+            let firstEmptyField = null;
+            for (const fieldId of requiredFields) {
+                const field = document.getElementById(fieldId);
+                if (!field.value.trim()) {
+                    isValid = false;
+                    if (!firstEmptyField) firstEmptyField = field;
+                    field.style.borderColor = '#dc3545';
+                } else {
+                    field.style.borderColor = '';
+                }
+            }
+            if (!isValid) {
+                showError('rider-vehicle-error', 'Please fill in all vehicle information fields.');
+                if (firstEmptyField) firstEmptyField.focus();
+                return false;
+            }
+            return true;
+        }
+
+        function validateRiderForm(event) {
+            hideError('rider-docs-error');
+            const validIdFile = document.getElementById('valid_id_rider');
+            const orCrFile = document.getElementById('or_cr');
+            const nbiFile = document.getElementById('nbi_clearance');
+            if (!validIdFile.files || validIdFile.files.length === 0) {
+                showError('rider-docs-error', 'Valid Government ID is required.');
+                event.preventDefault(); return false;
+            }
+            if (!orCrFile.files || orCrFile.files.length === 0) {
+                showError('rider-docs-error', 'OR/CR document is required.');
+                event.preventDefault(); return false;
+            }
+            if (!nbiFile.files || nbiFile.files.length === 0) {
+                showError('rider-docs-error', 'NBI Clearance is required.');
+                event.preventDefault(); return false;
+            }
+            const termsCheckbox = document.getElementById('terms-agreement-rider');
+            if (!termsCheckbox.checked) {
+                showError('rider-docs-error', 'You must agree to the Terms and Conditions and Privacy Policy.');
+                event.preventDefault(); return false;
+            }
+            return true;
+        }
+
+        // Close modal when clicking outside
+        window.onclick = function (event) {
+            const userTypeModal = document.getElementById('userTypeModal');
+
+            if (event.target == userTypeModal) {
+                userTypeModal.style.display = "none";
+            }
+        }
+
+        // Handle select label animations
+        function handleSelectLabels() {
+            document.querySelectorAll('.input-group select').forEach(select => {
+                function update() {
+                    if (select.value && select.value !== '') {
+                        select.setAttribute('data-selected', 'true');
+                        select.classList.add('has-value');
+                    } else {
+                        select.removeAttribute('data-selected');
+                        select.classList.remove('has-value');
+                    }
+                }
+                select.addEventListener('change', update);
+                update();
+            });
+        }
+
+        // Initialize select labels when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function () {
+            handleSelectLabels();
+            initializePasswordToggles();
+        });
+
+        // Initialize password toggles — always visible (matches mobile)
+        function initializePasswordToggles() {
+            document.querySelectorAll('.password-group input[type="password"], .password-group input[type="text"]').forEach(input => {
+                const toggle = input.parentElement.querySelector('.toggle-password');
+                if (toggle) toggle.style.display = 'flex';
+            });
+        }
+
+        function togglePasswordField(fieldId) {
+            const passwordInput = document.getElementById(fieldId);
+            const toggleIcon = passwordInput.parentElement.querySelector('.toggle-password');
+            const eyeOpen = toggleIcon.querySelectorAll('.eye-open');
+            const eyeClosed = toggleIcon.querySelectorAll('.eye-closed');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeOpen.forEach(el => el.style.display = 'none');
+                eyeClosed.forEach(el => el.style.display = 'block');
+            } else {
+                passwordInput.type = 'password';
+                eyeOpen.forEach(el => el.style.display = 'block');
+                eyeClosed.forEach(el => el.style.display = 'none');
+            }
+        }
+
+        // Mark document tile as uploaded — mirrors _docUploadTile() uploaded state
+        function markDocUploaded(tileId, input) {
+            if (input.files && input.files.length > 0) {
+                const tile = document.getElementById(tileId);
+                if (tile) {
+                    tile.classList.add('uploaded');
+                    const small = tile.querySelector('small');
+                    if (small) small.textContent = 'Uploaded successfully ✓';
+                }
+            }
+        }
+
+    </script>
+
+</body>
+</html>

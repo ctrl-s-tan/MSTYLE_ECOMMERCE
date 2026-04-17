@@ -1,0 +1,3156 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <title>Products</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/products.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/image-overlay.css') }}">
+  <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+
+</head>
+
+<body>
+  {% include 'seller_header.html' %}
+
+  <div class="products-container">
+    <!-- Page Header -->
+    <div class="products-header">
+      <div class="products-avatar">
+        <i class="bi bi-box-seam"></i>
+      </div>
+      <h1>My Products</h1>
+      <p>Manage and showcase your product inventory</p>
+    </div>
+    <div class="filter-sort">
+      <div class="form-header">
+        <h3><i class="bi bi-funnel"></i> Filter & Search Products</h3>
+        <p>Find your products quickly using the filters below</p>
+      </div>
+      <form action="{{ url_for('products') }}" method="GET" class="sort-category-form">
+        <div class="form-group">
+          <label for="status"><i class="bi bi-info-circle"></i> Status</label>
+          <select name="status" id="status" class="category_dropdown" onchange="this.form.submit()">
+            <option value="">All Status</option>
+            <option value="active" {% if request.args.get('status') == 'active' %}selected{% endif %}>Active</option>
+            <option value="inactive" {% if request.args.get('status') == 'inactive' %}selected{% endif %}>Inactive</option>
+            <option value="flagged" {% if request.args.get('status') == 'flagged' %}selected{% endif %}>Flagged</option>
+            <option value="out_of_stock" {% if request.args.get('status') == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
+            <option value="low_stock" {% if request.args.get('status') == 'low_stock' %}selected{% endif %}>Low Stock</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="category"><i class="bi bi-tags"></i> Category</label>
+          <select name="category" id="category" class="category_dropdown" onchange="this.form.submit()">
+            <option value="">All Categories</option>
+            {% for category in categories %}
+            <option value="{{ category }}" {% if category==selected_category %}selected{% endif %}>{{ category }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="sort_by"><i class="bi bi-sort-down"></i> Sort By</label>
+          <select name="sort_by" id="sort_by" class="category_dropdown" onchange="this.form.submit()">
+            <option value="newest" {% if request.args.get('sort_by', 'newest') == 'newest' %}selected{% endif %}>Newest First</option>
+            <option value="oldest" {% if request.args.get('sort_by') == 'oldest' %}selected{% endif %}>Oldest First</option>
+            <option value="price_low" {% if request.args.get('sort_by') == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+            <option value="price_high" {% if request.args.get('sort_by') == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+            <option value="name_asc" {% if request.args.get('sort_by') == 'name_asc' %}selected{% endif %}>Name: A to Z</option>
+            <option value="name_desc" {% if request.args.get('sort_by') == 'name_desc' %}selected{% endif %}>Name: Z to A</option>
+            <option value="stock_high" {% if request.args.get('sort_by') == 'stock_high' %}selected{% endif %}>Stock: High to Low</option>
+            <option value="stock_low" {% if request.args.get('sort_by') == 'stock_low' %}selected{% endif %}>Stock: Low to High</option>
+            <option value="sold_high" {% if request.args.get('sort_by') == 'sold_high' %}selected{% endif %}>Most Sold</option>
+            <option value="rating_high" {% if request.args.get('sort_by') == 'rating_high' %}selected{% endif %}>Highest Rated</option>
+          </select>
+        </div>
+        <div class="form-group search-group">
+          <label for="search"><i class="bi bi-search"></i> Search</label>
+          <div class="search-input-container">
+            <input type="text" name="search" id="search" placeholder="Search by product name..." class="search_input"
+              value="{{ request.args.get('search', '') }}">
+            <button type="submit" class="search_button">
+              <i class="bi bi-search"></i> Search
+            </button>
+          </div>
+        </div>
+        {% if request.args.get('search') or request.args.get('category') or request.args.get('sort_by') or request.args.get('status') %}
+        <div class="form-group">
+          <a href="{{ url_for('products') }}" class="clear-filters">
+            <i class="bi bi-x-circle"></i> Clear Filters
+          </a>
+        </div>
+        {% endif %}
+      </form>
+    </div>
+
+
+    <!-- View Toggle and Add Product Button -->
+    <div class="view-toggle-container">
+      <div class="view-toggle">
+        <button class="view-btn active" data-view="card" onclick="switchView('card')" title="Card View">
+          <i class="bi bi-grid-3x3-gap"></i>
+          <span>Card View</span>
+        </button>
+        <button class="view-btn" data-view="table" onclick="switchView('table')" title="Table View">
+          <i class="bi bi-table"></i>
+          <span>Table View</span>
+        </button>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <button type="button" onclick="window.location.href='{{ url_for('variant_inventory') }}';" class="btn-add-product-header" style="background: #2c3e50;">
+          <i class="bi bi-boxes"></i> Variant Inventory
+        </button>
+        <button type="button" onclick="window.location.href='{{ url_for('add_new_product') }}';" class="btn-add-product-header">
+          <i class="bi bi-plus-circle"></i> Add New Product
+        </button>
+      </div>
+    </div>
+
+    <!-- Card View -->
+    <div class="product-grid" id="cardView">
+      {% if products %}
+      {% for product in products %}
+      <div class="product-card {% if product.flagged_at %}product-flagged{% endif %} {% if not product.is_active %}product-inactive{% endif %}" style="animation-delay: {{ loop.index0 * 0.1 }}s">
+        <div class="product-image-container">
+          {% set raw_images = product.image.split(',') if product.image else [] %}
+          {% set images = [] %}
+          {% for img in raw_images %}
+          {% set clean_img = img.strip() %}
+          {% if clean_img %}
+          {% set _ = images.append(clean_img) %}
+          {% endif %}
+          {% endfor %}
+
+
+          {% if images and images|length > 0 %}
+          {% if images|length > 1 %}
+          <!-- Multiple images - show carousel -->
+          <div class="product-image-slider" data-product-id="{{ product.id }}" data-image-count="{{ images|length }}">
+            {% set image_colors = product.image_colors.split(',') if product.image_colors else [] %}
+            {% for image in images %}
+            {% set color_info = '' %}
+            {% if image_colors and loop.index0 < image_colors|length %} {% set
+              color_mapping=image_colors[loop.index0].split(':') %} {% if color_mapping|length> 1 %}
+              {% set color_info = color_mapping[1] %}
+              {% endif %}
+              {% endif %}
+              <img src="{{ image.strip()|product_img }}"
+                alt="{{ product.name }}{% if color_info %} - {{ color_info }}{% endif %}"
+                class="product-image {% if loop.first %}active{% endif %}" data-image-index="{{ loop.index0 }}"
+                loading="lazy"
+                onerror="this.onerror=null;this.src='/static/images/placeholder.png';">
+              {% endfor %}
+              <div class="image-indicators">
+                {% for image in images %}
+                <span class="indicator {% if loop.first %}active{% endif %}"
+                  onclick="showImage(this, {{ loop.index0 }})" data-image-index="{{ loop.index0 }}"
+                  title="Image {{ loop.index }}">
+                </span>
+                {% endfor %}
+              </div>
+              <button class="nav-btn prev-btn" onclick="previousImage(this)" title="Previous Image">
+                <i class="bi bi-chevron-left"></i>
+              </button>
+              <button class="nav-btn next-btn" onclick="nextImage(this)" title="Next Image">
+                <i class="bi bi-chevron-right"></i>
+              </button>
+              <div class="image-counter">
+                <span class="current-image">1</span> / <span class="total-images">{{ images|length }}</span>
+              </div>
+          </div>
+          {% else %}
+          <!-- Single image -->
+          {% if images and images[0].strip() %}
+          <img src="{{ images[0].strip()|product_img }}" alt="{{ product.name }}"
+            class="product-image active"
+            onerror="this.onerror=null;this.src='/static/images/placeholder.png';">
+          {% else %}
+          <div class="product-image-placeholder">
+            <i class="bi bi-image"></i>
+            <span>No Image Available</span>
+          </div>
+          {% endif %}
+          {% endif %}
+          {% else %}
+          <div class="product-image-placeholder">
+            <i class="bi bi-image"></i>
+            <span>No Image Available</span>
+          </div>
+          {% endif %}
+          <div class="product-overlay-buttons">
+            <button type="button" class="overlay-edit-btn" data-product-id="{{ product.id }}"
+              data-product-name="{{ product.name|e }}" data-product-category="{{ product.category|e }}"
+              data-product-description="{{ product.description|e }}"
+              data-product-variations="{{ product.variations|e }}" data-product-price="{{ product.price }}"
+              data-product-quantity="{{ product.quantity }}" data-product-image="{{ product.image|e }}"
+              data-product-image-colors="{{ product.image_colors|e }}"
+              data-product-sizes="{{ product.sizes|e if product.sizes else '' }}"
+              data-product-low-stock-threshold="{{ product.low_stock_threshold if product.low_stock_threshold else '5' }}"
+              onclick="openEditModalFromButton(this)">
+              <i class="bi bi-pencil-square"></i>
+            </button>
+            <button type="button" class="overlay-delete-btn" onclick="confirmDelete({{ product.id }})">
+              <i class="bi bi-trash"></i>
+            </button>
+          </div>
+        </div>
+        <div class="product-info">
+          <h3>
+            <span class="product-name-text">{{ product.name }}</span>
+            {% set qty = product.quantity|int %}
+            {% set threshold = product.low_stock_threshold|int if product.low_stock_threshold else 5 %}
+            {% set never_stocked = (qty <= 0 and (product.sold or 0)|int == 0) %}
+            {% if never_stocked %}
+            {# Newly added product — stock not yet configured #}
+            {% elif qty <= 0 %}
+            <span class="product-stock-badge out-of-stock-badge" title="Out of stock">
+              <i class="bi bi-x-circle"></i> Out of Stock
+            </span>
+            {% elif qty <= threshold %}
+            <span class="product-stock-badge low-stock-badge" title="Stock is below threshold of {{ threshold }}">
+              <i class="bi bi-exclamation-triangle"></i> Low Stock
+            </span>
+            {% endif %}
+            {% if product.flagged_at %}
+            <span class="product-flagged-badge" title="Flagged on {{ product.flagged_at[:10] if product.flagged_at is string else product.flagged_at.strftime('%b %d, %Y') }}">
+              <i class="bi bi-flag-fill"></i> Flagged
+            </span>
+            {% endif %}
+            {% if not product.is_active %}
+            <span class="product-inactive-badge" title="Product is deactivated">
+              <i class="bi bi-ban"></i> Inactive
+            </span>
+            {% endif %}
+          </h3>
+          <h4><i class="bi bi-tag"></i> {{ product.category }}</h4>
+          <h5>₱{{ "%.2f"|format(product.price|float) }}</h5>
+          <div class="product-stats">
+            <div class="stat-item">
+              <div class="stat-label"><i class="bi bi-box"></i> Stock</div>
+              <div class="stat-value">
+                {% if product.quantity|int == 0 and (product.sold or 0)|int == 0 %}
+                <span style="color:#6c757d;" title="Stock not yet configured">—</span>
+                {% else %}
+                {{ product.quantity }}
+                {% endif %}
+              </div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label"><i class="bi bi-graph-up"></i> Sold</div>
+              <div class="stat-value">{{ product.sold or 0 }}</div>
+            </div>
+            <div class="stat-item">
+              <div class="stat-label"><i class="bi bi-star"></i> Rating</div>
+              <div class="stat-value rating-display">
+                {% if product.rating and product.rating != 'None' and product.rating != 0 %}
+                <span class="rating-stars">
+                  {% for i in range(5) %}
+                  {% if i < (product.rating|float|round) %} <i class="bi bi-star-fill star-filled"></i>
+                    {% else %}
+                    <i class="bi bi-star star-empty"></i>
+                    {% endif %}
+                    {% endfor %}
+                </span>
+                <span class="rating-number">{{ "%.1f"|format(product.rating|float) }}</span>
+                {% if product.review_count and product.review_count > 0 %}
+                <span class="review-count">({{ product.review_count }} review{{ 's' if product.review_count != 1 else ''
+                  }})</span>
+                {% endif %}
+                {% else %}
+                <span class="no-rating">
+                  <i class="bi bi-star"></i> No reviews yet
+                </span>
+                {% endif %}
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-box-seam"></i>
+        <h3>No Products Found</h3>
+        <p>You haven't added any products yet, or no products match your search criteria.</p>
+        <button type="button" onclick="window.location.href='{{ url_for('add_new_product') }}';"
+          class="btn-add-product">
+          <i class="bi bi-plus-circle"></i> Add Your First Product
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Table View -->
+    <div class="product-table-container" id="tableView" style="display: none;">
+      {% if products %}
+      <div class="table-wrapper">
+        <table class="products-table">
+          <thead>
+            <tr>
+              <th><i class="bi bi-hash"></i> No.</th>
+              <th><i class="bi bi-box-seam"></i> Product Name</th>
+              <th><i class="bi bi-tag"></i> Category</th>
+              <th><i class="bi bi-currency-dollar"></i> Price</th>
+              <th><i class="bi bi-boxes"></i> Stock</th>
+              <th><i class="bi bi-graph-up"></i> Sold</th>
+              <th><i class="bi bi-star"></i> Rating</th>
+              <th><i class="bi bi-gear"></i> Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for product in products %}
+            <tr class="product-row {% if product.flagged_at %}row-flagged{% endif %} {% if not product.is_active %}row-inactive{% endif %}">
+              <td class="text-center">
+                <span class="row-number">{{ ((page - 1) * 12) + loop.index }}</span>
+              </td>
+              <td class="product-name-cell">
+                <div class="table-product-name">
+                  <span class="name-text">{{ product.name }}</span>
+                  <div class="table-badges">
+                    {% if product.flagged_at %}
+                    <span class="table-flagged-badge" title="Flagged on {{ product.flagged_at[:10] if product.flagged_at is string else product.flagged_at.strftime('%b %d, %Y') }}">
+                      <i class="bi bi-flag-fill"></i> Flagged
+                    </span>
+                    {% endif %}
+                    {% if not product.is_active %}
+                    <span class="table-inactive-badge" title="Product is deactivated">
+                      <i class="bi bi-ban"></i> Inactive
+                    </span>
+                    {% endif %}
+                  </div>
+                </div>
+              </td>
+              <td>
+                <span class="category-tag">{{ product.category }}</span>
+              </td>
+              <td class="price-cell">₱{{ "%.2f"|format(product.price|float) }}</td>
+              <td class="text-center">
+                {% set qty = product.quantity|int %}
+                {% set threshold = product.low_stock_threshold|int if product.low_stock_threshold else 5 %}
+                {% set never_stocked = (qty <= 0 and (product.sold or 0)|int == 0) %}
+                {% if never_stocked %}
+                <span class="stock-badge" style="background:rgba(108,117,125,0.1);color:#6c757d;" title="Stock not yet configured">—</span>
+                <div style="font-size: 11px; color: #6c757d; font-weight: 600; margin-top: 4px;">
+                  <i class="bi bi-dash-circle"></i> Not Set
+                </div>
+                {% else %}
+                <span class="stock-badge {% if qty <= 0 %}out-of-stock{% elif qty <= threshold %}low-stock{% else %}in-stock{% endif %}">
+                  {{ qty }}
+                </span>
+                {% if qty <= 0 %}
+                <div style="font-size: 11px; color: #dc3545; font-weight: 600; margin-top: 4px;">
+                  <i class="bi bi-x-circle"></i> Out of Stock
+                </div>
+                {% elif qty <= threshold %}
+                <div style="font-size: 11px; color: #ff9800; font-weight: 600; margin-top: 4px;">
+                  <i class="bi bi-exclamation-triangle"></i> Low Stock
+                </div>
+                {% endif %}
+                {% endif %}
+              </td>
+              <td class="text-center">{{ product.sold or 0 }}</td>
+              <td class="rating-cell">
+                {% if product.rating and product.rating != 'None' and product.rating != 0 %}
+                <div class="table-rating">
+                  <span class="rating-stars-inline">
+                    {% for i in range(5) %}
+                    {% if i < (product.rating|float|round) %}
+                    <i class="bi bi-star-fill star-filled"></i>
+                    {% else %}
+                    <i class="bi bi-star star-empty"></i>
+                    {% endif %}
+                    {% endfor %}
+                  </span>
+                  <span class="rating-value">{{ "%.1f"|format(product.rating|float) }}</span>
+                </div>
+                {% else %}
+                <span class="no-rating-text">No reviews</span>
+                {% endif %}
+              </td>
+              <td class="actions-cell">
+                <div class="table-actions">
+                  <button class="table-action-btn edit-btn" 
+                          data-product-id="{{ product.id }}"
+                          data-product-name="{{ product.name|e }}" 
+                          data-product-category="{{ product.category|e }}"
+                          data-product-description="{{ product.description|e }}"
+                          data-product-variations="{{ product.variations|e }}" 
+                          data-product-price="{{ product.price }}"
+                          data-product-quantity="{{ product.quantity }}" 
+                          data-product-image="{{ product.image|e }}"
+                          data-product-image-colors="{{ product.image_colors|e }}"
+                          data-product-sizes="{{ product.sizes|e if product.sizes else '' }}"
+                          data-product-low-stock-threshold="{{ product.low_stock_threshold if product.low_stock_threshold else '5' }}"
+                          onclick="openEditModalFromButton(this)"
+                          title="Edit Product">
+                    <i class="bi bi-pencil-square"></i>
+                  </button>
+                  <button class="table-action-btn delete-btn" onclick="confirmDelete({{ product.id }})" title="Delete Product">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <i class="bi bi-box-seam"></i>
+        <h3>No Products Found</h3>
+        <p>You haven't added any products yet, or no products match your search criteria.</p>
+        <button type="button" onclick="window.location.href='{{ url_for('add_new_product') }}';"
+          class="btn-add-product">
+          <i class="bi bi-plus-circle"></i> Add Your First Product
+        </button>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Pagination -->
+    {% if total_pages > 1 %}
+    <div class="pagination-container">
+      <div class="pagination">
+        <!-- Previous Button -->
+        {% if page > 1 %}
+        <a href="{{ url_for('products', page=page-1, category=request.args.get('category', ''), search=request.args.get('search', ''), sort_by=request.args.get('sort_by', ''), status=request.args.get('status', '')) }}"
+          class="pagination-btn prev-btn">
+          <i class="bi bi-chevron-left"></i> Previous
+        </a>
+        {% else %}
+        <span class="pagination-btn prev-btn disabled">
+          <i class="bi bi-chevron-left"></i> Previous
+        </span>
+        {% endif %}
+
+        <!-- Page Numbers -->
+        <div class="page-numbers">
+          {% set start_page = [1, page - 2]|max %}
+          {% set end_page = [total_pages, page + 2]|min %}
+
+          {% if start_page > 1 %}
+          <a href="{{ url_for('products', page=1, category=request.args.get('category', ''), search=request.args.get('search', ''), sort_by=request.args.get('sort_by', ''), status=request.args.get('status', '')) }}"
+            class="page-number">1</a>
+          {% if start_page > 2 %}
+          <span class="page-ellipsis">...</span>
+          {% endif %}
+          {% endif %}
+
+          {% for p in range(start_page, end_page + 1) %}
+          {% if p == page %}
+          <span class="page-number active">{{ p }}</span>
+          {% else %}
+          <a href="{{ url_for('products', page=p, category=request.args.get('category', ''), search=request.args.get('search', ''), sort_by=request.args.get('sort_by', ''), status=request.args.get('status', '')) }}"
+            class="page-number">{{ p }}</a>
+          {% endif %}
+          {% endfor %}
+
+          {% if end_page < total_pages %} {% if end_page < total_pages - 1 %} <span class="page-ellipsis">...</span>
+            {% endif %}
+            <a href="{{ url_for('products', page=total_pages, category=request.args.get('category', ''), search=request.args.get('search', ''), sort_by=request.args.get('sort_by', ''), status=request.args.get('status', '')) }}"
+              class="page-number">{{ total_pages }}</a>
+            {% endif %}
+        </div>
+
+        <!-- Next Button -->
+        {% if page < total_pages %} <a
+          href="{{ url_for('products', page=page+1, category=request.args.get('category', ''), search=request.args.get('search', ''), sort_by=request.args.get('sort_by', ''), status=request.args.get('status', '')) }}"
+          class="pagination-btn next-btn">
+          Next <i class="bi bi-chevron-right"></i>
+          </a>
+          {% else %}
+          <span class="pagination-btn next-btn disabled">
+            Next <i class="bi bi-chevron-right"></i>
+          </span>
+          {% endif %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+  </div>
+
+
+  <!-- Edit Product Modal -->
+  <div id="editModal" class="modal"
+    style="display: none; position: fixed; z-index: 9999; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.5);">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2><i class="bi bi-pencil-square"></i> Edit Product</h2>
+        <span class="close" onclick="closeEditModal()">&times;</span>
+      </div>
+      <form id="editProductForm" method="POST" enctype="multipart/form-data">
+        <div class="modal-body">
+          <div class="form-grid">
+            <div class="form-group">
+              <label><i class="bi bi-tag"></i> Product Name</label>
+              <div class="input-wrapper">
+                <i class="bi bi-box-seam input-icon"></i>
+                <input type="text" id="editName" name="name" placeholder="Enter product name" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label><i class="bi bi-grid-3x3-gap"></i> Category</label>
+              <div class="input-wrapper">
+                <i class="bi bi-collection input-icon"></i>
+                <select id="editCategory" name="category" required>
+                  <option value="">Select Category</option>
+                  <option value="SUITS">🤵 Suits</option>
+                  <option value="BLAZERS">🧥 Blazers</option>
+                  <option value="SHIRTS">👔 Shirts</option>
+                  <option value="PANTS">👖 Pants</option>
+                  <option value="OUTERWEAR">🧥 Outerwear</option>
+                  <option value="JACKETS">🧥 Jackets</option>
+                  <option value="ACTIVEWEAR">🏃 Activewear</option>
+                  <option value="FITNESS">💪 Fitness</option>
+                  <option value="SHOES">👟 Shoes</option>
+                  <option value="ACCESSORIES">👜 Accessories</option>
+                  <option value="GROOMING">🧴 Grooming Products</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label><i class="bi bi-file-text"></i> Description</label>
+              <div class="input-wrapper">
+                <i class="bi bi-chat-text input-icon textarea-icon"></i>
+                <textarea id="editDescription" name="description" placeholder="Describe your product..."
+                  required></textarea>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label><span style="color: var(--secondary-color); font-size: 1.2rem; margin-right: 0.5rem;">₱</span>
+                Price</label>
+              <div class="input-wrapper">
+                <span class="input-icon">₱</span>
+                <input type="number" id="editPrice" name="price" placeholder="0.00" step="0.01" min="0" required>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label><i class="bi bi-palette"></i> Product Color Options</label>
+              <div class="input-wrapper">
+                <i class="bi bi-palette input-icon"></i>
+                <select id="editColorOptionSelect" name="edit_color_option" required>
+                  <option value="">Select Color Option</option>
+                  <option value="has_colors">Product has different colors/variations</option>
+                  <option value="no_colors">Product has no color variations</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="form-group">
+              <label><i class="bi bi-rulers"></i> Available Sizes</label>
+              <div class="input-wrapper">
+                <i class="bi bi-aspect-ratio input-icon"></i>
+                <div class="size-selection">
+                  <div class="size-categories">
+                    <div class="size-category">
+                      <h4>Clothing Sizes</h4>
+                      <div class="size-options">
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="XS">
+                          <span class="size-label">XS</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="S">
+                          <span class="size-label">S</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="M">
+                          <span class="size-label">M</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="L">
+                          <span class="size-label">L</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="XL">
+                          <span class="size-label">XL</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="XXL">
+                          <span class="size-label">XXL</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="3XL">
+                          <span class="size-label">3XL</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="4XL">
+                          <span class="size-label">4XL</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="5XL">
+                          <span class="size-label">5XL</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="size-category">
+                      <h4>Shoe Sizes (US)</h4>
+                      <div class="size-options shoe-sizes">
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="6">
+                          <span class="size-label">6</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="6.5">
+                          <span class="size-label">6.5</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="7">
+                          <span class="size-label">7</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="7.5">
+                          <span class="size-label">7.5</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="8">
+                          <span class="size-label">8</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="8.5">
+                          <span class="size-label">8.5</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="9">
+                          <span class="size-label">9</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="9.5">
+                          <span class="size-label">9.5</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="10">
+                          <span class="size-label">10</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="10.5">
+                          <span class="size-label">10.5</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="11">
+                          <span class="size-label">11</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="12">
+                          <span class="size-label">12</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="13">
+                          <span class="size-label">13</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="size-category">
+                      <h4>Shoe Sizes (EU)</h4>
+                      <div class="size-options shoe-sizes">
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="39">
+                          <span class="size-label">39</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="40">
+                          <span class="size-label">40</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="41">
+                          <span class="size-label">41</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="42">
+                          <span class="size-label">42</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="43">
+                          <span class="size-label">43</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="44">
+                          <span class="size-label">44</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="45">
+                          <span class="size-label">45</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="46">
+                          <span class="size-label">46</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="47">
+                          <span class="size-label">47</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="size-category">
+                      <h4>Pants Sizes (Waist × Length)</h4>
+                      <div class="size-options pants-sizes">
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="26×28">
+                          <span class="size-label">26×28</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="27×30">
+                          <span class="size-label">27×30</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="28×30">
+                          <span class="size-label">28×30</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="29×30">
+                          <span class="size-label">29×30</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="30×30">
+                          <span class="size-label">30×30</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="31×30">
+                          <span class="size-label">31×30</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="32×30">
+                          <span class="size-label">32×30</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="33×30">
+                          <span class="size-label">33×30</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="34×30">
+                          <span class="size-label">34×30</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="36×30">
+                          <span class="size-label">36×30</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="38×30">
+                          <span class="size-label">38×30</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="40×30">
+                          <span class="size-label">40×30</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="42×32">
+                          <span class="size-label">42×32</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="44×32">
+                          <span class="size-label">44×32</span>
+                        </label>
+                      </div>
+                    </div>
+
+                    <div class="size-category">
+                      <h4>One Size / Custom</h4>
+                      <div class="size-options">
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="One Size">
+                          <span class="size-label">One Size</span>
+                        </label>
+                        <label class="size-checkbox">
+                          <input type="checkbox" name="edit_sizes" value="Free Size">
+                          <span class="size-label">Free Size</span>
+                        </label>
+                      </div>
+                    </div>
+                    <div class="size-category">
+                      <h4>Custom Sizes</h4>
+                      <div class="custom-sizes-section">
+                        <div class="custom-size-input-wrapper">
+                          <input type="text" id="editCustomSizeInput"
+                            placeholder="Enter custom size (e.g., 28W, Medium-Tall, 42R)"
+                            style="width: 100%; padding: 10px; border: 2px solid #ddd; border-radius: 6px; font-size: 14px; margin-bottom: 10px;">
+                          <button type="button" id="editAddCustomSizeBtn"
+                            style="padding: 8px 16px; background: #d4af37; color: white; border: none; border-radius: 6px; cursor: pointer; font-size: 14px;">
+                            <i class="bi bi-plus"></i> Add Size
+                          </button>
+                        </div>
+                        <div class="custom-sizes-list" id="editCustomSizesList" style="margin-top: 15px;">
+                          <!-- Custom sizes will be added here -->
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="selected-sizes">
+                    <p><strong>Selected Sizes:</strong> <span id="editSelectedSizes">None</span></p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="form-group image-upload">
+              <label><i class="bi bi-images"></i> Product Images</label>
+              <div class="upload-area" id="editUploadArea">
+                <div class="upload-content" id="editUploadContent">
+                  <div class="upload-icon">
+                    <i class="bi bi-cloud-upload"></i>
+                  </div>
+                  <h4>Upload New Images</h4>
+                  <p>Drag & drop your images here or click to browse</p>
+                  <p class="upload-hint">Supports: JPG, PNG, GIF (Max: 10MB each, unlimited images)</p>
+                  <button type="button" class="browse-btn" id="editBrowseButton">
+                    <i class="bi bi-folder2-open"></i>
+                    Choose Files
+                  </button>
+                </div>
+                <div class="images-preview" id="editImagesPreview" style="display: none;">
+                  <div class="preview-header">
+                    <span class="images-count" id="editImagesCount">0 images selected</span>
+                  </div>
+                  <div class="preview-grid" id="editPreviewGrid">
+                    <!-- Multiple image previews will be added here -->
+                  </div>
+                </div>
+                <input type="file" name="image" id="edit-image-input" accept="image/*" multiple style="display: none;">
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="cancel-btn" onclick="closeEditModal()">
+            <i class="bi bi-x-circle"></i>
+            Cancel
+          </button>
+          <button type="submit" class="submit-btn">
+            <i class="bi bi-check-circle"></i>
+            Update Product
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="flash-messages">
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="alert alert-{{ category }}">
+      {{ message }}
+      <span class="close-btn" onclick="this.parentElement.style.display='none';">&times;</span>
+    </div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+  </div>
+
+
+  <script>
+    // Base URL for uploaded images
+    const IMAGES_BASE_URL = "{{ url_for('static', filename='images/uploads/') }}";
+    let currentProductId = null;
+
+    // View Toggle Functionality
+    function switchView(view) {
+      const cardView = document.getElementById('cardView');
+      const tableView = document.getElementById('tableView');
+      const viewButtons = document.querySelectorAll('.view-btn');
+
+      // Update button states
+      viewButtons.forEach(btn => {
+        if (btn.dataset.view === view) {
+          btn.classList.add('active');
+        } else {
+          btn.classList.remove('active');
+        }
+      });
+
+      // Toggle views
+      if (view === 'card') {
+        cardView.style.display = 'grid';
+        tableView.style.display = 'none';
+        localStorage.setItem('productsView', 'card');
+      } else {
+        cardView.style.display = 'none';
+        tableView.style.display = 'block';
+        localStorage.setItem('productsView', 'table');
+      }
+    }
+
+    // Load saved view preference on page load
+    document.addEventListener('DOMContentLoaded', function() {
+      const savedView = localStorage.getItem('productsView') || 'card';
+      switchView(savedView);
+    });
+
+
+    function openEditModalFromButton(buttonElement) {
+      try {
+        const productId = buttonElement.getAttribute('data-product-id');
+        const name = buttonElement.getAttribute('data-product-name') || '';
+        const category = buttonElement.getAttribute('data-product-category') || '';
+        const description = buttonElement.getAttribute('data-product-description') || '';
+        const variations = buttonElement.getAttribute('data-product-variations') || '';
+        const price = buttonElement.getAttribute('data-product-price') || '';
+        const quantity = buttonElement.getAttribute('data-product-quantity') || '';
+        const image = buttonElement.getAttribute('data-product-image') || '';
+        const imageColors = buttonElement.getAttribute('data-product-image-colors') || '';
+        const sizes = buttonElement.getAttribute('data-product-sizes') || '';
+        const lowStockThreshold = buttonElement.getAttribute('data-product-low-stock-threshold') || '5';
+
+        console.log('🔍 Opening edit modal from button with data:', {
+          productId, name, category, description, variations, price, quantity, image, imageColors, sizes, lowStockThreshold
+        });
+
+        console.log('🔍 Raw sizes attribute:', sizes);
+        console.log('🔍 Sizes type:', typeof sizes);
+        console.log('🔍 Sizes length:', sizes.length);
+
+        openEditModal(productId, name, category, description, variations, price, quantity, image, imageColors, sizes, lowStockThreshold);
+      } catch (error) {
+        console.error('Error opening edit modal from button:', error);
+        alert('Error opening edit modal: ' + error.message);
+      }
+    }
+
+    function openEditModal(productId, name, category, description, variations, price, quantity, image, imageColors, sizes, lowStockThreshold) {
+      try {
+        console.log('Opening edit modal for product:', {
+          productId, name, category, description, variations, price, quantity, image, imageColors, sizes, lowStockThreshold
+        });
+
+        if (!productId) {
+          throw new Error('Product ID is required');
+        }
+
+        currentProductId = productId;
+
+        // Store original sizes for preservation
+        currentProductSizes = sizes || '';
+        console.log('💾 Stored original product sizes:', currentProductSizes);
+
+        // Populate form fields with current product data
+        const editName = document.getElementById('editName');
+        const editCategory = document.getElementById('editCategory');
+        const editDescription = document.getElementById('editDescription');
+        const editPrice = document.getElementById('editPrice');
+        const editQuantity = document.getElementById('editQuantity');
+        const editLowStockThreshold = document.getElementById('editLowStockThreshold');
+
+        if (editName) editName.value = name || '';
+        if (editCategory) editCategory.value = category || '';
+        if (editDescription) editDescription.value = description || '';
+        if (editPrice) editPrice.value = price || '';
+        if (editQuantity) editQuantity.value = quantity || '';
+        if (editLowStockThreshold) {
+          editLowStockThreshold.value = lowStockThreshold || '5';
+          console.log('💾 Set low stock threshold to:', lowStockThreshold);
+        }
+
+        // Handle sizes - this will be called after modal is fully rendered
+        console.log('🔍 Sizes data received:', sizes);
+
+        // Handle color option - determine from variations data
+        const editColorOptionSelect = document.getElementById('editColorOptionSelect');
+        if (editColorOptionSelect) {
+          // Determine color option based on variations
+          let colorOption = 'has_colors'; // default
+          if (variations && variations.trim()) {
+            const variationsList = variations.split(',').map(v => v.trim()).filter(v => v);
+            // If only one variation and it's "Standard", then it's no_colors
+            if (variationsList.length === 1 && variationsList[0] === 'Standard') {
+              colorOption = 'no_colors';
+            }
+          }
+          editColorOptionSelect.value = colorOption;
+          console.log('Color option set to:', colorOption);
+        }
+
+        console.log('Form fields populated with current data');
+
+        // Initialize image upload functionality
+        try {
+          console.log('Initializing edit image upload functionality');
+          initializeEditImageUpload();
+        } catch (imgError) {
+          console.error('Image upload initialization failed:', imgError);
+        }
+
+        // Reset image upload state
+        selectedEditFiles = [];
+        const uploadContent = document.getElementById('editUploadContent');
+        const imagesPreview = document.getElementById('editImagesPreview');
+        const fileInput = document.getElementById('edit-image-input');
+
+        // Clear file input
+        if (fileInput) {
+          fileInput.value = '';
+        }
+
+        // Show upload area, hide preview container initially
+        if (uploadContent) {
+          uploadContent.style.display = 'flex';
+        }
+        if (imagesPreview) {
+          imagesPreview.style.display = 'none';
+        }
+
+        // Show current images if exist
+        if (image && image.trim()) {
+          console.log('Processing current images:', image);
+          const images = image.split(',').map(img => img.trim()).filter(img => img !== '');
+          console.log('Processed images array:', images);
+
+          if (images.length > 0) {
+            try {
+              displayCurrentImages(images, imageColors);
+              console.log('Current images displayed successfully');
+            } catch (imgError) {
+              console.warn('Failed to display current images:', imgError);
+            }
+          }
+        }
+
+        // Set form action
+        const editForm = document.getElementById('editProductForm');
+        if (editForm) {
+          editForm.action = "/editproduct/" + productId;
+        }
+
+        // Show modal
+        const modal = document.getElementById('editModal');
+        if (modal) {
+          modal.style.display = 'block';
+          document.body.style.overflow = 'hidden'; // Prevent background scrolling
+          console.log('✅ Edit modal opened successfully for product ID:', productId);
+
+          // Trigger modal opened event for size backup
+          window.dispatchEvent(new CustomEvent('modalOpened'));
+
+          // Wait for modal to be fully rendered before populating sizes
+          setTimeout(() => {
+            console.log('🔍 Modal should be fully rendered, checking size checkboxes...');
+            const sizeCheckboxes = document.querySelectorAll('input[name="edit_sizes"]');
+            console.log('🔍 Size checkboxes available:', sizeCheckboxes.length);
+
+            if (sizeCheckboxes.length > 0) {
+              console.log('✅ Size checkboxes found, populating sizes now...');
+
+              // Check for backed up sizes first
+              const backupSizes = sessionStorage.getItem('editModal_sizeBackup_' + productId);
+              if (backupSizes && backupSizes !== sizes) {
+                console.log('🔄 Found backup sizes, using them instead:', backupSizes);
+                populateEditSizes(backupSizes);
+              } else {
+                populateEditSizes(sizes);
+              }
+            } else {
+              console.error('❌ No size checkboxes found even after delay');
+            }
+          }, 200);
+
+          // Test file input after a short delay
+          setTimeout(() => {
+            const testFileInput = document.getElementById('edit-image-input');
+            console.log('File input test:', {
+              exists: !!testFileInput,
+              type: testFileInput?.type,
+              accept: testFileInput?.accept,
+              multiple: testFileInput?.multiple
+            });
+          }, 100);
+        } else {
+          console.error('Modal element with ID "editModal" not found in DOM');
+          throw new Error('Modal element not found');
+        }
+
+      } catch (error) {
+        console.error('Error opening edit modal:', error);
+        alert('Error opening edit modal: ' + error.message);
+      }
+    }
+
+    function closeEditModal() {
+      const modal = document.getElementById('editModal');
+      if (modal) {
+        modal.style.display = 'none';
+      }
+
+      // Restore body scrolling
+      document.body.style.overflow = '';
+
+      currentProductId = null;
+
+      // Reset image upload state
+      selectedEditFiles = [];
+      currentImages = [];
+      imagesToRemove = [];
+
+      const fileInput = document.getElementById('edit-image-input');
+      const uploadContent = document.getElementById('editUploadContent');
+      const imagesPreview = document.getElementById('editImagesPreview');
+      const previewGrid = document.getElementById('editPreviewGrid');
+
+      if (fileInput) {
+        fileInput.value = '';
+      }
+      if (uploadContent) {
+        uploadContent.style.display = 'flex';
+      }
+      if (imagesPreview) {
+        imagesPreview.style.display = 'none';
+      }
+      if (previewGrid) {
+        previewGrid.innerHTML = '';
+      }
+
+      // Reset size selection state
+      editCustomSizes = [];
+      const editCustomSizesList = document.getElementById('editCustomSizesList');
+      if (editCustomSizesList) {
+        editCustomSizesList.innerHTML = '';
+      }
+
+      // Reset form fields
+      const form = document.getElementById('editProductForm');
+      if (form) {
+        form.reset();
+      }
+
+      // Clear size checkboxes
+      const sizeCheckboxes = document.querySelectorAll('input[name="edit_sizes"]');
+      sizeCheckboxes.forEach(checkbox => {
+        checkbox.checked = false;
+      });
+
+      // Update selected sizes display
+      const selectedSizesDisplay = document.getElementById('editSelectedSizes');
+      if (selectedSizesDisplay) {
+        selectedSizesDisplay.textContent = 'None';
+      }
+
+      // Clean up size backup for this product
+      if (currentProductId) {
+        sessionStorage.removeItem('editModal_sizeBackup_' + currentProductId);
+        console.log('🧹 Cleaned up size backup for product:', currentProductId);
+      }
+
+      console.log('Edit modal closed and reset');
+    }
+
+    // Size selection functionality for edit modal
+    let editCustomSizes = [];
+    let currentProductSizes = ''; // Store current product sizes for preservation
+
+    function populateEditSizes(sizesString) {
+      console.log('🔍 populateEditSizes called with:', sizesString);
+      console.log('🔍 sizesString type:', typeof sizesString);
+      console.log('🔍 sizesString value:', JSON.stringify(sizesString));
+
+      // Wait for DOM to be ready
+      const sizeCheckboxes = document.querySelectorAll('input[name="edit_sizes"]');
+      console.log('🔍 Found size checkboxes:', sizeCheckboxes.length);
+
+      if (sizeCheckboxes.length === 0) {
+        console.error('❌ No size checkboxes found! Modal may not be fully loaded.');
+        // Try again after a longer delay
+        setTimeout(() => {
+          console.log('🔄 Retrying populateEditSizes...');
+          populateEditSizes(sizesString);
+        }, 500);
+        return;
+      }
+
+      // Clear all size checkboxes first
+      sizeCheckboxes.forEach(checkbox => {
+        checkbox.checked = false;
+      });
+
+      // Clear custom sizes
+      editCustomSizes = [];
+      const editCustomSizesList = document.getElementById('editCustomSizesList');
+      if (editCustomSizesList) {
+        editCustomSizesList.innerHTML = '';
+      }
+
+      // Parse and select current sizes
+      if (sizesString && sizesString.trim() && sizesString !== 'None' && sizesString !== 'null' && sizesString !== 'undefined' && sizesString !== '') {
+        const currentSizes = sizesString.split(',').map(size => size.trim()).filter(size => size && size !== '');
+        console.log('🔍 Parsed current sizes:', currentSizes);
+
+        currentSizes.forEach(size => {
+          console.log('🔍 Processing size:', size);
+          const checkbox = document.querySelector(`input[name="edit_sizes"][value="${size}"]`);
+          if (checkbox) {
+            console.log('✅ Found checkbox for size:', size);
+            checkbox.checked = true;
+          } else {
+            console.log('➕ No checkbox found for size, adding as custom:', size);
+            // If no checkbox found, it's a custom size
+            addEditCustomSize(size);
+          }
+        });
+      } else {
+        console.log('⚠️ No valid sizes to populate');
+      }
+
+      // Update the selected sizes display
+      updateEditSelectedSizes();
+      console.log('✅ populateEditSizes completed');
+    }
+
+    function updateEditSelectedSizes() {
+      const sizeCheckboxes = document.querySelectorAll('input[name="edit_sizes"]');
+      const selectedSizesDisplay = document.getElementById('editSelectedSizes');
+
+      const selectedSizes = Array.from(sizeCheckboxes)
+        .filter(checkbox => checkbox.checked)
+        .map(checkbox => checkbox.value);
+
+      console.log('updateEditSelectedSizes - Regular selected sizes:', selectedSizes);
+      console.log('updateEditSelectedSizes - Custom sizes:', editCustomSizes);
+
+      // Add custom sizes to the display
+      const allSizes = [...selectedSizes, ...editCustomSizes];
+
+      console.log('updateEditSelectedSizes - All sizes:', allSizes);
+
+      if (allSizes.length === 0) {
+        selectedSizesDisplay.textContent = 'None';
+      } else {
+        selectedSizesDisplay.textContent = allSizes.join(', ');
+      }
+    }
+
+    function addEditCustomSize(customSize) {
+      console.log('addEditCustomSize called with:', customSize);
+      if (customSize && !editCustomSizes.includes(customSize)) {
+        editCustomSizes.push(customSize);
+        console.log('Added custom size, editCustomSizes now:', editCustomSizes);
+
+        const editCustomSizesList = document.getElementById('editCustomSizesList');
+        if (editCustomSizesList) {
+          // Create custom size element
+          const customSizeElement = document.createElement('div');
+          customSizeElement.className = 'custom-size-item';
+          customSizeElement.style.cssText = `
+            display: inline-block;
+            margin: 4px;
+            padding: 8px 12px;
+            background: #d4af37;
+            color: white;
+            border-radius: 6px;
+            font-size: 13px;
+            position: relative;
+          `;
+
+          customSizeElement.innerHTML = `
+            ${customSize}
+            <button type="button" onclick="removeEditCustomSize('${customSize}', this)" 
+                    style="margin-left: 8px; background: none; border: none; color: white; cursor: pointer; font-size: 16px;">
+              ×
+            </button>
+          `;
+
+          editCustomSizesList.appendChild(customSizeElement);
+          console.log('Custom size element added to DOM');
+        } else {
+          console.error('editCustomSizesList element not found');
+        }
+        updateEditSelectedSizes();
+      } else {
+        console.log('Custom size not added - either empty or already exists');
+      }
+    }
+
+    window.removeEditCustomSize = function (size, element) {
+      const index = editCustomSizes.indexOf(size);
+      if (index > -1) {
+        editCustomSizes.splice(index, 1);
+        element.parentElement.remove();
+        updateEditSelectedSizes();
+      }
+    };
+
+    // Enhanced Image Upload Functionality for Edit Modal
+    let selectedEditFiles = [];
+
+    function initializeEditImageUpload() {
+      const uploadArea = document.getElementById('editUploadArea');
+      const fileInput = document.getElementById('edit-image-input');
+      const uploadContent = document.getElementById('editUploadContent');
+      const imagesPreview = document.getElementById('editImagesPreview');
+      const previewGrid = document.getElementById('editPreviewGrid');
+      const imagesCount = document.getElementById('editImagesCount');
+      const browseButton = document.getElementById('editBrowseButton');
+
+      console.log('Edit image upload elements:', {
+        uploadArea: !!uploadArea,
+        fileInput: !!fileInput,
+        uploadContent: !!uploadContent,
+        imagesPreview: !!imagesPreview,
+        previewGrid: !!previewGrid,
+        imagesCount: !!imagesCount,
+        browseButton: !!browseButton
+      });
+
+      if (!uploadArea || !fileInput) {
+        console.error('Upload area or file input not found', {
+          uploadArea: !!uploadArea,
+          fileInput: !!fileInput
+        });
+        return;
+      }
+
+      // Browse button handler
+      if (browseButton) {
+        browseButton.addEventListener('click', function (e) {
+          e.stopPropagation();
+          fileInput.click();
+        });
+      }
+
+      // Upload area click handler
+      uploadArea.addEventListener('click', function (e) {
+        if (e.target !== fileInput && e.target !== browseButton && !e.target.closest('.browse-btn') && !e.target.closest('.remove-all-btn')) {
+          fileInput.click();
+        }
+      });
+
+      // Drag and drop handlers
+      ['dragenter', 'dragover'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, highlight, false);
+      });
+
+      ['dragleave', 'drop'].forEach(eventName => {
+        uploadArea.addEventListener(eventName, unhighlight, false);
+      });
+
+      uploadArea.addEventListener('drop', handleEditDrop, false);
+
+      // File input change
+      fileInput.addEventListener('change', function (e) {
+        console.log('File input changed, files:', e.target.files.length);
+        if (e.target.files.length > 0) {
+          console.log('Processing files:', Array.from(e.target.files).map(f => f.name));
+          handleEditFilesSelect(Array.from(e.target.files));
+        }
+      });
+
+      function highlight(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.add('drag-over');
+      }
+
+      function unhighlight(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        uploadArea.classList.remove('drag-over');
+      }
+
+      function handleEditDrop(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        const dt = e.dataTransfer;
+        const files = dt.files;
+
+        if (files.length > 0) {
+          handleEditFilesSelect(Array.from(files));
+        }
+      }
+    }
+
+    function handleEditFilesSelect(files) {
+      console.log('handleEditFilesSelect called with files:', files.length);
+
+      // Validate files
+      const validFiles = [];
+      for (let file of files) {
+        if (!file.type.match('image.*')) {
+          alert(`${file.name} is not a valid image file (JPG, PNG, GIF)`);
+          continue;
+        }
+
+        if (file.size > 10 * 1024 * 1024) {
+          alert(`${file.name} is too large. File size must be less than 10MB`);
+          continue;
+        }
+
+        validFiles.push(file);
+      }
+
+      console.log('Valid files:', validFiles.length);
+      if (validFiles.length === 0) return;
+
+
+
+      // Add new files to selected files
+      selectedEditFiles.push(...validFiles);
+      console.log('Total selected files now:', selectedEditFiles.length);
+
+      // Update UI
+      updateEditImagesPreview();
+      updateEditFileInput();
+    }
+
+    function updateEditImagesPreview() {
+      const uploadContent = document.getElementById('editUploadContent');
+      const imagesPreview = document.getElementById('editImagesPreview');
+      const previewGrid = document.getElementById('editPreviewGrid');
+      const imagesCount = document.getElementById('editImagesCount');
+
+      // If no new files selected and no current images, show upload area
+      if (selectedEditFiles.length === 0 && currentImages.length === 0) {
+        imagesPreview.style.display = 'none';
+        uploadContent.style.display = 'flex';
+        return;
+      }
+
+      imagesPreview.style.display = 'block';
+      uploadContent.style.display = 'none';
+
+      // Update count with both current and new images
+      updateImageCount();
+
+      // Clear existing new file previews (keep current images)
+      const existingNewPreviews = previewGrid.querySelectorAll('.preview-item:not(.current-image):not(.upload-new-item)');
+      existingNewPreviews.forEach(item => item.remove());
+
+      // Add new file previews
+      selectedEditFiles.forEach((file, index) => {
+        const reader = new FileReader();
+        reader.onload = function (e) {
+          const previewItem = document.createElement('div');
+          previewItem.className = 'preview-item new-image';
+          // Responsive width - 2 columns on desktop, 1 column on mobile
+          const isMobile = window.innerWidth <= 768;
+          const width = isMobile ? '100%' : 'calc(50% - 10px)';
+          const margin = isMobile ? '0 0 20px 0' : '0 5px 20px 5px';
+
+          previewItem.style.cssText = `
+            display: inline-block !important;
+            width: ${width} !important;
+            margin: ${margin} !important;
+            padding: 15px !important;
+            background: #ffffff !important;
+            border: 1px solid #e0e0e0 !important;
+            border-radius: 8px !important;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+            position: static !important;
+            overflow: visible !important;
+            vertical-align: top !important;
+          `;
+
+          // Create image section
+          const imageSection = document.createElement('div');
+          imageSection.style.cssText = `
+            display: flex !important;
+            align-items: flex-start !important;
+            gap: 20px !important;
+            margin-bottom: 15px !important;
+          `;
+
+          imageSection.innerHTML = `
+            <div style="flex: 0 0 120px !important;">
+              <div style="
+                position: relative !important;
+                width: 120px !important;
+                height: 120px !important;
+                border-radius: 8px !important;
+                overflow: hidden !important;
+                box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+              ">
+                <img src="${e.target.result}" alt="New Image ${index + 1}" style="
+                  width: 100% !important;
+                  height: 100% !important;
+                  object-fit: cover !important;
+                  display: block !important;
+                ">
+                <div style="
+                  position: absolute !important;
+                  top: 0 !important;
+                  left: 0 !important;
+                  right: 0 !important;
+                  bottom: 0 !important;
+                  background: rgba(0,0,0,0.6) !important;
+                  display: flex !important;
+                  align-items: center !important;
+                  justify-content: center !important;
+                  opacity: 0 !important;
+                  transition: opacity 0.3s ease !important;
+                " onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">
+                  <button type="button" onclick="removeEditFile(${index})" style="
+                    background: #dc3545 !important;
+                    color: white !important;
+                    border: none !important;
+                    border-radius: 50% !important;
+                    width: 40px !important;
+                    height: 40px !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    cursor: pointer !important;
+                    font-size: 16px !important;
+                  ">
+                    <i class="bi bi-trash"></i>
+                  </button>
+                </div>
+              </div>
+              <div style="text-align: center !important; margin-top: 8px !important;">
+                <div style="font-size: 12px !important; font-weight: 500 !important; color: #333 !important; margin-bottom: 4px !important;">${file.name}</div>
+                <div style="font-size: 11px !important; color: #666 !important; background: #f8f9fa !important; padding: 2px 6px !important; border-radius: 10px !important; display: inline-block !important;">${formatFileSize(file.size)}</div>
+                <div style="
+                  background: #28a745 !important;
+                  color: white !important;
+                  font-size: 10px !important;
+                  padding: 2px 6px !important;
+                  border-radius: 10px !important;
+                  display: inline-block !important;
+                  margin-top: 4px !important;
+                ">
+                  <i class="bi bi-upload"></i> New
+                </div>
+              </div>
+            </div>
+          `;
+
+          // Create color input section (conditional based on color option)
+          const editColorOptionSelect = document.getElementById('editColorOptionSelect');
+          const colorOption = editColorOptionSelect ? editColorOptionSelect.value : 'has_colors';
+
+          if (colorOption === 'has_colors') {
+            const colorSection = document.createElement('div');
+            colorSection.style.cssText = `
+              background: #f8f9fa !important;
+              padding: 15px !important;
+              border-radius: 8px !important;
+              border: 1px solid #e9ecef !important;
+            `;
+
+            colorSection.innerHTML = `
+              <label style="
+                display: block !important;
+                margin-bottom: 8px !important;
+                font-weight: 600 !important;
+                color: #495057 !important;
+                font-size: 14px !important;
+              ">
+                <i class="bi bi-palette" style="margin-right: 6px !important; color: #6c757d !important;"></i>
+                Color Name:
+              </label>
+              <input type="text" id="edit_color_${index}" name="edit_image_colors[]" 
+                     placeholder="e.g., Red, Blue, Black" 
+                     class="edit-color-name-input" required
+                     style="
+                       width: 100% !important;
+                       padding: 12px 16px !important;
+                       border: 2px solid #e9ecef !important;
+                       border-radius: 8px !important;
+                       font-size: 14px !important;
+                       font-weight: 500 !important;
+                       color: #495057 !important;
+                       background: white !important;
+                       box-sizing: border-box !important;
+                     "
+                     onclick="event.stopPropagation()"
+                     onfocus="this.style.borderColor='#d4af37'; this.style.boxShadow='0 0 0 3px rgba(0,123,255,0.1)'"
+                     onblur="this.style.borderColor='#d4af37'; this.style.boxShadow='none'"
+                     oninput="this.style.borderColor = this.value.trim() ? '#d4af37' : '#d4af37'">
+              <div style="
+                margin-top: 8px !important;
+                font-size: 12px !important;
+                color: #6c757d !important;
+                font-style: italic !important;
+              ">This will be used as the product variant name</div>
+            `;
+
+            previewItem.appendChild(imageSection);
+            previewItem.appendChild(colorSection);
+          } else {
+            // No color variations - just add the image section
+            previewItem.appendChild(imageSection);
+          }
+
+          // Insert before the upload new item
+          const uploadNewItem = previewGrid.querySelector('.upload-new-item');
+          if (uploadNewItem) {
+            previewGrid.insertBefore(previewItem, uploadNewItem);
+            console.log('Inserted new file preview before upload button');
+          } else {
+            previewGrid.appendChild(previewItem);
+            console.log('Appended new file preview to grid');
+          }
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function removeEditFile(index) {
+      selectedEditFiles.splice(index, 1);
+      updateEditImagesPreview();
+      updateEditFileInput();
+    }
+
+    // Update file input with current selected files
+    function updateEditFileInput() {
+      const fileInput = document.getElementById('edit-image-input');
+      if (fileInput) {
+        const dt = new DataTransfer();
+        selectedEditFiles.forEach(file => {
+          dt.items.add(file);
+        });
+        fileInput.files = dt.files;
+      }
+    }
+
+    function removeAllEditFiles() {
+      selectedEditFiles = [];
+      const fileInput = document.getElementById('edit-image-input');
+      if (fileInput) {
+        fileInput.value = '';
+      }
+      updateEditImagesPreview();
+      updateEditFileInput();
+    }
+
+    function formatFileSize(bytes) {
+      if (bytes === 0) return '0 Bytes';
+      const k = 1024;
+      const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(k));
+      return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    // Track current images and their removal status
+    let currentImages = [];
+    let imagesToRemove = [];
+
+    function displayCurrentImages(imageNames, imageColors) {
+      console.log('Displaying current images:', imageNames, 'with colors:', imageColors);
+      console.log('Raw imageColors type:', typeof imageColors, 'value:', imageColors);
+      const uploadContent = document.getElementById('editUploadContent');
+      const imagesPreview = document.getElementById('editImagesPreview');
+      const previewGrid = document.getElementById('editPreviewGrid');
+      const imagesCount = document.getElementById('editImagesCount');
+
+      if (!imagesPreview || !previewGrid) {
+        console.error('Preview container or grid not found');
+        return;
+      }
+
+      // Initialize current images tracking
+      currentImages = [...imageNames];
+      imagesToRemove = [];
+
+      // Parse image colors
+      let colorMappings = [];
+      if (imageColors && imageColors.trim() && imageColors !== 'undefined' && imageColors !== 'null') {
+        try {
+          colorMappings = imageColors.split(',').map(mapping => {
+            const trimmedMapping = mapping.trim();
+            if (!trimmedMapping) return null;
+
+            const colonIndex = trimmedMapping.indexOf(':');
+            if (colonIndex === -1) {
+              // No colon found, treat entire string as color name for first image
+              return {
+                image: imageNames[0] || '',
+                color: trimmedMapping
+              };
+            }
+
+            return {
+              image: trimmedMapping.substring(0, colonIndex).trim(),
+              color: trimmedMapping.substring(colonIndex + 1).trim() || 'Unknown Color'
+            };
+          }).filter(mapping => mapping !== null);
+        } catch (error) {
+          console.error('Error parsing image colors:', error);
+          colorMappings = [];
+        }
+      }
+
+      console.log('Parsed color mappings:', colorMappings);
+      console.log('Image names to match:', imageNames);
+
+      // Hide upload content, show preview container
+      if (uploadContent) {
+        uploadContent.style.display = 'none';
+      }
+      imagesPreview.style.display = 'block';
+
+      // Clear existing previews
+      previewGrid.innerHTML = '';
+
+      // Update count to show current images
+      if (imagesCount) {
+        imagesCount.textContent = `${imageNames.length} current image${imageNames.length !== 1 ? 's' : ''}`;
+      }
+
+      // Create preview for each existing image
+      imageNames.forEach((imageName, index) => {
+        const previewItem = document.createElement('div');
+        previewItem.className = 'preview-item current-image';
+        previewItem.setAttribute('data-image-name', imageName);
+        // Responsive width - 2 columns on desktop, 1 column on mobile
+        const isMobile = window.innerWidth <= 768;
+        const width = isMobile ? '100%' : 'calc(50% - 10px)';
+        const margin = isMobile ? '0 0 20px 0' : '0 5px 20px 5px';
+
+        previewItem.style.cssText = `
+          display: inline-block !important;
+          width: ${width} !important;
+          margin: ${margin} !important;
+          padding: 15px !important;
+          background: #ffffff !important;
+          border: 1px solid #e0e0e0 !important;
+          border-radius: 8px !important;
+          box-shadow: 0 2px 4px rgba(0,0,0,0.1) !important;
+          position: static !important;
+          overflow: visible !important;
+          vertical-align: top !important;
+        `;
+
+        const fullImageUrl = imageName.startsWith('http://') || imageName.startsWith('https://')
+          ? imageName
+          : IMAGES_BASE_URL + imageName;
+
+        // Find color for this image
+        // Try exact match first, then try matching just the filename
+        let colorMapping = colorMappings.find(mapping => mapping.image === imageName);
+        if (!colorMapping) {
+          // Try matching without path (in case stored with path)
+          colorMapping = colorMappings.find(mapping => {
+            const storedImageName = mapping.image.split('/').pop(); // Get filename only
+            const currentImageName = imageName.split('/').pop(); // Get filename only
+            return storedImageName === currentImageName;
+          });
+        }
+        const colorName = colorMapping ? colorMapping.color : 'Unknown Color';
+
+        console.log(`Image ${imageName} matched with color:`, colorName, 'from mapping:', colorMapping);
+
+        console.log(`Creating image ${index + 1}:`, {
+          imageName: imageName,
+          baseUrl: IMAGES_BASE_URL,
+          fullUrl: fullImageUrl,
+          colorName: colorName
+        });
+
+        // Create image section
+        const imageSection = document.createElement('div');
+        imageSection.style.cssText = `
+          display: flex !important;
+          align-items: flex-start !important;
+          gap: 20px !important;
+          margin-bottom: 15px !important;
+        `;
+
+        imageSection.innerHTML = `
+          <div style="flex: 0 0 120px !important;">
+            <div style="
+              position: relative !important;
+              width: 120px !important;
+              height: 120px !important;
+              border-radius: 8px !important;
+              overflow: hidden !important;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+            ">
+              <img src="${fullImageUrl}" alt="Current Image ${index + 1}" loading="lazy" style="
+                width: 100% !important;
+                height: 100% !important;
+                object-fit: cover !important;
+                display: block !important;
+              ">
+              <div style="
+                position: absolute !important;
+                top: 0 !important;
+                left: 0 !important;
+                right: 0 !important;
+                bottom: 0 !important;
+                background: rgba(0,0,0,0.6) !important;
+                display: flex !important;
+                align-items: center !important;
+                justify-content: center !important;
+                gap: 10px !important;
+                opacity: 0 !important;
+                transition: opacity 0.3s ease !important;
+              " onmouseover="this.style.opacity='1'" onmouseout="this.style.opacity='0'">
+                <button type="button" onclick="removeCurrentImage('${imageName}', this)" style="
+                  background: #dc3545 !important;
+                  color: white !important;
+                  border: none !important;
+                  border-radius: 50% !important;
+                  width: 40px !important;
+                  height: 40px !important;
+                  display: flex !important;
+                  align-items: center !important;
+                  justify-content: center !important;
+                  cursor: pointer !important;
+                  font-size: 16px !important;
+                  transition: all 0.3s ease !important;
+                " title="Remove Image" 
+                onmouseover="this.style.background='#c82333'; this.style.transform='scale(1.1)'" 
+                onmouseout="this.style.background='#dc3545'; this.style.transform='scale(1)'">
+                  <i class="bi bi-trash"></i>
+                </button>
+              </div>
+            </div>
+            <div style="text-align: center !important; margin-top: 8px !important;">
+              <div style="font-size: 12px !important; font-weight: 500 !important; color: #333 !important; margin-bottom: 4px !important;">${imageName}</div>
+              <div style="font-size: 11px !important; color: #666 !important; background: #f8f9fa !important; padding: 2px 6px !important; border-radius: 10px !important; display: inline-block !important;">Current Image</div>
+              <div style="
+                background: #6c757d !important;
+                color: white !important;
+                font-size: 10px !important;
+                padding: 2px 6px !important;
+                border-radius: 10px !important;
+                display: inline-block !important;
+                margin-top: 4px !important;
+              ">
+                <i class="bi bi-image"></i> Current
+              </div>
+            </div>
+          </div>
+        `;
+
+        // Create color edit section (conditional based on color option)
+        const editColorOptionSelect = document.getElementById('editColorOptionSelect');
+        const colorOption = editColorOptionSelect ? editColorOptionSelect.value : 'has_colors';
+
+        if (colorOption === 'has_colors') {
+          const colorSection = document.createElement('div');
+          colorSection.style.cssText = `
+            background: #f8f9fa !important;
+            padding: 15px !important;
+            border-radius: 8px !important;
+            border: 1px solid #e9ecef !important;
+          `;
+
+          colorSection.innerHTML = `
+            <label style="
+              display: block !important;
+              margin-bottom: 8px !important;
+              font-weight: 600 !important;
+              color: #495057 !important;
+              font-size: 14px !important;
+            ">
+              <i class="bi bi-palette" style="margin-right: 6px !important; color: #6c757d !important;"></i>
+              Color Name:
+            </label>
+            <input type="text" id="current_color_${index}" name="current_image_colors[]" 
+                   value="${colorName}" 
+                   data-image-name="${imageName}"
+                   placeholder="e.g., Red, Blue, Black" 
+                   class="current-color-name-input" required
+                   style="
+                     width: 100% !important;
+                     padding: 12px 16px !important;
+                     border: 2px solid #dee2e6 !important;
+                     border-radius: 8px !important;
+                     font-size: 14px !important;
+                     font-weight: 500 !important;
+                     color: #495057 !important;
+                     background: white !important;
+                     box-sizing: border-box !important;
+                   "
+                   onclick="event.stopPropagation()"
+                   onfocus="this.style.borderColor='#d4af37'; this.style.boxShadow='0 0 0 3px rgba(240, 232, 232, 0.06)'"
+                   onblur="this.style.borderColor='#dee2e6'; this.style.boxShadow='none'"
+                   oninput="this.style.borderColor = this.value.trim() ? '#d4af37' : '#dee2e6'">
+            <div style="
+              margin-top: 8px !important;
+              font-size: 12px !important;
+              color: #6c757d !important;
+              font-style: italic !important;
+            ">You can edit this color name to update the product variant</div>
+          `;
+
+          previewItem.appendChild(imageSection);
+          previewItem.appendChild(colorSection);
+        } else {
+          // No color variations - just add the image section
+          previewItem.appendChild(imageSection);
+        }
+
+        // Add error handling for the image
+        const img = previewItem.querySelector('img');
+        img.onerror = function () {
+          console.error('Failed to load image:', {
+            imageName: imageName,
+            fullUrl: fullImageUrl,
+            error: 'Image not found or failed to load'
+          });
+          this.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAwIiBoZWlnaHQ9IjIwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iMTAwJSIgaGVpZ2h0PSIxMDAlIiBmaWxsPSIjZGRkIi8+PHRleHQgeD0iNTAlIiB5PSI1MCUiIGZvbnQtZmFtaWx5PSJBcmlhbCIgZm9udC1zaXplPSIxNCIgZmlsbD0iIzk5OSIgdGV4dC1hbmNob3I9Im1pZGRsZSIgZHk9Ii4zZW0iPkltYWdlIG5vdCBmb3VuZDwvdGV4dD48L3N2Zz4=';
+        };
+
+        img.onload = function () {
+          console.log('Successfully loaded image:', imageName);
+        };
+
+        previewGrid.appendChild(previewItem);
+      });
+
+      // Add upload new images section
+      const uploadNewItem = document.createElement('div');
+      uploadNewItem.className = 'preview-item upload-new-item';
+      // Responsive width for Add New button
+      const isMobile = window.innerWidth <= 768;
+      const width = isMobile ? '100%' : 'calc(50% - 10px)';
+      const margin = isMobile ? '0 0 20px 0' : '0 5px 20px 5px';
+
+      uploadNewItem.style.cssText = `
+        display: inline-block !important;
+        width: ${width} !important;
+        margin: ${margin} !important;
+        padding: 15px !important;
+        background: #f8f9fa !important;
+        border: 2px dashed #dee2e6 !important;
+        border-radius: 8px !important;
+        cursor: pointer !important;
+        text-align: center !important;
+        transition: all 0.3s ease !important;
+        vertical-align: top !important;
+      `;
+
+      uploadNewItem.innerHTML = `
+        <div class="upload-new-content" style="
+          padding: 20px !important;
+          color: #f8f9fa !important;
+        ">
+          <i class="bi bi-plus-circle" style="
+            font-size: 48px !important;
+            margin-bottom: 15px !important;
+            display: block !important;
+            color: #34495e !important;
+          "></i>
+          <h5 style="
+            margin: 0 0 10px 0 !important;
+            font-weight: 600 !important;
+            color: #34495e !important;
+          ">Add New Images</h5>
+          <p style="
+            margin: 0 !important;
+            font-size: 14px !important;
+            color: #34495e !important;
+          ">Click to upload more images</p>
+        </div>
+      `;
+
+      // Add click handler
+      uploadNewItem.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        console.log('Add New button clicked');
+        const fileInput = document.getElementById('edit-image-input');
+        if (fileInput) {
+          console.log('File input found, triggering click');
+          fileInput.click();
+        } else {
+          console.error('File input not found');
+        }
+      });
+
+      // Add hover effects
+      uploadNewItem.addEventListener('mouseenter', function () {
+        this.style.borderColor = '#d4af37';
+        this.style.backgroundColor = '#f8f9fa';
+      });
+
+      uploadNewItem.addEventListener('mouseleave', function () {
+        this.style.borderColor = '#f8f9fa';
+        this.style.backgroundColor = '#f8f9fa';
+      });
+
+      previewGrid.appendChild(uploadNewItem);
+    }
+
+    function removeCurrentImage(imageName, buttonElement) {
+      if (confirm('Are you sure you want to remove this image?')) {
+        // Add to removal list
+        if (!imagesToRemove.includes(imageName)) {
+          imagesToRemove.push(imageName);
+        }
+
+        // Remove from current images array
+        const imageIndex = currentImages.indexOf(imageName);
+        if (imageIndex > -1) {
+          currentImages.splice(imageIndex, 1);
+        }
+
+        // Find and completely remove the preview item
+        const previewItem = buttonElement.closest('.preview-item');
+        if (previewItem) {
+          // Add fade out animation
+          previewItem.style.transition = 'all 0.3s ease';
+          previewItem.style.opacity = '0';
+          previewItem.style.transform = 'scale(0.9)';
+
+          // Remove the element after animation
+          setTimeout(() => {
+            previewItem.remove();
+            updateImageCount();
+
+            // Check if no images left, show upload area
+            const remainingCurrentImages = document.querySelectorAll('.preview-item.current-image').length;
+            const newImages = selectedEditFiles.length;
+
+            if (remainingCurrentImages === 0 && newImages === 0) {
+              const uploadContent = document.getElementById('editUploadContent');
+              const imagesPreview = document.getElementById('editImagesPreview');
+
+              if (uploadContent && imagesPreview) {
+                uploadContent.style.display = 'flex';
+                imagesPreview.style.display = 'none';
+              }
+            }
+          }, 300);
+        }
+
+        console.log('Image removed from preview and marked for deletion:', imageName);
+        console.log('Current images after removal:', currentImages);
+        console.log('Images to remove:', imagesToRemove);
+      }
+    }
+
+    // Remove the restore function since we're completely removing images now
+    // Images will be permanently removed from preview when deleted
+
+
+
+    function updateImageCount() {
+      const imagesCount = document.getElementById('editImagesCount');
+      if (imagesCount) {
+        // Count actual visible current images in the preview
+        const visibleCurrentImages = document.querySelectorAll('.preview-item.current-image').length;
+        const newImages = selectedEditFiles.length;
+        const totalImages = visibleCurrentImages + newImages;
+
+        let countText = `${totalImages} image${totalImages !== 1 ? 's' : ''}`;
+
+        if (visibleCurrentImages > 0 || newImages > 0) {
+          const parts = [];
+          if (visibleCurrentImages > 0) parts.push(`${visibleCurrentImages} current`);
+          if (newImages > 0) parts.push(`${newImages} new`);
+
+          countText += ` (${parts.join(', ')})`;
+        }
+
+        imagesCount.textContent = countText;
+      }
+    }
+
+    function confirmDelete(productId) {
+      if (confirm("Are you sure you want to delete this product? This action cannot be undone.")) {
+        // Create a temporary form for deletion
+        const deleteForm = document.createElement('form');
+        deleteForm.method = 'POST';
+        deleteForm.action = '/delete_product/' + productId;
+        document.body.appendChild(deleteForm);
+        deleteForm.submit();
+      }
+    }
+
+
+
+    // Test function to verify modal functionality
+    function testModal() {
+      console.log('Testing modal...');
+      const modal = document.getElementById('editModal');
+      console.log('Modal element found:', modal);
+      if (modal) {
+        modal.style.display = 'block';
+        console.log('Modal should now be visible');
+      }
+    }
+
+    // Test function for file input
+    function testFileInput() {
+      console.log('Testing file input...');
+      const fileInput = document.getElementById('edit-image-input');
+      console.log('File input:', fileInput);
+      if (fileInput) {
+        console.log('File input attributes:', {
+          type: fileInput.type,
+          accept: fileInput.accept,
+          multiple: fileInput.multiple,
+          name: fileInput.name,
+          id: fileInput.id
+        });
+        fileInput.click();
+      }
+    }
+
+    // Test function for add new button
+    function testAddNewButton() {
+      console.log('Testing add new button...');
+      const addNewButton = document.querySelector('.upload-new-item');
+      console.log('Add new button:', addNewButton);
+      if (addNewButton) {
+        addNewButton.click();
+      }
+    }
+
+    // Close modal when clicking outside of it
+    window.onclick = function (event) {
+      const modal = document.getElementById('editModal');
+      if (event.target == modal) {
+        closeEditModal();
+      }
+    }
+
+    // Auto-hide flash messages after 3 seconds
+    document.addEventListener('DOMContentLoaded', function () {
+      setTimeout(function () {
+        const flashMessages = document.querySelectorAll('.alert');
+        flashMessages.forEach(function (message) {
+          message.style.display = 'none';
+        });
+      }, 3500);
+    });
+
+    // Handle manual close button
+    document.querySelectorAll('.close-btn').forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        this.parentElement.style.display = 'none';
+      });
+    });
+
+    // Image slider functionality for multiple product images
+    function showImage(indicatorElement, imageIndex) {
+      const container = indicatorElement.closest('.product-image-container');
+      const slider = container.querySelector('.product-image-slider');
+      const images = container.querySelectorAll('.product-image');
+      const indicators = container.querySelectorAll('.indicator');
+      const counter = container.querySelector('.image-counter');
+
+      // Validate imageIndex
+      if (imageIndex < 0 || imageIndex >= images.length) {
+        console.warn('Invalid image index:', imageIndex);
+        return;
+      }
+
+      // Hide all images and remove active class
+      images.forEach(img => img.classList.remove('active'));
+      indicators.forEach(ind => ind.classList.remove('active'));
+
+      // Show selected image and activate indicator
+      if (images[imageIndex]) {
+        images[imageIndex].classList.add('active');
+      }
+      if (indicatorElement) {
+        indicatorElement.classList.add('active');
+      }
+
+      // Update counter
+      if (counter) {
+        const currentSpan = counter.querySelector('.current-image');
+        if (currentSpan) {
+          currentSpan.textContent = imageIndex + 1;
+        }
+      }
+    }
+
+    // Form validation function
+    function validateEditFormData() {
+      console.log('🔍 Validating edit form...');
+
+      const editForm = document.getElementById('editProductForm');
+      if (!editForm) {
+        console.error('❌ Edit form not found');
+        return { valid: false, errors: ['Form not found'] };
+      }
+
+      // Ensure editCustomSizes is available
+      if (typeof editCustomSizes === 'undefined') {
+        console.warn('⚠️ editCustomSizes not defined, initializing as empty array');
+        window.editCustomSizes = [];
+      }
+
+      const errors = [];
+
+      // Check basic form fields
+      const name = document.getElementById('editName')?.value?.trim();
+      const category = document.getElementById('editCategory')?.value?.trim();
+      const description = document.getElementById('editDescription')?.value?.trim();
+      const price = document.getElementById('editPrice')?.value?.trim();
+
+      // Check color option selection
+      const editColorOptionSelect = document.getElementById('editColorOptionSelect');
+      const colorOption = editColorOptionSelect ? editColorOptionSelect.value : '';
+
+      // Check sizes selection (both checkboxes and custom sizes)
+      const sizeCheckboxes = document.querySelectorAll('input[name="edit_sizes"]');
+      const selectedSizes = Array.from(sizeCheckboxes).filter(cb => cb.checked);
+      const customSizesArray = (typeof editCustomSizes !== 'undefined') ? editCustomSizes : (window.editCustomSizes || []);
+      const totalSizes = selectedSizes.length + customSizesArray.length;
+
+      console.log('📋 Form validation data:', {
+        name: name,
+        category: category,
+        description: description,
+        price: price,
+        colorOption: colorOption,
+        selectedSizesCount: selectedSizes.length,
+        customSizesCount: customSizesArray.length,
+        totalSizes: totalSizes
+      });
+
+      // Validate required fields
+      if (!name) {
+        errors.push('Product name is required');
+      }
+
+      if (!category) {
+        errors.push('Category is required');
+      }
+
+      if (!description) {
+        errors.push('Product description is required');
+      }
+
+      if (!price || isNaN(parseFloat(price)) || parseFloat(price) <= 0) {
+        errors.push('Valid price is required');
+      }
+
+      if (!colorOption) {
+        errors.push('Color option must be selected');
+      }
+
+      if (totalSizes === 0) {
+        errors.push('At least one size must be selected');
+      }
+
+      if (errors.length > 0) {
+        console.error('❌ Form validation failed:', errors);
+        return { valid: false, errors: errors };
+      }
+
+      console.log('✅ Form validation passed');
+      return { valid: true, errors: [] };
+    }
+
+    // Handle form submission to include images to remove and new image colors
+    function initializeEditFormHandler() {
+      const editForm = document.getElementById('editProductForm');
+      if (editForm) {
+        editForm.addEventListener('submit', function (e) {
+          console.log('🚀 FORM SUBMISSION STARTED - Preserving sizes immediately...');
+
+          // CRITICAL: Backup current sizes state immediately before any processing
+          const currentSizeCheckboxes = document.querySelectorAll('input[name="edit_sizes"]');
+          const currentSelectedSizes = Array.from(currentSizeCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+          const currentCustomSizes = [...editCustomSizes]; // Create a copy
+          const backupAllSizes = [...currentSelectedSizes, ...currentCustomSizes];
+
+          console.log('💾 BACKUP SIZES:', backupAllSizes);
+
+          // Store backup in form data attribute for emergency recovery
+          editForm.setAttribute('data-backup-sizes', backupAllSizes.join(', '));
+
+          // Get color option
+          const editColorOptionSelect = document.getElementById('editColorOptionSelect');
+          const colorOption = editColorOptionSelect ? editColorOptionSelect.value : '';
+
+          console.log('Edit form submission - Color option:', colorOption);
+
+          // Validate color option is selected
+          if (!colorOption) {
+            e.preventDefault();
+            alert('Please select a color option for your product');
+            return;
+          }
+
+          // Run comprehensive form validation
+          console.log('🔍 Starting form validation...');
+          console.log('🔍 Current editCustomSizes:', editCustomSizes);
+          console.log('🔍 Current colorOption:', colorOption);
+          
+          try {
+            const validationResult = validateEditFormData();
+            console.log('🔍 Validation result:', validationResult);
+            if (!validationResult.valid) {
+              e.preventDefault();
+              alert('Form validation failed:\n' + validationResult.errors.join('\n'));
+              console.error('❌ Form validation failed, preventing submission');
+              return;
+            }
+          } catch (validationError) {
+            console.error('❌ Validation function error:', validationError);
+            // Fallback validation - check basic required fields
+            const name = document.getElementById('editName')?.value?.trim();
+            const category = document.getElementById('editCategory')?.value?.trim();
+            const sizeCheckboxes = document.querySelectorAll('input[name="edit_sizes"]');
+            const selectedSizes = Array.from(sizeCheckboxes).filter(cb => cb.checked);
+            const customSizesArray = (typeof editCustomSizes !== 'undefined') ? editCustomSizes : (window.editCustomSizes || []);
+            const totalSizes = selectedSizes.length + customSizesArray.length;
+
+            if (!name) {
+              e.preventDefault();
+              alert('Product name is required');
+              return;
+            }
+
+            if (!category) {
+              e.preventDefault();
+              alert('Category is required');
+              return;
+            }
+
+            if (!colorOption) {
+              e.preventDefault();
+              alert('Color option is required');
+              return;
+            }
+
+            if (totalSizes === 0) {
+              e.preventDefault();
+              alert('At least one size must be selected');
+              return;
+            }
+
+            console.log('✅ Fallback validation passed');
+          }
+
+          // Validate color names only if color variations are enabled
+          if (colorOption === 'has_colors') {
+            const newColorInputs = document.querySelectorAll('.edit-color-name-input');
+            const currentColorInputs = document.querySelectorAll('.current-color-name-input');
+
+            console.log('Form submission - New color inputs found:', newColorInputs.length);
+            console.log('Form submission - Current color inputs found:', currentColorInputs.length);
+
+            let hasEmptyColors = false;
+
+            // Check new image colors
+            newColorInputs.forEach(input => {
+              if (!input.value.trim()) {
+                hasEmptyColors = true;
+              }
+            });
+
+            // Check current image colors
+            currentColorInputs.forEach(input => {
+              if (!input.value.trim()) {
+                hasEmptyColors = true;
+              }
+            });
+
+            if (hasEmptyColors) {
+              e.preventDefault();
+              alert('Please enter a color name for all images');
+              return;
+            }
+          }
+
+          // CRITICAL: Always preserve sizes - collect them before any validation
+          const sizeCheckboxes = document.querySelectorAll('input[name="edit_sizes"]');
+          const selectedSizes = Array.from(sizeCheckboxes).filter(checkbox => checkbox.checked);
+          const selectedSizeValues = selectedSizes.map(checkbox => checkbox.value);
+          let allSelectedSizes = [...selectedSizeValues, ...editCustomSizes];
+
+          console.log('🔒 PRESERVING SIZES - Selected size checkboxes:', selectedSizes.length);
+          console.log('🔒 PRESERVING SIZES - Selected size values:', selectedSizeValues);
+          console.log('🔒 PRESERVING SIZES - Custom sizes:', editCustomSizes);
+          console.log('🔒 PRESERVING SIZES - All selected sizes:', allSelectedSizes);
+
+          // CRITICAL: Double-check that we have sizes - this is essential for the database
+          if (allSelectedSizes.length === 0) {
+            console.log('🚨 CRITICAL: No sizes collected! Attempting recovery...');
+
+            // Try to get sizes from the display
+            const selectedSizesDisplay = document.getElementById('editSelectedSizes');
+            if (selectedSizesDisplay && selectedSizesDisplay.textContent !== 'None') {
+              const displaySizes = selectedSizesDisplay.textContent.split(',').map(s => s.trim()).filter(s => s);
+              if (displaySizes.length > 0) {
+                allSelectedSizes = displaySizes;
+                console.log('🔄 RECOVERY: Got sizes from display:', allSelectedSizes);
+              }
+            }
+
+            // If still no sizes, use original product sizes
+            if (allSelectedSizes.length === 0 && currentProductSizes) {
+              allSelectedSizes = currentProductSizes.split(',').map(s => s.trim()).filter(s => s);
+              console.log('🔄 RECOVERY: Using original product sizes:', allSelectedSizes);
+            }
+
+            // Final fallback
+            if (allSelectedSizes.length === 0) {
+              allSelectedSizes = ['One Size'];
+              console.log('🔄 RECOVERY: Using final fallback "One Size"');
+            }
+          }
+
+          // Validate that at least one size is selected (including custom sizes)
+          const totalSizes = allSelectedSizes.length;
+
+          if (totalSizes === 0) {
+            e.preventDefault();
+            alert('Please select at least one size for the product');
+            return;
+          }
+
+          // Add hidden input for images to remove
+          if (imagesToRemove.length > 0) {
+            // Remove any existing hidden input for images to remove
+            const existingInput = editForm.querySelector('input[name="images_to_remove"]');
+            if (existingInput) {
+              existingInput.remove();
+            }
+
+            // Create new hidden input
+            const hiddenInput = document.createElement('input');
+            hiddenInput.type = 'hidden';
+            hiddenInput.name = 'images_to_remove';
+            hiddenInput.value = imagesToRemove.join(',');
+            editForm.appendChild(hiddenInput);
+
+            console.log('Images to remove:', imagesToRemove);
+          }
+
+
+
+          // Collect all color names (current and new) and update variations
+          const newColorNames = Array.from(newColorInputs).map(input => input.value.trim());
+
+          // Only collect color names from current images that are still visible (not removed)
+          const currentColorNames = Array.from(currentColorInputs)
+            .filter(input => {
+              // Check if the input's parent preview item is still in the DOM and visible
+              const previewItem = input.closest('.preview-item.current-image');
+              return previewItem && previewItem.style.display !== 'none';
+            })
+            .map(input => input.value.trim())
+            .filter(color => color);
+
+          // Combine all color names
+          let allVariations = [...currentColorNames, ...newColorNames].filter(color => color);
+
+          // Remove duplicates
+          allVariations = [...new Set(allVariations)];
+
+          // Create hidden inputs for current image color updates
+          // Remove any existing hidden inputs for current image colors
+          const existingCurrentColorInputs = editForm.querySelectorAll('input[name="current_image_color_updates"]');
+          existingCurrentColorInputs.forEach(input => input.remove());
+
+          // Only process current color inputs that are still visible (not removed)
+          const visibleCurrentColorInputs = Array.from(currentColorInputs).filter(input => {
+            const previewItem = input.closest('.preview-item.current-image');
+            return previewItem && previewItem.style.display !== 'none';
+          });
+
+          if (visibleCurrentColorInputs.length > 0) {
+            const currentColorUpdates = [];
+            visibleCurrentColorInputs.forEach(input => {
+              const imageName = input.getAttribute('data-image-name');
+              const colorName = input.value.trim();
+              if (imageName && colorName) {
+                currentColorUpdates.push(`${imageName}:${colorName}`);
+              }
+            });
+
+            if (currentColorUpdates.length > 0) {
+              const hiddenCurrentColorsInput = document.createElement('input');
+              hiddenCurrentColorsInput.type = 'hidden';
+              hiddenCurrentColorsInput.name = 'current_image_color_updates';
+              hiddenCurrentColorsInput.value = currentColorUpdates.join(',');
+              editForm.appendChild(hiddenCurrentColorsInput);
+
+              console.log('Current image color updates:', currentColorUpdates);
+            }
+          }
+
+          // Create hidden input for all variations
+          const existingVariationsInput = editForm.querySelector('input[name="updated_variations"]');
+          if (existingVariationsInput) {
+            existingVariationsInput.remove();
+          }
+
+          const hiddenVariationsInput = document.createElement('input');
+          hiddenVariationsInput.type = 'hidden';
+          hiddenVariationsInput.name = 'updated_variations';
+          hiddenVariationsInput.value = allVariations.join(', ');
+          editForm.appendChild(hiddenVariationsInput);
+
+          console.log('All updated variations:', allVariations);
+
+          // CRITICAL: Create hidden input for sizes - ALWAYS preserve them
+          // Remove any existing sizes input to avoid duplicates
+          const existingSizesInputs = editForm.querySelectorAll('input[name="updated_sizes"]');
+          console.log('🔍 Found existing sizes inputs to remove:', existingSizesInputs.length);
+          existingSizesInputs.forEach((input, index) => {
+            console.log(`  Removing existing input ${index}: value="${input.value}"`);
+            input.remove();
+          });
+
+          // Ensure we have sizes to submit - never allow empty sizes
+          if (allSelectedSizes.length === 0) {
+            console.log('⚠️ WARNING: No sizes selected, using fallback');
+            // Try to get original product sizes as fallback
+            if (currentProductSizes && currentProductSizes.trim()) {
+              allSelectedSizes = currentProductSizes.split(',').map(s => s.trim()).filter(s => s);
+              console.log('🔄 Using original product sizes as fallback:', allSelectedSizes);
+            } else {
+              allSelectedSizes = ['One Size'];
+              console.log('🔄 Using default "One Size" as final fallback');
+            }
+          }
+
+          // Create new hidden input with all selected sizes
+          const hiddenSizesInput = document.createElement('input');
+          hiddenSizesInput.type = 'hidden';
+          hiddenSizesInput.name = 'updated_sizes';
+          hiddenSizesInput.value = allSelectedSizes.join(', ');
+          hiddenSizesInput.setAttribute('data-critical', 'sizes-preservation');
+          editForm.appendChild(hiddenSizesInput);
+
+          console.log('✅ SIZES PRESERVED - Updated sizes for submission:', allSelectedSizes);
+          console.log('✅ SIZES PRESERVED - Hidden input created with value:', hiddenSizesInput.value);
+
+          // Verify the hidden input is actually in the form
+          const formSizesInput = editForm.querySelector('input[name="updated_sizes"]');
+          if (formSizesInput) {
+            console.log('✅ VERIFICATION - Hidden input found in form:', formSizesInput.value);
+          } else {
+            console.error('❌ ERROR - Hidden input not found in form!');
+          }
+
+          // Log all form inputs for debugging
+          const formData = new FormData(editForm);
+          console.log('📋 ALL FORM DATA:');
+          for (let [key, value] of formData.entries()) {
+            if (key.toLowerCase().includes('size')) {
+              console.log(`  🔍 ${key}: "${value}"`);
+            }
+          }
+
+          // Add color option to form
+          const existingColorOptionInput = editForm.querySelector('input[name="edit_color_option_type"]');
+          if (existingColorOptionInput) {
+            existingColorOptionInput.remove();
+          }
+
+          const colorOptionInput = document.createElement('input');
+          colorOptionInput.type = 'hidden';
+          colorOptionInput.name = 'edit_color_option_type';
+          colorOptionInput.value = colorOption;
+          editForm.appendChild(colorOptionInput);
+
+          // Handle image colors for no_colors option
+          if (colorOption === 'no_colors') {
+            // Remove any existing edit_image_colors inputs
+            const existingEditColorInputs = editForm.querySelectorAll('input[name="edit_image_colors[]"]');
+            existingEditColorInputs.forEach(input => {
+              if (input.type === 'hidden') {
+                input.remove();
+              }
+            });
+
+            // Create hidden inputs for new images with "Standard" as color
+            selectedEditFiles.forEach((file, index) => {
+              const hiddenColorInput = document.createElement('input');
+              hiddenColorInput.type = 'hidden';
+              hiddenColorInput.name = 'edit_image_colors[]';
+              hiddenColorInput.value = 'Standard';
+              editForm.appendChild(hiddenColorInput);
+            });
+
+            // Update current image color updates to use "Standard"
+            const visibleCurrentImages = document.querySelectorAll('.preview-item.current-image');
+            if (visibleCurrentImages.length > 0) {
+              const currentColorUpdates = [];
+              visibleCurrentImages.forEach(item => {
+                const imageName = item.getAttribute('data-image-name');
+                if (imageName) {
+                  currentColorUpdates.push(`${imageName}:Standard`);
+                }
+              });
+
+              if (currentColorUpdates.length > 0) {
+                // Remove existing current color updates input
+                const existingCurrentColorInput = editForm.querySelector('input[name="current_image_color_updates"]');
+                if (existingCurrentColorInput) {
+                  existingCurrentColorInput.remove();
+                }
+
+                const hiddenCurrentColorsInput = document.createElement('input');
+                hiddenCurrentColorsInput.type = 'hidden';
+                hiddenCurrentColorsInput.name = 'current_image_color_updates';
+                hiddenCurrentColorsInput.value = currentColorUpdates.join(',');
+                editForm.appendChild(hiddenCurrentColorsInput);
+              }
+            }
+
+            // Update variations to "Standard"
+            const existingVariationsInput = editForm.querySelector('input[name="updated_variations"]');
+            if (existingVariationsInput) {
+              existingVariationsInput.value = 'Standard';
+            }
+
+            console.log('No colors option - set all colors to Standard');
+          }
+
+          // CRITICAL SAFETY CHECK: Ensure updated_variations and updated_sizes always exist
+          let finalVariationsInput = editForm.querySelector('input[name="updated_variations"]');
+          if (!finalVariationsInput) {
+            console.log('� CRITICRAL: updated_variations input missing, creating it...');
+            finalVariationsInput = document.createElement('input');
+            finalVariationsInput.type = 'hidden';
+            finalVariationsInput.name = 'updated_variations';
+            finalVariationsInput.value = allVariations.join(', ') || 'Standard';
+            editForm.appendChild(finalVariationsInput);
+          }
+
+          let finalSizesInput = editForm.querySelector('input[name="updated_sizes"]');
+          if (!finalSizesInput) {
+            console.log('🚨 CRITICAL: updated_sizes input missing, creating it...');
+            finalSizesInput = document.createElement('input');
+            finalSizesInput.type = 'hidden';
+            finalSizesInput.name = 'updated_sizes';
+            finalSizesInput.value = allSelectedSizes.join(', ') || 'One Size';
+            editForm.appendChild(finalSizesInput);
+          }
+
+          // Additional safety checks for empty values
+          if (finalVariationsInput && (!finalVariationsInput.value || finalVariationsInput.value.trim() === '')) {
+            finalVariationsInput.value = 'Standard';
+            console.log('🔒 Set default variations: Standard');
+          }
+
+          if (finalSizesInput && (!finalSizesInput.value || finalSizesInput.value.trim() === '')) {
+            finalSizesInput.value = currentProductSizes || 'One Size';
+            console.log('🔒 Set fallback sizes:', finalSizesInput.value);
+          }
+
+          // Final verification before form submission
+          const finalFormData = new FormData(editForm);
+          const finalSizesValue = finalFormData.get('updated_sizes');
+          const finalVariationsValue = finalFormData.get('updated_variations');
+          console.log('🚀 FINAL FORM SUBMISSION CHECK:');
+          console.log('  - Form action:', editForm.action);
+          console.log('  - Form method:', editForm.method);
+          console.log('  - updated_sizes value:', finalSizesValue);
+          console.log('  - updated_variations value:', finalVariationsValue);
+          console.log('  - All critical form data:');
+          for (let [key, value] of finalFormData.entries()) {
+            if (key.toLowerCase().includes('size') || key.toLowerCase().includes('variation')) {
+              console.log(`    ${key}: "${value}"`);
+            }
+          }
+
+          // CRITICAL FINAL CHECK: Ensure sizes are never empty
+          if (!finalSizesValue || finalSizesValue.trim() === '') {
+            console.log('🚨 CRITICAL ERROR: Final sizes value is empty! Preventing submission...');
+            e.preventDefault();
+            alert('Error: Product sizes are required. Please select at least one size and try again.');
+
+            // Try to restore sizes from backup
+            if (currentProductSizes) {
+              console.log('🔄 Attempting to restore original sizes:', currentProductSizes);
+              populateEditSizes(currentProductSizes);
+            }
+            return false;
+          }
+
+          // COMPREHENSIVE FORM DATA LOGGING - Log everything being sent to server
+          console.log('🚀 COMPREHENSIVE FORM DATA BEING SENT TO SERVER:');
+          console.log('==========================================');
+          const completeFormData = new FormData(editForm);
+          let sizesFound = false;
+          let variationsFound = false;
+          
+          for (let [key, value] of completeFormData.entries()) {
+            console.log(`📤 ${key}: "${value}"`);
+            if (key === 'updated_sizes') {
+              sizesFound = true;
+              console.log(`  ✅ SIZES DATA CONFIRMED: "${value}"`);
+            }
+            if (key === 'updated_variations') {
+              variationsFound = true;
+              console.log(`  ✅ VARIATIONS DATA CONFIRMED: "${value}"`);
+            }
+          }
+          
+          if (!sizesFound) {
+            console.error('❌ CRITICAL: updated_sizes not found in form data!');
+          }
+          if (!variationsFound) {
+            console.error('❌ CRITICAL: updated_variations not found in form data!');
+          }
+          
+          console.log('==========================================');
+          console.log('✅ Edit form submission completed with color option:', colorOption);
+          console.log('✅ Final sizes check - Hidden input value:', hiddenSizesInput.value);
+          console.log('✅ FINAL VERIFICATION PASSED - Form will be submitted');
+        });
+
+        // Add error handler to restore sizes if form submission fails
+        editForm.addEventListener('error', function (e) {
+          console.error('❌ Form submission error detected, restoring sizes...');
+          restoreBackupSizes();
+        });
+
+        // Add a global error handler for the form
+        window.addEventListener('error', function (e) {
+          if (e.target === editForm || editForm.contains(e.target)) {
+            console.error('❌ Global error in edit form, restoring sizes...');
+            restoreBackupSizes();
+          }
+        });
+      }
+    }
+
+    // Function to restore sizes from backup
+    function restoreBackupSizes() {
+      const editForm = document.getElementById('editProductForm');
+      if (editForm) {
+        const backupSizes = editForm.getAttribute('data-backup-sizes');
+        if (backupSizes) {
+          console.log('🔄 Restoring backup sizes:', backupSizes);
+          populateEditSizes(backupSizes);
+        }
+      }
+    }
+
+    // Function to restore original product sizes
+    function restoreOriginalSizes() {
+      if (currentProductSizes) {
+        console.log('🔄 Restoring original product sizes:', currentProductSizes);
+        populateEditSizes(currentProductSizes);
+      }
+    }
+
+    // Function to get current selected sizes (for preservation)
+    function getCurrentSelectedSizes() {
+      const sizeCheckboxes = document.querySelectorAll('input[name="edit_sizes"]');
+      const selectedSizes = Array.from(sizeCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+      const allSizes = [...selectedSizes, ...editCustomSizes];
+      return allSizes.join(', ');
+    }
+
+    function nextImage(buttonElement) {
+      const container = buttonElement.closest('.product-image-container');
+      const images = container.querySelectorAll('.product-image');
+      const indicators = container.querySelectorAll('.indicator');
+
+      if (images.length === 0) return;
+
+      const currentIndex = Array.from(images).findIndex(img => img.classList.contains('active'));
+      const nextIndex = (currentIndex + 1) % images.length;
+
+      if (indicators[nextIndex]) {
+        showImage(indicators[nextIndex], nextIndex);
+      }
+    }
+
+    function previousImage(buttonElement) {
+      const container = buttonElement.closest('.product-image-container');
+      const images = container.querySelectorAll('.product-image');
+      const indicators = container.querySelectorAll('.indicator');
+
+      if (images.length === 0) return;
+
+      const currentIndex = Array.from(images).findIndex(img => img.classList.contains('active'));
+      const prevIndex = currentIndex === 0 ? images.length - 1 : currentIndex - 1;
+
+      if (indicators[prevIndex]) {
+        showImage(indicators[prevIndex], prevIndex);
+      }
+    }
+
+    // Initialize sliders and auto-slide functionality
+    document.addEventListener('DOMContentLoaded', function () {
+      // Initialize edit form handler
+      initializeEditFormHandler();
+
+      // Initialize size selection functionality
+      const sizeCheckboxes = document.querySelectorAll('input[name="edit_sizes"]');
+      sizeCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', updateEditSelectedSizes);
+      });
+
+      // Initialize custom sizes functionality for edit modal
+      const editCustomSizeInput = document.getElementById('editCustomSizeInput');
+      const editAddCustomSizeBtn = document.getElementById('editAddCustomSizeBtn');
+
+      if (editCustomSizeInput && editAddCustomSizeBtn) {
+        function addEditCustomSizeFromInput() {
+          const customSize = editCustomSizeInput.value.trim();
+          if (customSize) {
+            addEditCustomSize(customSize);
+            editCustomSizeInput.value = '';
+          }
+        }
+
+        editAddCustomSizeBtn.addEventListener('click', addEditCustomSizeFromInput);
+
+        editCustomSizeInput.addEventListener('keypress', function (e) {
+          if (e.key === 'Enter') {
+            e.preventDefault();
+            addEditCustomSizeFromInput();
+          }
+        });
+      }
+
+      // Initialize color option functionality for edit modal
+      const editColorOptionSelect = document.getElementById('editColorOptionSelect');
+      if (editColorOptionSelect) {
+        editColorOptionSelect.addEventListener('change', function () {
+          // Refresh the image preview to show/hide color inputs based on selection
+          const currentImages = document.querySelectorAll('.preview-item.current-image');
+          const newImages = selectedEditFiles.length;
+
+          if (currentImages.length > 0 || newImages > 0) {
+            // Re-display current images with updated color option
+            const imageNames = Array.from(currentImages).map(item =>
+              item.getAttribute('data-image-name')).filter(name => name);
+
+            if (imageNames.length > 0) {
+              // Get current image colors from the form
+              const currentColorInputs = document.querySelectorAll('.current-color-name-input');
+              const imageColorsArray = Array.from(currentColorInputs).map(input => {
+                const imageName = input.getAttribute('data-image-name');
+                const colorName = input.value.trim() || 'Standard';
+                return `${imageName}:${colorName}`;
+              });
+              const imageColorsString = imageColorsArray.join(',');
+
+              displayCurrentImages(imageNames, imageColorsString);
+            }
+
+            // Update new file previews
+            if (newImages > 0) {
+              updateEditImagesPreview();
+            }
+          }
+        });
+      }
+
+      // Small delay to ensure DOM is fully loaded
+      setTimeout(() => {
+        const sliders = document.querySelectorAll('.product-image-slider');
+        console.log(`Found ${sliders.length} image sliders in products page`);
+
+        sliders.forEach((slider, sliderIndex) => {
+          const images = slider.querySelectorAll('.product-image');
+          const indicators = slider.querySelectorAll('.indicator');
+
+          console.log(`Slider ${sliderIndex + 1}: ${images.length} images, ${indicators.length} indicators`);
+
+          // Ensure first image is active
+          if (images.length > 0) {
+            images[0].classList.add('active');
+            if (indicators.length > 0) {
+              indicators[0].classList.add('active');
+            }
+          }
+
+          // Auto-slide only if multiple images
+          if (images.length > 1) {
+            console.log(`Starting auto-slide for slider ${sliderIndex + 1}`);
+
+            let autoSlideInterval = setInterval(() => {
+              const productCard = slider.closest('.product-card');
+              const isHovered = productCard && productCard.matches(':hover');
+
+              if (!isHovered) {
+                const nextBtn = slider.querySelector('.next-btn');
+                if (nextBtn) {
+                  console.log(`Auto-sliding slider ${sliderIndex + 1}`);
+                  nextImage(nextBtn);
+                }
+              }
+            }, 4000); // 4 seconds
+
+            // Pause auto-slide on hover
+            const productCard = slider.closest('.product-card');
+            if (productCard) {
+              productCard.addEventListener('mouseenter', () => {
+                console.log(`Pausing auto-slide for slider ${sliderIndex + 1}`);
+                clearInterval(autoSlideInterval);
+              });
+
+              productCard.addEventListener('mouseleave', () => {
+                console.log(`Resuming auto-slide for slider ${sliderIndex + 1}`);
+                autoSlideInterval = setInterval(() => {
+                  const nextBtn = slider.querySelector('.next-btn');
+                  if (nextBtn) {
+                    nextImage(nextBtn);
+                  }
+                }, 4000);
+              });
+            }
+          }
+        });
+      }, 500);
+
+      // Add test functions to window for debugging
+      window.testSizePopulation = function (testSizes) {
+        console.log('🧪 Testing size population with:', testSizes);
+        populateEditSizes(testSizes);
+      };
+
+      window.debugSizeCheckboxes = function () {
+        const checkboxes = document.querySelectorAll('input[name="edit_sizes"]');
+        console.log('🔍 Size checkboxes found:', checkboxes.length);
+        checkboxes.forEach((cb, index) => {
+          console.log(`  ${index}: value="${cb.value}", checked=${cb.checked}`);
+        });
+        console.log('🔍 Custom sizes:', editCustomSizes);
+      };
+
+      window.testModalOpen = function () {
+        console.log('🧪 Testing modal open...');
+        const modal = document.getElementById('editModal');
+        if (modal) {
+          modal.style.display = 'block';
+          document.body.style.overflow = 'hidden';
+          console.log('✅ Modal opened');
+
+          // Test size population after modal is open
+          setTimeout(() => {
+            console.log('🧪 Testing size population after modal open...');
+            testSizePopulation('M, L, XL, Custom Size 1');
+          }, 200);
+        } else {
+          console.error('❌ Modal not found');
+        }
+      };
+
+      console.log('🔧 Debug functions added to window: testSizePopulation(), debugSizeCheckboxes(), testModalOpen()');
+
+      // Add periodic size backup mechanism
+      let sizeBackupInterval;
+
+      // Start size backup when modal opens
+      window.addEventListener('modalOpened', function () {
+        console.log('🔄 Starting periodic size backup...');
+        sizeBackupInterval = setInterval(function () {
+          const modal = document.getElementById('editModal');
+          if (modal && modal.style.display === 'block') {
+            const currentSizes = getCurrentSelectedSizes();
+            if (currentSizes && currentSizes !== 'None') {
+              sessionStorage.setItem('editModal_sizeBackup_' + currentProductId, currentSizes);
+              console.log('💾 Periodic backup - sizes saved:', currentSizes);
+            }
+          } else {
+            // Modal is closed, stop backup
+            clearInterval(sizeBackupInterval);
+          }
+        }, 3000); // Backup every 3 seconds
+      });
+
+      // Add size change listeners to backup immediately when sizes change
+      document.addEventListener('change', function (e) {
+        if (e.target.name === 'edit_sizes' && currentProductId) {
+          const currentSizes = getCurrentSelectedSizes();
+          if (currentSizes && currentSizes !== 'None') {
+            sessionStorage.setItem('editModal_sizeBackup_' + currentProductId, currentSizes);
+            console.log('💾 Immediate backup on size change:', currentSizes);
+          }
+        }
+      });
+
+      // Add size preservation functions to window for manual use
+      window.restoreOriginalSizes = restoreOriginalSizes;
+      window.getCurrentSelectedSizes = getCurrentSelectedSizes;
+      window.restoreBackupSizes = restoreBackupSizes;
+
+      // Add validation function to window for external access
+      window.validateEditForm = validateEditFormData;
+
+      // Test the validation function on page load
+      console.log('🧪 Testing validation function availability...');
+      if (typeof validateEditFormData === 'function') {
+        console.log('✅ validateEditFormData function is available');
+      } else {
+        console.error('❌ validateEditFormData function is not available');
+      }
+
+      if (typeof window.validateEditForm === 'function') {
+        console.log('✅ window.validateEditForm is available');
+      } else {
+        console.error('❌ window.validateEditForm is not available');
+      }
+
+      // Add debug function for manual testing
+      window.debugValidation = function() {
+        console.log('🔍 DEBUG: Current validation state');
+        console.log('  - editCustomSizes:', typeof editCustomSizes !== 'undefined' ? editCustomSizes : 'undefined');
+        console.log('  - window.editCustomSizes:', window.editCustomSizes);
+        
+        const editColorOptionSelect = document.getElementById('editColorOptionSelect');
+        const colorOption = editColorOptionSelect ? editColorOptionSelect.value : '';
+        console.log('  - colorOption:', colorOption);
+        
+        const sizeCheckboxes = document.querySelectorAll('input[name="edit_sizes"]');
+        const selectedSizes = Array.from(sizeCheckboxes).filter(cb => cb.checked);
+        console.log('  - selectedSizes:', selectedSizes.map(cb => cb.value));
+        
+        const name = document.getElementById('editName')?.value?.trim();
+        const category = document.getElementById('editCategory')?.value?.trim();
+        console.log('  - name:', name);
+        console.log('  - category:', category);
+        
+        // Test validation
+        try {
+          const result = validateEditFormData();
+          console.log('  - validation result:', result);
+        } catch (error) {
+          console.error('  - validation error:', error);
+        }
+      };
+
+      // Add function to test form data submission without actually submitting
+      window.testFormDataSubmission = function() {
+        console.log('🧪 Testing form data submission...');
+        
+        const editForm = document.getElementById('editProductForm');
+        if (!editForm || !currentProductId) {
+          console.error('❌ Form or product ID not available');
+          return;
+        }
+
+        // Simulate the form submission process
+        const sizeCheckboxes = document.querySelectorAll('input[name="edit_sizes"]');
+        const selectedSizes = Array.from(sizeCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        const customSizesArray = (typeof editCustomSizes !== 'undefined') ? editCustomSizes : [];
+        const allSelectedSizes = [...selectedSizes, ...customSizesArray];
+
+        // Create test hidden inputs
+        const testSizesInput = document.createElement('input');
+        testSizesInput.type = 'hidden';
+        testSizesInput.name = 'updated_sizes';
+        testSizesInput.value = allSelectedSizes.join(', ');
+        editForm.appendChild(testSizesInput);
+
+        const testVariationsInput = document.createElement('input');
+        testVariationsInput.type = 'hidden';
+        testVariationsInput.name = 'updated_variations';
+        testVariationsInput.value = 'Test Variation 1, Test Variation 2';
+        editForm.appendChild(testVariationsInput);
+
+        // Test the form data
+        const formData = new FormData(editForm);
+        
+        console.log('📤 Test form data:');
+        for (let [key, value] of formData.entries()) {
+          console.log(`  ${key}: "${value}"`);
+        }
+
+        // Send to debug endpoint
+        fetch(`/debug_form_data/${currentProductId}`, {
+          method: 'POST',
+          body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+          console.log('🔍 Server response:', data);
+          if (data.success) {
+            console.log('✅ Form data successfully received by server');
+            console.log('  - Sizes received:', data.sizes_received);
+            console.log('  - Variations received:', data.variations_received);
+          } else {
+            console.error('❌ Server error:', data.error);
+          }
+        })
+        .catch(error => {
+          console.error('❌ Request failed:', error);
+        })
+        .finally(() => {
+          // Clean up test inputs
+          testSizesInput.remove();
+          testVariationsInput.remove();
+        });
+      };
+
+      // Add test function for debugging sizes update
+      window.testSizesUpdate = function (productId, testSizes = 'Test Size 1, Test Size 2', testVariations = 'Red, Blue, Green') {
+        console.log('🧪 Testing sizes and variations update...', { productId, testSizes, testVariations });
+
+        const formData = new FormData();
+        formData.append('test_sizes', testSizes);
+        formData.append('test_variations', testVariations);
+
+        fetch(`/test_sizes_update/${productId}`, {
+          method: 'POST',
+          body: formData
+        })
+          .then(response => response.json())
+          .then(data => {
+            console.log('🧪 Test result:', data);
+            if (data.success) {
+              console.log('✅ Update test PASSED');
+              console.log('📏 SIZES:');
+              console.log(`  Original: "${data.original_sizes}"`);
+              console.log(`  Saved: "${data.saved_sizes}"`);
+              console.log(`  Match: ${data.sizes_match}`);
+              console.log('🎨 VARIATIONS:');
+              console.log(`  Original: "${data.original_variations}"`);
+              console.log(`  Saved: "${data.saved_variations}"`);
+              console.log(`  Match: ${data.variations_match}`);
+            } else {
+              console.error('❌ Update test FAILED:', data.error);
+            }
+          })
+          .catch(error => {
+            console.error('❌ Test request failed:', error);
+          });
+      };
+
+      // Add function to manually test form data collection
+      window.testFormDataCollection = function () {
+        console.log('🧪 Testing form data collection...');
+
+        const sizeCheckboxes = document.querySelectorAll('input[name="edit_sizes"]');
+        const selectedSizes = Array.from(sizeCheckboxes).filter(cb => cb.checked).map(cb => cb.value);
+        const allSizes = [...selectedSizes, ...editCustomSizes];
+
+        console.log('📊 Form Data Collection Results:');
+        console.log('  - Size checkboxes found:', sizeCheckboxes.length);
+        console.log('  - Selected size checkboxes:', selectedSizes);
+        console.log('  - Custom sizes:', editCustomSizes);
+        console.log('  - All combined sizes:', allSizes);
+        console.log('  - Final sizes string:', allSizes.join(', '));
+
+        // Test if form would submit correctly
+        const editForm = document.getElementById('editProductForm');
+        if (editForm) {
+          const formData = new FormData(editForm);
+          console.log('  - Current form updated_sizes:', formData.get('updated_sizes'));
+
+          // Simulate the form submission logic
+          if (allSizes.length === 0) {
+            console.log('  ⚠️ WARNING: No sizes would be submitted!');
+            if (currentProductSizes) {
+              console.log('  🔄 Would use fallback sizes:', currentProductSizes);
+            }
+          } else {
+            console.log('  ✅ Sizes ready for submission');
+          }
+        }
+
+        return {
+          sizeCheckboxes: sizeCheckboxes.length,
+          selectedSizes: selectedSizes,
+          customSizes: editCustomSizes,
+          allSizes: allSizes,
+          sizesString: allSizes.join(', ')
+        };
+      };
+
+      console.log('🔧 Size preservation and test functions added to window');
+    });
+
+
+  </script>
+</body>
+
+</html>

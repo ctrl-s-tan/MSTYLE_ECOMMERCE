@@ -1,0 +1,30 @@
+<!-- Login First Modal -->
+<div id="loginFirstModal" class="login-first-modal" aria-hidden="true" role="dialog" aria-labelledby="login-first-modal-title">
+    <div class="login-first-modal-content">
+        <div class="login-first-icon">
+            <i class="fas fa-lock login-first-lockmark" aria-hidden="true"></i>
+        </div>
+        <h2 id="login-first-modal-title">Please Log In First</h2>
+        <p class="login-first-message">Sign in to continue</p>
+        <p class="login-message">
+            You need to be logged in to access this feature. 
+            Please sign in to your account or create a new one to continue.
+        </p>
+        <div class="login-first-modal-buttons">
+            <button type="button" class="go-to-login-btn" onclick="goToLogin()">
+                <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
+                Sign In
+            </button>
+            <button type="button" class="go-to-register-btn" onclick="goToRegister()">
+                <i class="fas fa-user-plus" aria-hidden="true"></i>
+                Sign Up
+            </button>
+            <button type="button" class="close-login-modal-btn" onclick="closeLoginFirstModal()">
+                <i class="fas fa-times" aria-hidden="true"></i>
+                Close
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Note: JavaScript functions are now in static/js/login_first_modal.js -->

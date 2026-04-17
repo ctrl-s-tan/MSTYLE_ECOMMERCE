@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earnings</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/earnings.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
+</head>
+
+<body>
+    {% include 'rider_header.html' %}
+    <div class="container">
+        <div class="content">
+            <div class="page-header">
+                <div class="header-content">
+                    <div class="header-icon">
+                        <i class="bi bi-currency-dollar"></i>
+                    </div>
+                    <div class="header-text">
+                        <h1>Earnings</h1>
+                        <p>Track your delivery earnings and financial performance</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Stats Cards Row -->
+            <div class="stats-row">
+                <div class="stat-item">
+                    <div class="stat-icon">
+                        <i class="bi bi-currency-dollar"></i>
+                    </div>
+                    <div class="stat-number">₱{{ total_earnings or '0.00' }}</div>
+                    <div class="stat-label">Total Earnings</div>
+                    <small class="stat-description">After 5% commission</small>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon">
+                        <i class="bi bi-check-circle"></i>
+                    </div>
+                    <div class="stat-number">{{ total_completed or '0' }}</div>
+                    <div class="stat-label">Completed Orders</div>
+                    <small class="stat-description">Delivered orders</small>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-icon">
+                        <i class="bi bi-graph-up"></i>
+                    </div>
+                    <div class="stat-number">₱{{ avg_per_delivery or '0.00' }}</div>
+                    <div class="stat-label">Avg per Delivery</div>
+                    <small class="stat-description">Average earnings</small>
+                </div>
+            </div>
+
+            <!-- Filters Section -->
+            <div class="filters-section">
+                <div class="filter-group">
+                    <label for="dateRange"><i class="bi bi-calendar-range"></i> Date Range</label>
+                    <select id="dateRange" class="filter-select" onchange="filterByDate()">
+                        <option value="all">All Time</option>
+                        <option value="today">Today</option>
+                        <option value="week">This Week</option>
+                        <option value="month" selected>This Month</option>
+                        <option value="last_month">Last Month</option>
+                        <option value="custom">Custom Range</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="statusFilter"><i class="bi bi-check-circle"></i> Status</label>
+                    <select id="statusFilter" class="filter-select" onchange="filterByStatus()">
+                        <option value="all">All Status</option>
+                        <option value="delivered">Delivered</option>
+                        <option value="completed">Completed</option>
+                    </select>
+                </div>
+                <div class="filter-group">
+                    <label for="searchInput"><i class="bi bi-search"></i> Search</label>
+                    <input type="text" id="searchInput" class="filter-select" placeholder="Search by Order ID, Buyer, or Seller" oninput="searchEarnings()">
+                </div>
+                <div class="filter-group">
+                    <button class="btn btn-secondary" onclick="resetFilters()" style="margin-top: 1.5rem;">
+                        <i class="bi bi-arrow-clockwise"></i>
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+            <!-- Custom Date Range (hidden by default) -->
+            <div class="custom-date-range" id="customDateRange" style="display: none;">
+                <div class="date-inputs">
+                    <div class="date-group">
+                        <label for="startDate">From</label>
+                        <input type="date" id="startDate" class="date-input">
+                    </div>
+                    <div class="date-group">
+                        <label for="endDate">To</label>
+                        <input type="date" id="endDate" class="date-input">
+                    </div>
+                    <button class="btn btn-primary" onclick="applyCustomDateRange()">
+                        <i class="bi bi-search"></i>
+                        Apply
+                    </button>
+                </div>
+            </div>
+
+            <!-- Detailed Earnings List -->
+            <div class="earnings-section">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-list-ul"></i> Detailed Earnings
+                        </h5>
+                        <button class="btn btn-secondary" onclick="exportEarnings()">
+                            <i class="bi bi-download"></i>
+                            Export Report
+                        </button>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead>
+                                    <tr>
+                                        <th>Order ID</th>
+                                        <th>Delivery Date</th>
+                                        <th>Buyer Name</th>
+                                        <th>Seller Name</th>
+                                        <th>Status</th>
+                                        <th>Delivery Fee</th>
+                                        <th>Platform Commission (5%)</th>
+                                        <th>COD Collected</th>
+                                        <th>Net Earnings</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                            {% if earnings_data %}
+                                {% for earning in earnings_data %}
+                                {% set commission = earning.delivery_fee * 0.05 %}
+                                {% set net_after_commission = earning.delivery_fee - commission %}
+                                <tr>
+                                    <td data-label="Order ID">#{{ earning.order_id }}</td>
+                                    <td data-label="Delivery Date">{{ earning.delivery_date if earning.delivery_date else 'N/A' }}</td>
+                                    <td data-label="Buyer Name">{{ earning.buyer_name }}</td>
+                                    <td data-label="Seller Name">{{ earning.seller_name }}</td>
+                                    <td data-label="Status">
+                                        <span class="status-badge {{ earning.status|lower }}">
+                                            <i class="bi bi-check-circle"></i>
+                                            {{ earning.status }}
+                                        </span>
+                                    </td>
+                                    <td data-label="Delivery Fee">₱{{ "%.2f"|format(earning.delivery_fee) }}</td>
+                                    <td data-label="Platform Commission (5%)" class="commission-cell">-₱{{ "%.2f"|format(commission) }}</td>
+                                    <td data-label="COD Collected">₱{{ "%.2f"|format(earning.cod_collected) }}</td>
+                                    <td data-label="Net Earnings" class="total-cell">₱{{ "%.2f"|format(net_after_commission) }}</td>
+                                </tr>
+                                {% endfor %}
+                            {% else %}
+                                <tr>
+                                    <td colspan="9" class="text-center text-muted py-4">
+                                        <i class="bi bi-currency-dollar" style="font-size: 3rem; display: block; margin-bottom: 1rem; opacity: 0.3;"></i>
+                                        <h5>No Earnings Data</h5>
+                                        <p>You haven't completed any deliveries yet.</p>
+                                    </td>
+                                </tr>
+                            {% endif %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/earnings.js') }}"></script>
+</body>
+</html>

@@ -1,0 +1,490 @@
+/* Seller-Rider Chat Modal Styles */
+.seller-rider-chat-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.3s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.seller-rider-chat-container {
+    width: 90%;
+    max-width: 600px;
+    height: 80vh;
+    max-height: 700px;
+    background: white;
+    border-radius: 20px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+    display: flex;
+    flex-direction: column;
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* Chat Header */
+.seller-rider-chat-header {
+    background: linear-gradient(135deg, #1a1a1a, #2d2d2d);
+    color: white;
+    padding: 20px;
+    border-radius: 20px 20px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.chat-header-info {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.rider-avatar-chat {
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #d4af37, #f4d03f);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
+    font-weight: 600;
+    color: #1a1a1a;
+    overflow: hidden;
+    flex-shrink: 0;
+    position: relative;
+}
+
+.rider-avatar-chat img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.rider-details-chat h2 {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.online-status-chat {
+    font-size: 12px;
+    color: #4caf50;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin: 0;
+}
+
+.online-status-chat i {
+    font-size: 8px;
+    animation: pulse-dot 2s infinite;
+}
+
+@keyframes pulse-dot {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.5;
+    }
+}
+
+.close-seller-rider-chat {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+    padding: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    border-radius: 50%;
+    width: 40px;
+    height: 40px;
+}
+
+.close-seller-rider-chat:hover {
+    background: rgba(255, 255, 255, 0.1);
+    transform: rotate(90deg);
+}
+
+/* Chat Body */
+.seller-rider-chat-body {
+    flex: 1;
+    overflow-y: auto;
+    background: #f8f9fa;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Order Context */
+.order-context-info {
+    background: white;
+    padding: 15px;
+    border-bottom: 1px solid #e9ecef;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+.context-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 12px;
+    color: #666;
+    font-weight: 600;
+}
+
+.context-header i {
+    font-size: 20px;
+    color: #d4af37;
+}
+
+.context-details {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.context-item {
+    display: flex;
+    gap: 5px;
+    font-size: 14px;
+}
+
+.context-label {
+    font-size: 12px;
+    color: #666;
+}
+
+.context-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: #1a1a1a;
+}
+
+/* Messages Area */
+.messages-area {
+    flex: 1;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    overflow-y: auto;
+}
+
+.chat-message-item {
+    display: flex;
+    gap: 10px;
+    animation: slideInMessage 0.3s ease;
+}
+
+@keyframes slideInMessage {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Seller messages on the RIGHT (seller is viewing their own messages) */
+.chat-message-item.seller {
+    flex-direction: row-reverse !important;
+    justify-content: flex-start !important;
+}
+
+/* Rider messages on the LEFT (seller is viewing rider's messages) */
+.chat-message-item.rider {
+    flex-direction: row !important;
+    justify-content: flex-start !important;
+}
+
+.message-avatar-small {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #d4af37, #f4d03f);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #1a1a1a;
+    font-weight: 600;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+/* Hide avatar on right side (outgoing messages from seller) */
+.chat-message-item.seller .message-avatar-small {
+    display: none !important;
+}
+
+/* Show avatar on left side for rider messages */
+.chat-message-item.rider .message-avatar-small {
+    display: flex !important;
+    background: linear-gradient(135deg, #1a1a1a, #2d2d2d) !important;
+    color: white !important;
+}
+
+.message-content-wrapper {
+    max-width: 70%;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+/* Align seller messages to the right */
+.chat-message-item.seller .message-content-wrapper {
+    align-items: flex-end !important;
+}
+
+/* Align rider messages to the left */
+.chat-message-item.rider .message-content-wrapper {
+    align-items: flex-start !important;
+}
+
+.message-bubble-chat {
+    padding: 12px 15px;
+    border-radius: 18px;
+    background: white;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    word-wrap: break-word;
+    white-space: pre-wrap;
+}
+
+.chat-message-item.seller .message-bubble-chat {
+    background: linear-gradient(135deg, #d4af37, #f4d03f) !important;
+    color: #1a1a1a !important;
+    border-bottom-right-radius: 5px !important;
+    border-bottom-left-radius: 18px !important;
+}
+
+.chat-message-item.rider .message-bubble-chat {
+    background: white !important;
+    color: #333 !important;
+    border-bottom-left-radius: 5px !important;
+    border-bottom-right-radius: 18px !important;
+    border: 1px solid #e0e0e0 !important;
+}
+
+.message-time-chat {
+    font-size: 11px;
+    color: #999;
+    padding: 0 5px;
+}
+
+.chat-message-item.seller .message-time-chat {
+    text-align: right !important;
+}
+
+.chat-message-item.rider .message-time-chat {
+    text-align: left !important;
+}
+
+/* Empty State */
+.chat-placeholder {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: #999;
+    padding: 40px 20px;
+}
+
+.chat-placeholder i {
+    font-size: 48px;
+    color: #d4af37;
+    margin-bottom: 15px;
+}
+
+.chat-placeholder h3 {
+    margin: 0 0 10px 0;
+    color: #666;
+}
+
+.chat-placeholder p {
+    margin: 0;
+    font-size: 14px;
+}
+
+/* Chat Footer */
+.chat-modal-footer {
+    background: white;
+    padding: 15px 20px;
+    border-top: 1px solid #e9ecef;
+    border-radius: 0 0 20px 20px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.chat-modal-footer textarea {
+    flex: 1;
+    padding: 12px 15px;
+    border: 2px solid #e9ecef;
+    border-radius: 25px;
+    font-size: 14px;
+    font-family: inherit;
+    outline: none;
+    resize: none;
+    max-height: 100px;
+    transition: all 0.3s ease;
+    min-height: 45px;
+}
+
+.chat-modal-footer textarea:focus {
+    border-color: #d4af37;
+    box-shadow: 0 0 0 3px rgba(212, 175, 55, 0.1);
+}
+
+.send-message-btn {
+    background: linear-gradient(135deg, #d4af37, #f4d03f);
+    border: none;
+    color: #1a1a1a;
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+}
+
+.send-message-btn:hover {
+    transform: scale(1.1);
+    box-shadow: 0 5px 15px rgba(212, 175, 55, 0.4);
+}
+
+.send-message-btn:active {
+    transform: scale(0.95);
+}
+
+.send-message-btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.char-count {
+    font-size: 11px;
+    color: #999;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+/* Loading State */
+.loading-messages {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: #999;
+}
+
+.loading-messages i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Scrollbar Styling */
+.messages-area::-webkit-scrollbar {
+    width: 6px;
+}
+
+.messages-area::-webkit-scrollbar-track {
+    background: #f1f1f1;
+}
+
+.messages-area::-webkit-scrollbar-thumb {
+    background: #d4af37;
+    border-radius: 3px;
+}
+
+.messages-area::-webkit-scrollbar-thumb:hover {
+    background: #c49d2f;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+    .seller-rider-chat-container {
+        width: 100%;
+        height: 100vh;
+        max-height: 100vh;
+        border-radius: 0;
+    }
+
+    .seller-rider-chat-header {
+        border-radius: 0;
+    }
+
+    .chat-modal-footer {
+        border-radius: 0;
+    }
+
+    .message-content-wrapper {
+        max-width: 80%;
+    }
+}
+
+@media (max-width: 480px) {
+    .rider-avatar-chat {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+    }
+
+    .rider-details-chat h2 {
+        font-size: 16px;
+    }
+
+    .order-context-info {
+        padding: 12px;
+    }
+}

@@ -1,0 +1,756 @@
+{% extends "admin_header.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/issue_reports.css') }}">
+
+<div class="admin-dashboard-content">
+    <!-- Dashboard Header -->
+    <div class="dashboard-header">
+        <div class="dashboard-avatar">
+            <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <h1>Issue Reports & Complaints</h1>
+        <p>Manage user issue reports and complaints</p>
+    </div>
+
+    <div class="dashboard-container">
+        <!-- Stats Summary -->
+        <div class="stats-summary">
+            <div class="stat-card">
+                <div class="stat-icon">
+                    <i class="fas fa-clipboard-list"></i>
+                </div>
+                <div class="stat-value">{{ stats.total_issues }}</div>
+                <div class="stat-label">Total Issues</div>
+            </div>
+            <div class="stat-card stat-card-warning">
+                <div class="stat-icon">
+                    <i class="fas fa-clock"></i>
+                </div>
+                <div class="stat-value">{{ stats.pending_issues }}</div>
+                <div class="stat-label">Pending</div>
+            </div>
+            <div class="stat-card stat-card-info">
+                <div class="stat-icon">
+                    <i class="fas fa-spinner"></i>
+                </div>
+                <div class="stat-value">{{ stats.in_progress_issues }}</div>
+                <div class="stat-label">In Progress</div>
+            </div>
+            <div class="stat-card stat-card-success">
+                <div class="stat-icon">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-value">{{ stats.resolved_issues }}</div>
+                <div class="stat-label">Resolved</div>
+            </div>
+        </div>
+
+        <!-- Filter Section -->
+        <div class="filter-section">
+            <form method="GET" class="filter-form" id="filterForm">
+                    <div class="filter-row">
+                        <!-- Left Side: Search -->
+                        <div class="filter-left">
+                            <div class="filter-group search-group">
+                                <label class="filter-label">
+                                    <i class="fas fa-search"></i> Search
+                                </label>
+                                <input type="text" name="search" id="searchInput" 
+                                       placeholder="Search by customer, seller, product, or description..." 
+                                       value="{{ search_query }}" 
+                                       class="search-input">
+                            </div>
+                        </div>
+                        
+                        <!-- Right Side: Filters and Actions -->
+                        <div class="filter-right">
+                            <div class="filter-group">
+                                <label class="filter-label">
+                                    <i class="fas fa-info-circle"></i> Status
+                                </label>
+                                <select name="status" id="statusFilter" class="filter-select">
+                                    <option value="">All Statuses</option>
+                                    <option value="pending" {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+                                    <option value="in_progress" {% if status_filter == 'in_progress' %}selected{% endif %}>In Progress</option>
+                                    <option value="resolved" {% if status_filter == 'resolved' %}selected{% endif %}>Resolved</option>
+                                    <option value="closed" {% if status_filter == 'closed' %}selected{% endif %}>Closed</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label class="filter-label">
+                                    <i class="fas fa-user-tag"></i> Reported By
+                                </label>
+                                <select name="reporter_role" id="reporterRoleFilter" class="filter-select">
+                                    <option value="">All Reporters</option>
+                                    <option value="buyer" {% if reporter_role_filter == 'buyer' %}selected{% endif %}>Buyer</option>
+                                    <option value="seller" {% if reporter_role_filter == 'seller' %}selected{% endif %}>Seller</option>
+                                    <option value="rider" {% if reporter_role_filter == 'rider' %}selected{% endif %}>Rider</option>
+                                    <option value="admin" {% if reporter_role_filter == 'admin' %}selected{% endif %}>Admin</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-group">
+                                <label class="filter-label">
+                                    <i class="fas fa-exclamation-triangle"></i> Reported Against
+                                </label>
+                                <select name="report_against" id="reportAgainstFilter" class="filter-select">
+                                    <option value="">All Categories</option>
+                                    <option value="buyer" {% if report_against_filter == 'buyer' %}selected{% endif %}>Buyer</option>
+                                    <option value="seller" {% if report_against_filter == 'seller' %}selected{% endif %}>Seller</option>
+                                    <option value="rider" {% if report_against_filter == 'rider' %}selected{% endif %}>Rider</option>
+                                    <option value="platform" {% if report_against_filter == 'platform' %}selected{% endif %}>Platform</option>
+                                    <option value="other" {% if report_against_filter == 'other' %}selected{% endif %}>Other</option>
+                                </select>
+                            </div>
+                            
+                            <div class="filter-group filter-actions">
+                                <label class="filter-label">&nbsp;</label>
+                                <a href="{{ url_for('admin_issue_reports') }}" class="btn-clear">
+                                    <i class="fas fa-times"></i> Clear
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <div class="table-container">
+            <table class="issues-table">
+                <thead>
+                    <tr>
+                        <th><i class="fas fa-hashtag"></i> No.</th>
+                        <th><i class="fas fa-user"></i> Reporter</th>
+                        <th><i class="fas fa-shopping-cart"></i> Order</th>
+                        <th><i class="fas fa-exclamation-triangle"></i> Reported Against</th>
+                        <th><i class="fas fa-clipboard-list"></i> Issue Type</th>
+                        <th><i class="fas fa-info-circle"></i> Status</th>
+                        <th><i class="fas fa-calendar-plus"></i> Created</th>
+                        <th><i class="fas fa-cogs"></i> Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% if issues %}
+                    {% for issue in issues %}
+                    <tr class="issue-row" data-issue-id="{{ issue.id }}">
+                        <td class="sequence-number">
+                            <span class="sequence-badge">{{ ((current_page - 1) * 20) + loop.index }}</span>
+                        </td>
+                        <td>
+                            <div class="customer-info">
+                                <div class="reporter-role">
+                                    {% if issue.reporter_role == 'buyer' %}
+                                        <i class="fas fa-user"></i> Buyer
+                                    {% elif issue.reporter_role == 'seller' %}
+                                        <i class="fas fa-store"></i> Seller
+                                    {% elif issue.reporter_role == 'rider' %}
+                                        <i class="fas fa-bicycle"></i> Rider
+                                    {% else %}
+                                        <i class="fas fa-user-shield"></i> Admin
+                                    {% endif %}
+                                </div>
+                                <strong>{{ issue.reporter_email }}</strong>
+                            </div>
+                        </td>
+                        <td>
+                            <div class="order-info">
+                                <div class="order-id">Order #{{ issue.order_id }}</div>
+                                <div class="product-name">{{ issue.product_name or 'N/A' }}</div>
+                                <div class="order-total">₱{{ "%.2f"|format(issue.order_total|float) if issue.order_total else '0.00' }}</div>
+                            </div>
+                        </td>
+                        <td>
+                            <span class="report-against-badge report-against-{{ issue.reported_against_role }}">
+                                {% if issue.reported_against_role == 'buyer' %}
+                                    <i class="fas fa-user"></i> Buyer
+                                {% elif issue.reported_against_role == 'seller' %}
+                                    <i class="fas fa-store"></i> Seller
+                                {% elif issue.reported_against_role == 'rider' %}
+                                    <i class="fas fa-bicycle"></i> Rider
+                                {% elif issue.reported_against_role == 'platform' %}
+                                    <i class="fas fa-desktop"></i> Platform
+                                {% else %}
+                                    <i class="fas fa-question"></i> Other
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="issue-type">{{ issue.issue_type.replace('_', ' ').title() }}</span>
+                        </td>
+                        <td>
+                            <span class="status-badge status-{{ issue.status }}">
+                                {% if issue.status == 'pending' %}
+                                    <i class="fas fa-clock"></i> Pending
+                                {% elif issue.status == 'in_progress' %}
+                                    <i class="fas fa-spinner"></i> In Progress
+                                {% elif issue.status == 'resolved' %}
+                                    <i class="fas fa-check"></i> Resolved
+                                {% elif issue.status == 'closed' %}
+                                    <i class="fas fa-times"></i> Closed
+                                {% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            <div class="date-info">
+                                <div class="date">{{ issue.created_at.strftime('%b %d, %Y') }}</div>
+                                <div class="time">{{ issue.created_at.strftime('%I:%M %p') }}</div>
+                            </div>
+                        </td>
+                        <td class="product-actions">
+                            <div class="action-buttons">
+                                <button class="action-btn view-btn" onclick="viewIssueDetails({{ issue.id }})" title="View Details">
+                                    <i class="fas fa-eye"></i>
+                                </button>
+                                <button class="action-btn flag-btn" onclick="updateIssueStatus({{ issue.id }})" title="Update Status">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button class="action-btn delete-btn" onclick="deleteIssue({{ issue.id }})" title="Delete Issue">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                    {% else %}
+                    <tr>
+                        <td colspan="8">
+                            <div class="no-data">
+                                <div class="no-data-icon"><i class="fas fa-inbox"></i></div>
+                                <h3>No Issue Reports Found</h3>
+                                <p>{% if search_query or status_filter or report_against_filter %}No issues match your current filters.{% else %}No customer issues have been reported yet.{% endif %}</p>
+                            </div>
+                        </td>
+                    </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+
+            <!-- Pagination -->
+            {% if total_pages > 1 %}
+            <div class="pagination-container">
+                <div class="pagination-info">
+                    Showing {{ ((current_page - 1) * 20) + 1 }} to {{ [current_page * 20, total_issues] | min }} of {{ total_issues }} issues
+                </div>
+                <div class="pagination">
+                    {% if current_page > 1 %}
+                    <a href="?page={{ current_page - 1 }}&status={{ status_filter }}&reporter_role={{ reporter_role_filter }}&report_against={{ report_against_filter }}&search={{ search_query }}" class="page-btn">
+                        <i class="fas fa-chevron-left"></i> Previous
+                    </a>
+                    {% endif %}
+                    
+                    {% for page_num in range(1, total_pages + 1) %}
+                        {% if page_num == current_page %}
+                        <span class="page-btn active">{{ page_num }}</span>
+                        {% elif page_num <= 3 or page_num > total_pages - 3 or (page_num >= current_page - 1 and page_num <= current_page + 1) %}
+                        <a href="?page={{ page_num }}&status={{ status_filter }}&reporter_role={{ reporter_role_filter }}&report_against={{ report_against_filter }}&search={{ search_query }}" class="page-btn">{{ page_num }}</a>
+                        {% elif page_num == 4 or page_num == total_pages - 3 %}
+                        <span class="page-btn">...</span>
+                        {% endif %}
+                    {% endfor %}
+                    
+                    {% if current_page < total_pages %}
+                    <a href="?page={{ current_page + 1 }}&status={{ status_filter }}&reporter_role={{ reporter_role_filter }}&report_against={{ report_against_filter }}&search={{ search_query }}" class="page-btn">
+                        Next <i class="fas fa-chevron-right"></i>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Issue Details Modal -->
+<div id="issueDetailsModal" class="modal">
+    <div class="modal-content issue-modal">
+        <div class="modal-header">
+            <h2><i class="fas fa-exclamation-triangle"></i> Issue Details</h2>
+            <button class="close-btn" onclick="closeIssueModal()">&times;</button>
+        </div>
+        <div class="modal-body" id="issueDetailsContent">
+            <!-- Content will be loaded dynamically -->
+        </div>
+    </div>
+</div>
+
+<!-- Update Status Modal -->
+<div id="updateStatusModal" class="modal">
+    <div class="modal-content update-modal">
+        <div class="modal-header">
+            <h2><i class="fas fa-edit"></i> Update Issue Status</h2>
+            <button class="close-btn" onclick="closeUpdateModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <form id="updateStatusForm">
+                <input type="hidden" id="updateIssueId" name="issue_id">
+                
+                <div class="form-group">
+                    <label for="newStatus">Status:</label>
+                    <select id="newStatus" name="status" required>
+                        <option value="pending">Pending</option>
+                        <option value="in_progress">In Progress</option>
+                        <option value="resolved">Resolved</option>
+                        <option value="closed">Closed</option>
+                    </select>
+                </div>
+                
+                <div class="form-group">
+                    <label for="adminResponse">Admin Response (Optional):</label>
+                    <textarea id="adminResponse" name="admin_response" rows="4" 
+                              placeholder="Add any notes or response for this issue..."></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary">
+                        <i class="fas fa-save"></i> Update Status
+                    </button>
+                    <button type="button" class="btn btn-secondary" onclick="closeUpdateModal()">
+                        <i class="fas fa-times"></i> Cancel
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+// Auto-submit filter form
+let searchTimeout;
+const filterForm = document.getElementById('filterForm');
+const searchInput = document.getElementById('searchInput');
+const statusFilter = document.getElementById('statusFilter');
+const reporterRoleFilter = document.getElementById('reporterRoleFilter');
+const reportAgainstFilter = document.getElementById('reportAgainstFilter');
+
+// Auto-submit on search input with debounce (wait 500ms after user stops typing)
+searchInput.addEventListener('input', function() {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+        filterForm.submit();
+    }, 500);
+});
+
+// Auto-submit on filter dropdown change
+statusFilter.addEventListener('change', function() {
+    filterForm.submit();
+});
+
+reporterRoleFilter.addEventListener('change', function() {
+    filterForm.submit();
+});
+
+reportAgainstFilter.addEventListener('change', function() {
+    filterForm.submit();
+});
+
+function viewIssueDetails(issueId) {
+    // Show loading state
+    document.getElementById('issueDetailsContent').innerHTML = `
+        <div class="loading" style="text-align: center; padding: 2rem;">
+            <i class="fas fa-spinner fa-spin" style="font-size: 2rem; color: #3498db;"></i>
+            <p style="margin-top: 1rem; color: #6c757d;">Loading issue details...</p>
+        </div>
+    `;
+    
+    document.getElementById('issueDetailsModal').classList.add('show');
+    
+    // Fetch issue details
+    fetch('/admin/issue/' + issueId + '/details')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const issue = data.issue;
+                
+                // Format report against display
+                const reportAgainstDisplay = {
+                    'seller': '<i class="fas fa-store"></i> Seller',
+                    'delivery': '<i class="fas fa-truck"></i> Delivery Service',
+                    'product': '<i class="fas fa-box"></i> Product Quality',
+                    'platform': '<i class="fas fa-desktop"></i> Platform',
+                    'other': '<i class="fas fa-question"></i> Other'
+                }[issue.report_against] || issue.report_against;
+                
+                // Format status display
+                const statusDisplay = {
+                    'pending': '<span class="status-badge status-pending"><i class="fas fa-clock"></i> Pending</span>',
+                    'in_progress': '<span class="status-badge status-in_progress"><i class="fas fa-spinner"></i> In Progress</span>',
+                    'resolved': '<span class="status-badge status-resolved"><i class="fas fa-check"></i> Resolved</span>',
+                    'closed': '<span class="status-badge status-closed"><i class="fas fa-times"></i> Closed</span>'
+                }[issue.status] || issue.status;
+                
+                document.getElementById('issueDetailsContent').innerHTML = `
+                    <div class="issue-details">
+                        <div class="detail-section">
+                            <h3><i class="fas fa-info-circle"></i> Issue Information</h3>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <label>Issue ID:</label>
+                                    <span>#${issue.id}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Status:</label>
+                                    <span>${statusDisplay}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Report Against:</label>
+                                    <span class="report-against-badge report-against-${issue.report_against}">${reportAgainstDisplay}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Issue Type:</label>
+                                    <span>${issue.issue_type.replace(/_/g, ' ').replace(/\\b\\w/g, l => l.toUpperCase())}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Created:</label>
+                                    <span>${issue.created_at}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Last Updated:</label>
+                                    <span>${issue.updated_at}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="detail-section">
+                            <h3><i class="fas fa-user"></i> Customer Information</h3>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <label>Name:</label>
+                                    <span>${issue.customer_name}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Email:</label>
+                                    <span>${issue.customer_email}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Phone:</label>
+                                    <span>${issue.customer_phone}</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="detail-section">
+                            <h3><i class="fas fa-shopping-cart"></i> Order Information</h3>
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <label>Order ID:</label>
+                                    <span>#${issue.order_id}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Product:</label>
+                                    <span>${issue.product_name}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Order Date:</label>
+                                    <span>${issue.order_date}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Order Status:</label>
+                                    <span>${issue.order_status}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Quantity:</label>
+                                    <span>${issue.quantity}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Size:</label>
+                                    <span>${issue.size}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Variations:</label>
+                                    <span>${issue.variations}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Total Amount:</label>
+                                    <span>₱${issue.order_total.toFixed(2)}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Seller:</label>
+                                    <span>${issue.seller_name}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Seller Email:</label>
+                                    <span>${issue.seller_email}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Seller Phone:</label>
+                                    <span>${issue.seller_phone}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Rider Assigned:</label>
+                                    <span>${issue.rider_name}</span>
+                                </div>
+                                ${issue.rider_email !== 'N/A' ? `
+                                <div class="detail-item">
+                                    <label>Rider Email:</label>
+                                    <span>${issue.rider_email}</span>
+                                </div>
+                                <div class="detail-item">
+                                    <label>Rider Phone:</label>
+                                    <span>${issue.rider_phone}</span>
+                                </div>
+                                ` : ''}
+                            </div>
+                        </div>
+                        
+                        <div class="detail-section">
+                            <h3><i class="fas fa-comment-alt"></i> Issue Description</h3>
+                            <div class="issue-description">
+                                ${issue.issue_description}
+                            </div>
+                        </div>
+                        
+                        ${issue.admin_response ? `
+                        <div class="detail-section">
+                            <h3><i class="fas fa-reply"></i> Admin Response</h3>
+                            <div class="admin-response">
+                                ${issue.admin_response}
+                            </div>
+                        </div>
+                        ` : ''}
+                        
+                        <div class="detail-actions">
+                            <button class="btn btn-warning" onclick="closeIssueModal(); updateIssueStatus(${issue.id});">
+                                <i class="fas fa-edit"></i> Update Status
+                            </button>
+                            <button class="btn btn-secondary" onclick="closeIssueModal();">
+                                <i class="fas fa-times"></i> Close
+                            </button>
+                        </div>
+                    </div>
+                `;
+            } else {
+                document.getElementById('issueDetailsContent').innerHTML = `
+                    <div class="error-message" style="text-align: center; padding: 2rem; color: #e74c3c;">
+                        <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                        <p>Error loading issue details: ${data.message}</p>
+                        <button class="btn btn-secondary" onclick="closeIssueModal();" style="margin-top: 1rem;">
+                            <i class="fas fa-times"></i> Close
+                        </button>
+                    </div>
+                `;
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('issueDetailsContent').innerHTML = `
+                <div class="error-message" style="text-align: center; padding: 2rem; color: #e74c3c;">
+                    <i class="fas fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i>
+                    <p>An error occurred while loading issue details.</p>
+                    <button class="btn btn-secondary" onclick="closeIssueModal();" style="margin-top: 1rem;">
+                        <i class="fas fa-times"></i> Close
+                    </button>
+                </div>
+            `;
+        });
+}
+
+function updateIssueStatus(issueId) {
+    document.getElementById('updateIssueId').value = issueId;
+    
+    // Fetch current issue status to determine available options
+    fetch('/admin/issue/' + issueId + '/details')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const currentStatus = data.issue.status;
+                const statusSelect = document.getElementById('newStatus');
+                
+                // Clear existing options
+                statusSelect.innerHTML = '';
+                
+                // Define status progression rules
+                let availableStatuses = [];
+                
+                if (currentStatus === 'pending') {
+                    availableStatuses = [
+                        { value: 'pending', label: 'Pending' },
+                        { value: 'in_progress', label: 'In Progress' },
+                        { value: 'resolved', label: 'Resolved' },
+                        { value: 'closed', label: 'Closed' }
+                    ];
+                } else if (currentStatus === 'in_progress') {
+                    availableStatuses = [
+                        { value: 'in_progress', label: 'In Progress' },
+                        { value: 'resolved', label: 'Resolved' },
+                        { value: 'closed', label: 'Closed' }
+                    ];
+                } else if (currentStatus === 'resolved') {
+                    availableStatuses = [
+                        { value: 'resolved', label: 'Resolved' },
+                        { value: 'closed', label: 'Closed' }
+                    ];
+                } else if (currentStatus === 'closed') {
+                    availableStatuses = [
+                        { value: 'closed', label: 'Closed' }
+                    ];
+                }
+                
+                // Populate dropdown with available statuses
+                availableStatuses.forEach(status => {
+                    const option = document.createElement('option');
+                    option.value = status.value;
+                    option.textContent = status.label;
+                    if (status.value === currentStatus) {
+                        option.selected = true;
+                    }
+                    statusSelect.appendChild(option);
+                });
+                
+                document.getElementById('updateStatusModal').classList.add('show');
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('Error loading issue status. Please try again.');
+        });
+}
+
+function closeIssueModal() {
+    document.getElementById('issueDetailsModal').classList.remove('show');
+}
+
+function closeUpdateModal() {
+    document.getElementById('updateStatusModal').classList.remove('show');
+    document.getElementById('updateStatusForm').reset();
+}
+
+// Handle status update form submission
+document.getElementById('updateStatusForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    
+    const issueId = document.getElementById('updateIssueId').value;
+    const status = document.getElementById('newStatus').value;
+    const adminResponse = document.getElementById('adminResponse').value;
+    
+    // Get the submit button
+    const submitBtn = this.querySelector('button[type="submit"]');
+    const originalBtnContent = submitBtn.innerHTML;
+    
+    // Disable button and show loading state
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+    
+    fetch('/admin/issue/' + issueId + '/update-status', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            status: status,
+            admin_response: adminResponse
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success state
+            submitBtn.innerHTML = '<i class="fas fa-check"></i> Updated!';
+            submitBtn.style.backgroundColor = '#27ae60';
+            
+            // Show success message
+            alert('Issue status updated successfully! Email and in-app notifications have been sent to the customer.');
+            
+            // Reload page after short delay
+            setTimeout(() => {
+                location.reload();
+            }, 1000);
+        } else {
+            // Restore button and show error
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = originalBtnContent;
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        // Restore button and show error
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = originalBtnContent;
+        alert('An error occurred while updating the issue status.');
+    });
+});
+
+// Close modals when clicking outside
+window.onclick = function(event) {
+    const issueModal = document.getElementById('issueDetailsModal');
+    const updateModal = document.getElementById('updateStatusModal');
+    
+    if (event.target === issueModal) {
+        closeIssueModal();
+    }
+    if (event.target === updateModal) {
+        closeUpdateModal();
+    }
+}
+
+// Close modals with Escape key
+document.addEventListener('keydown', function(event) {
+    if (event.key === 'Escape') {
+        closeIssueModal();
+        closeUpdateModal();
+    }
+});
+
+// Delete issue function
+function deleteIssue(issueId) {
+    if (!confirm('Are you sure you want to delete this issue report? This action cannot be undone.')) {
+        return;
+    }
+    
+    // Find the row element
+    const row = document.querySelector(`tr[data-issue-id="${issueId}"]`);
+    const deleteBtn = row.querySelector('.delete-btn');
+    const originalBtnContent = deleteBtn.innerHTML;
+    
+    // Disable button and show loading state
+    deleteBtn.disabled = true;
+    deleteBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    
+    fetch('/admin/issue/' + issueId + '/delete', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            // Show success state
+            deleteBtn.innerHTML = '<i class="fas fa-check"></i>';
+            deleteBtn.style.backgroundColor = '#27ae60';
+            
+            // Fade out and remove the row
+            row.style.transition = 'opacity 0.5s';
+            row.style.opacity = '0';
+            
+            setTimeout(() => {
+                row.remove();
+                
+                // Check if table is now empty
+                const tbody = document.querySelector('.issues-table tbody');
+                if (tbody && tbody.children.length === 0) {
+                    location.reload();
+                }
+            }, 500);
+            
+            // Show success message
+            alert('Issue report deleted successfully!');
+        } else {
+            // Restore button and show error
+            deleteBtn.disabled = false;
+            deleteBtn.innerHTML = originalBtnContent;
+            alert('Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        // Restore button and show error
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = originalBtnContent;
+        alert('An error occurred while deleting the issue report.');
+    });
+}
+</script>
+{% endblock %}
