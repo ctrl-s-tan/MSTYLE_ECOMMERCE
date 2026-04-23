@@ -12,7 +12,7 @@ function handleStatusUpdate(orderId, newStatus, customerEmail, currentStatus, bu
     let message = `Are you sure you want to update the order status from "${currentStatus}" to "${newStatus}"?\n\n`;
     
     if (newStatus === 'Confirmed') {
-        message += `This will make the order available for riders to accept. The customer (${customerEmail}) will be notified that their order has been confirmed.`;
+        message += `This will confirm the order. The seller will then prepare it before it becomes available for riders to pick up. The customer (${customerEmail}) will be notified that their order has been confirmed.`;
     } else if (newStatus === 'Rejected') {
         message += `This will reject the order. The customer (${customerEmail}) will be notified that their order has been rejected.`;
     }

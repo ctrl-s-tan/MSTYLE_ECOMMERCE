@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ product.name }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/homepage.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/homepg_header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/homepage.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/view_product.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/reviews_rating.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/success_message_cartmodal.css') }}">
@@ -27,7 +27,7 @@
     </style></head>
 
 <body>
-    {% include 'homepg_header.html' %}
+    {% if session.get('user_id') %}{% include 'homepg_header.html' %}{% else %}{% include 'header_non-login_users.html' %}{% endif %}
 
     <main>
         <a href="javascript:history.back()" class="back-button">
@@ -986,6 +986,7 @@
 
             // Get the profile button position for the animation
             const profileButton = document.querySelector('.profile-dropdown');
+            if (!profileButton) { img.remove(); return; }
             const rect = profileButton.getBoundingClientRect();
             img.style.position = 'absolute';
             img.style.left = `${event.clientX - 25}px`;

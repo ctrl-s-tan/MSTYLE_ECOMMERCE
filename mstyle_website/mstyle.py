@@ -7057,6 +7057,45 @@ def mobile_accept_delivery():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/mobile/active_deliveries', methods=['GET'])
+def mobile_active_deliveries():
+    """
+    Returns active orders for a rider with seller address included.
+    """
+    rider_email = request.args.get('rider_email', '').strip()
+    if not rider_email:
+        return jsonify({'success': False, 'error': 'rider_email required'}), 400
+    try:
+        active_statuses = ['For Pickup', 'Heading to Seller', 'In Transit', 'Out for Delivery']
+        orders_res = sb_admin.table('orders') \
+            .select('id, name, email, address, seller_email, status, shipping_fee, date, variations, size, quantity, total_price, rider_email') \
+            .eq('rider_email', rider_email) \
+            .in_('status', active_statuses) \
+            .order('date', desc=True) \
+            .execute()
+        orders = orders_res.data or []
+
+        # Collect unique seller emails
+        seller_emails = list({o['seller_email'] for o in orders if o.get('seller_email')})
+        seller_map = {}
+        if seller_emails:
+            sellers_res = sb_admin.table('users') \
+                .select('email, business_name, first_name, last_name, address') \
+                .in_('email', seller_emails) \
+                .execute()
+            for s in (sellers_res.data or []):
+                seller_map[s['email']] = s.get('address', '') or ''
+
+        # Attach seller_address to each order
+        for o in orders:
+            o['seller_address'] = seller_map.get(o.get('seller_email', ''), '')
+
+        return jsonify({'success': True, 'orders': orders})
+    except Exception as e:
+        print(f"? mobile_active_deliveries error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/api/mobile/place_order', methods=['POST'])
 def mobile_place_order():
     """
@@ -14961,108 +15000,63 @@ def get_product_sizes(item_id):
 def get_cart_count():
     if 'email' not in session:
         return jsonify({'success': False, 'count': 0})
-    
+
+    user_email = session['email']
     try:
-        user_email = session['email']
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Get total quantity of items in cart for the user
-        cursor.execute('SELECT SUM(CAST(quantity AS UNSIGNED)) FROM cart WHERE email = %s', (user_email,))
-        result = cursor.fetchone()
-        total_count = result[0] if result[0] is not None else 0
-        
-        cursor.close()
-        conn.close()
-        
+        res = sb_admin.table('cart') \
+            .select('quantity') \
+            .eq('email', user_email) \
+            .execute()
+
+        total_count = sum(int(row.get('quantity') or 0) for row in (res.data or []))
         return jsonify({'success': True, 'count': total_count})
-        
+
     except Exception as e:
-        print(f"Error getting cart count: {str(e)}")
-        return jsonify({'success': False, 'count': 0})
+        print(f'[cart-count] error: {e}')
+        return jsonify({'success': True, 'count': 0})
 
 @app.route('/api/cart-items', methods=['GET'])
 def get_cart_items():
     if 'email' not in session:
         return jsonify({'success': False, 'error': 'Not logged in', 'items': [], 'total': 0})
-    
+
+    user_email = session['email']
     try:
-        user_email = session['email']
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
-        # Get cart items with product details
-        cursor.execute('''
-            SELECT c.id, c.name, c.price, c.quantity, c.variations, c.size, c.image, c.product_id,
-                   p.image as product_images
-            FROM cart c 
-            LEFT JOIN products p ON c.product_id = p.id 
-            WHERE c.email = %s
-            ORDER BY c.id DESC
-        ''', (user_email,))
-        
-        cart_items = cursor.fetchall()
-        
-        # Process cart items
+        res = sb_admin.table('cart') \
+            .select('id, name, price, quantity, variations, size, image, product_id') \
+            .eq('email', user_email) \
+            .order('id', desc=True) \
+            .execute()
+
+        cart_rows = res.data or []
         total_amount = 0
         processed_items = []
-        
-        for item in cart_items:
-            # Convert price and quantity to appropriate types
-            price = float(item['price']) if item['price'] else 0
-            quantity = int(item['quantity']) if item['quantity'] else 1
-            item_total = price * quantity
-            total_amount += item_total
-            
-            # Process images similar to existing cart route
-            all_images = item.get('product_images', '') or item.get('image', '')
-            
-            # Set the display image - use the stored cart image (which should be color-specific)
-            if item.get('image'):
-                cart_image = item['image'].strip()
-            else:
-                # Fallback to first product image
-                images = [img.strip() for img in str(all_images).split(',') if img.strip()]
-                cart_image = images[0] if images else ''
-            
-            # Construct proper image URL for frontend
-            if cart_image:
-                # Remove any leading/trailing whitespace and slashes
-                cart_image = cart_image.strip().lstrip('/')
-                # The frontend expects the path to be used with url_for, so we return just the filename
-                image_url = cart_image
-            else:
-                image_url = None
-            
-            processed_item = {
-                'id': item['id'],
-                'name': item['name'],
-                'price': price,
-                'quantity': quantity,
-                'total_price': item_total,
-                'color': item['variations'],
-                'size': item['size'],
-                'image_url': image_url,
-                'product_id': item['product_id']
-            }
-            processed_items.append(processed_item)
-            
-            # Debug print for image handling
-            print(f"DEBUG CART API - Item {item['id']}: cart_image='{item.get('image')}', product_images='{item.get('product_images')}', final_image_url='{image_url}'")
-        
-        cursor.close()
-        conn.close()
-        
-        return jsonify({
-            'success': True,
-            'items': processed_items,
-            'total': total_amount,
-            'count': len(processed_items)
-        })
-        
+
+        for item in cart_rows:
+            price    = float(item.get('price') or 0)
+            quantity = int(item.get('quantity') or 1)
+            total_amount += price * quantity
+
+            cart_image = (item.get('image') or '').strip()
+            image_url  = cart_image if cart_image else None
+
+            processed_items.append({
+                'id':          item['id'],
+                'name':        item.get('name', ''),
+                'price':       price,
+                'quantity':    quantity,
+                'total_price': price * quantity,
+                'color':       item.get('variations'),
+                'size':        item.get('size'),
+                'image_url':   image_url,
+                'product_id':  item.get('product_id'),
+            })
+
+        return jsonify({'success': True, 'items': processed_items, 'total': total_amount, 'count': len(processed_items)})
+
     except Exception as e:
-        print(f"Error getting cart items: {str(e)}")
-        return jsonify({'success': False, 'error': str(e), 'items': [], 'total': 0})
+        print(f'[cart-items] error: {e}')
+        return jsonify({'success': True, 'items': [], 'total': 0, 'count': 0})
 
 @app.route('/remove_from_cart', methods=['POST'])
 def remove_from_cart():
@@ -16453,57 +16447,28 @@ def delete_all_notifications():
 def get_buyer_notifications():
     """Get notifications for the logged-in buyer"""
     buyer_email = session.get('email')
-    user_type = session.get('user_type')
-    
-    print(f"?? Fetching buyer notifications for: {buyer_email} (type: {user_type})")
-    print(f"?? Full session data: {dict(session)}")
-    
-    # More flexible user type checking
     if not buyer_email:
-        print(f"? No email in session")
-        return jsonify({'success': False, 'error': 'No email in session'}), 401
-    
-    # Check if user_type is buyer (case insensitive) or allow for debugging
-    if user_type and user_type.lower() != 'buyer':
-        print(f"? User type mismatch - Expected: buyer, Got: {user_type}")
-        return jsonify({'success': False, 'error': f'User type mismatch. Expected: buyer, Got: {user_type}'}), 401
-    
+        return jsonify({'success': False, 'error': 'Not logged in'}), 401
+
     try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # Get notifications for this buyer, ordered by newest first
-        cursor.execute("""
-            SELECT id, message, type, is_read, created_at, order_id
-            FROM buyer_notifications 
-            WHERE buyer_email = %s 
-            ORDER BY created_at DESC 
-            LIMIT 20
-        """, (buyer_email,))
-        
-        notifications = cursor.fetchall()
-        print(f"?? Found {len(notifications)} buyer notifications for {buyer_email}")
-        
-        # Convert datetime objects to strings for JSON serialization
-        for notification in notifications:
-            if notification['created_at']:
-                notification['created_at'] = notification['created_at'].isoformat()
-            notification['read'] = bool(notification['is_read'])
-        
-        cursor.close()
-        connection.close()
-        
-        print(f"? Returning {len(notifications)} buyer notifications")
-        return jsonify({
-            'success': True,
-            'notifications': notifications
-        })
-        
+        res = sb_admin.table('buyer_notifications') \
+            .select('id, message, type, is_read, created_at, order_id') \
+            .eq('buyer_email', buyer_email) \
+            .order('created_at', desc=True) \
+            .limit(20) \
+            .execute()
+
+        notifications = res.data or []
+        for n in notifications:
+            if n.get('created_at'):
+                n['created_at'] = str(n['created_at'])
+            n['read'] = bool(n.get('is_read', False))
+
+        return jsonify({'success': True, 'notifications': notifications})
+
     except Exception as e:
-        print(f"? Error fetching buyer notifications for {buyer_email}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)}), 500
+        print(f'[buyer_notifications] error: {e}')
+        return jsonify({'success': True, 'notifications': []})
 
 @app.route('/api/buyer/notifications/mark-read', methods=['POST'])
 def mark_buyer_notification_read():

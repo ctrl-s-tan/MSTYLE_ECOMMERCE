@@ -21,7 +21,7 @@
 </head>
 
 <body>
-    {% include 'homepg_header.html' %}
+    {% if session.get('user_id') %}{% include 'homepg_header.html' %}{% else %}{% include 'header_non-login_users.html' %}{% endif %}
 
     <main class="search-results-container">
         <!-- Search Header -->
@@ -39,153 +39,12 @@
                 No products found
                 {% endif %}
             </div>
-
-            <!-- Filters and Sorting -->
-            <form method="GET" action="{{ url_for('search') }}" class="search-filters">
-                <input type="hidden" name="query" value="{{ query }}">
-
-                <div class="filter-group">
-                    <label for="category">Category</label>
-                    <select name="category" id="category" class="filter-select" onchange="this.form.submit()">
-                        <option value="">All Categories</option>
-                        {% for cat in categories %}
-                        <option value="{{ cat }}" {% if cat==category %}selected{% endif %}>{{ cat }}</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <div class="filter-group">
-                    <label for="sort">Sort By</label>
-                    <select name="sort" id="sort" class="filter-select" onchange="this.form.submit()">
-                        <option value="relevance" {% if sort_by=='relevance' %}selected{% endif %}>Relevance</option>
-                        <option value="price_low" {% if sort_by=='price_low' %}selected{% endif %}>Price: Low to High
-                        </option>
-                        <option value="price_high" {% if sort_by=='price_high' %}selected{% endif %}>Price: High to Low
-                        </option>
-                        <option value="rating" {% if sort_by=='rating' %}selected{% endif %}>Highest Rated</option>
-                        <option value="popular" {% if sort_by=='popular' %}selected{% endif %}>Most Popular</option>
-                        <option value="newest" {% if sort_by=='newest' %}selected{% endif %}>Newest</option>
-                    </select>
-                </div>
-            </form>
         </div>
 
         <!-- Results Grid -->
         {% if products %}
-        <section id="product-grid" class="product-grid">
-            {% for product in products %}
-            {% set is_out_of_stock = (product.quantity|int) <= 0 %}
-            <div class="product-card {% if is_out_of_stock %}out-of-stock{% endif %}">
-                <div class="product-image-container">
-                    {% set images = product.image.split(',') if product.image else [] %}
-                    {% if images|length > 1 %}
-                    <div class="product-image-slider" data-product-id="{{ product.id }}"
-                        data-image-count="{{ images|length }}">
-                        {% for image in images %}
-                        <img src="{{ image.strip()|product_img }}"
-                            alt="{{ product.name }}" class="product-image {% if loop.first %}active{% endif %}"
-                            data-image-index="{{ loop.index0 }}" loading="lazy">
-                        {% endfor %}
-                        <div class="image-indicators">
-                            {% for image in images %}
-                            <span class="indicator {% if loop.first %}active{% endif %}"
-                                onclick="showImage(this, {{ loop.index0 }})" data-image-index="{{ loop.index0 }}"
-                                title="Image {{ loop.index }}"></span>
-                            {% endfor %}
-                        </div>
-                        <button class="nav-btn prev-btn" onclick="previousImage(this)" title="Previous Image">
-                            <i class="fas fa-chevron-left"></i>
-                        </button>
-                        <button class="nav-btn next-btn" onclick="nextImage(this)" title="Next Image">
-                            <i class="fas fa-chevron-right"></i>
-                        </button>
-                        <div class="image-counter">
-                            <span class="current-image">1</span> / <span class="total-images">{{ images|length }}</span>
-                        </div>
-                    </div>
-                    {% else %}
-                    {% if images and images[0].strip() %}
-                    <img src="{{ images[0].strip()|product_img }}"
-                        alt="{{ product.name }}" class="product-image">
-                    {% else %}
-                    <div class="product-image-placeholder">
-                        <i class="fas fa-image"></i>
-                        <span>No Image Available</span>
-                    </div>
-                    {% endif %}
-                    {% endif %}
-
-                    <!-- Out of Stock Overlay Badge -->
-                    {% if is_out_of_stock %}
-                    <div class="out-of-stock-overlay">
-                        <div class="out-of-stock-badge">
-                            <i class="fas fa-times-circle"></i>
-                            <span>OUT OF STOCK</span>
-                        </div>
-                    </div>
-                    {% endif %}
-
-                    <div class="product-overlay-buttons">
-                        <a href="{{ url_for('view_product', product_id=product.id) }}" class="view-product-btn">
-                            <i class="fas fa-eye"></i>
-                        </a>
-                        {% if not is_out_of_stock %}
-                        <button class="wishlist-btn"
-                            onclick="addToWishlist('{{ product.id }}', '{{ product.name }}', '{{ product.price }}', this)">
-                            <i class="fas fa-heart"></i>
-                        </button>
-                        <button class="cart-btn"
-                            onclick="openColorSizeModal('{{ product.id }}', '{{ product.name }}', '{{ product.price }}', '{{ product.image if product.image else '' }}', '{{ product.variations }}', '{{ product.sizes or '' }}')">
-                            <i class="fas fa-shopping-cart"></i>
-                        </button>
-                        {% else %}
-                        <button class="wishlist-btn" disabled title="Out of stock">
-                            <i class="fas fa-heart"></i>
-                        </button>
-                        <button class="cart-btn" disabled title="Out of stock">
-                            <i class="fas fa-shopping-cart"></i>
-                        </button>
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="product-info">
-                    <h3 class="product-name">{{ product.name }}</h3>
-                    <p class="product-price">₱ {{ product.price }}</p>
-                    <div class="product-stats">
-                        <div class="product-rating">
-                            <div class="stars">
-                                {% set rating = product.rating or 0 %}
-                                {% for i in range(1, 6) %}
-                                {% if i <= rating %} <i class="fas fa-star"></i>
-                                    {% elif i - 0.5 <= rating %} <i class="fas fa-star-half-alt"></i>
-                                        {% else %}
-                                        <i class="far fa-star"></i>
-                                        {% endif %}
-                                        {% endfor %}
-                            </div>
-                            <span class="rating-text">({{ "%.1f"|format(rating) }})</span>
-                        </div>
-                        <p class="product-sold">
-                            <i class="fas fa-shopping-bag"></i>
-                            {{ product.sold or 0 }} sold
-                        </p>
-                    </div>
-                    {% if not is_out_of_stock %}
-                    <button class="buy-now-btn"
-                        onclick="openBuyNowModal('{{ product.id }}', '{{ product.name }}', '{{ product.price }}', '{{ product.image if product.image else '' }}', '{{ product.variations }}', '{{ product.sizes or '' }}')">
-                        <i class="fas fa-bolt"></i>
-                        Buy Now
-                    </button>
-                    {% else %}
-                    <button class="buy-now-btn" disabled style="background: #ccc; cursor: not-allowed;">
-                        <i class="fas fa-times-circle"></i>
-                        Out of Stock
-                    </button>
-                    {% endif %}
-                </div>
-            </div>
-            {% endfor %}
-        </section>
+        {% set promotional_products = [] %}
+        {% include 'product_grid.html' %}
 
         <!-- Pagination -->
         {% if total_pages > 1 %}
@@ -249,183 +108,38 @@
         {% endif %}
     </main>
 
-    <!-- Color and Size Selection Modal -->
-<div id="colorSizeModal" class="modal">
-    <div class="modal-content">
-        <div class="modal-header">
-            <h2>Select Color & Size</h2>
-            <span class="close" onclick="closeColorSizeModal()">&times;</span>
-        </div>
-        <div class="modal-body">
-            <div class="product-preview">
-                <img id="modalProductImage" src="" alt="Product Image" class="modal-product-image">
-                <div class="product-details">
-                    <h3 id="modalProductName"></h3>
-                    <p id="modalProductPrice"></p>
-                </div>
-            </div>
-
-            <div class="selection-section">
-                <div class="color-selection">
-                    <label>Color:</label>
-                    <div class="color-options" id="colorOptions">
-                        <!-- Colors will be dynamically generated based on product variations -->
-                    </div>
-                    <span id="selectedColor" class="selected-value">Please select a color</span>
-                </div>
-
-                <div class="size-selection">
-                    <label>Size:</label>
-                    <div class="size-options" id="sizeOptions">
-                        <!-- Sizes will be dynamically generated based on product sizes -->
-                    </div>
-                    <span id="selectedSize" class="selected-value">Please select a size</span>
-                </div>
-
-                <div class="quantity-selection">
-                    <label>Quantity:</label>
-                    <div class="quantity-controls">
-                        <button type="button" onclick="decreaseQuantity()">-</button>
-                        <input type="number" id="quantity" value="1" min="1" max="10">
-                        <button type="button" onclick="increaseQuantity()">+</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="modal-footer">
-            <button class="btn-cancel" onclick="closeColorSizeModal()">Cancel</button>
-            <button class="btn-buy-now" onclick="confirmBuyNow()" id="buyNowBtn" style="display: none;">Buy Now</button>
-            <button class="btn-add-to-cart" onclick="confirmAddToCart()" id="addToCartBtn">Add to Cart</button>
-        </div>
-    </div>
-</div>
-
-
     {% include 'footer.html' %}
     {% include 'success_message_cartmodal.html' %}
     {% include 'success_message_wishlistmodal.html' %}
 
-    <!-- Include necessary JavaScript files -->
     <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
     <script src="{{ url_for('static', filename='js/color_size_modal.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/product_image_slider.js') }}"></script>
-
     <script>
-        // Wishlist functionality
-        function addToWishlist(productId, productName, productPrice, buttonElement) {
-            // Check if user is logged in
-            const userName = document.getElementById('user-name');
-            const isLoggedIn = userName && userName.textContent.trim() !== 'User';
-
-            if (!isLoggedIn) {
-                alert('Please login first');
-                window.location.href = '/login';
-                return;
+        function performSearch() {
+            const query = document.getElementById('search-input').value.trim();
+            if (query) window.location.href = `/search?query=${encodeURIComponent(query)}`;
+        }
+        document.addEventListener('DOMContentLoaded', function () {
+            const input = document.getElementById('search-input');
+            if (input) {
+                input.addEventListener('keypress', e => { if (e.key === 'Enter') performSearch(); });
             }
-
-            // Get the button element if not passed
-            if (!buttonElement) {
-                buttonElement = event.target.closest('.wishlist-btn');
-            }
-
-            // Send request to add item to wishlist
-            fetch('/add-to-wishlist', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    product_id: productId,
-                    product_name: productName,
-                    product_price: productPrice
-                })
-            })
-                .then(response => {
-                    console.log('Response status:', response.status);
-                    if (!response.ok) {
-                        if (response.status === 401) {
-                            alert('Please login first');
-                            window.location.href = '/login';
-                            return Promise.reject('Unauthorized');
-                        }
-                        return response.text().then(text => {
-                            console.log('Error response:', text);
-                            throw new Error(`Server error: ${response.status}`);
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    console.log('Response data:', data);
-                    if (data.error) {
-                        alert(data.error);
-                        return;
-                    }
-                    if (data.success) {
-                        // Toggle button state
-                        if (buttonElement) {
-                            buttonElement.classList.toggle('active');
-                        }
-                        // Show success modal instead of alert
-                        showSuccessWishlistModal();
-                    } else {
-                        alert('Unexpected response from server');
-                    }
-                })
-                .catch(error => {
-                    console.error('Error details:', error);
-                    alert('Failed to add item to wishlist. Please try again.');
+            // Mobile menu toggle
+            const toggle = document.getElementById('mobile-menu-toggle');
+            const nav = document.getElementById('mobile-nav');
+            if (toggle && nav) {
+                toggle.addEventListener('click', () => {
+                    toggle.classList.toggle('active');
+                    nav.classList.toggle('active');
                 });
-        }
-
-
-
-        // Image slider functionality for search results
-        function showImage(indicator, imageIndex) {
-            const slider = indicator.closest('.product-image-slider');
-            const images = slider.querySelectorAll('.product-image');
-            const indicators = slider.querySelectorAll('.indicator');
-            const counter = slider.querySelector('.current-image');
-
-            // Hide all images and remove active class from indicators
-            images.forEach(img => img.classList.remove('active'));
-            indicators.forEach(ind => ind.classList.remove('active'));
-
-            // Show selected image and activate indicator
-            images[imageIndex].classList.add('active');
-            indicator.classList.add('active');
-
-            // Update counter
-            if (counter) {
-                counter.textContent = imageIndex + 1;
+                document.addEventListener('click', e => {
+                    if (!toggle.contains(e.target) && !nav.contains(e.target)) {
+                        toggle.classList.remove('active');
+                        nav.classList.remove('active');
+                    }
+                });
             }
-        }
-
-        function previousImage(button) {
-            const slider = button.closest('.product-image-slider');
-            const activeImage = slider.querySelector('.product-image.active');
-            const images = slider.querySelectorAll('.product-image');
-            const currentIndex = Array.from(images).indexOf(activeImage);
-            const prevIndex = currentIndex > 0 ? currentIndex - 1 : images.length - 1;
-
-            const prevIndicator = slider.querySelector(`.indicator[data-image-index="${prevIndex}"]`);
-            if (prevIndicator) {
-                showImage(prevIndicator, prevIndex);
-            }
-        }
-
-        function nextImage(button) {
-            const slider = button.closest('.product-image-slider');
-            const activeImage = slider.querySelector('.product-image.active');
-            const images = slider.querySelectorAll('.product-image');
-            const currentIndex = Array.from(images).indexOf(activeImage);
-            const nextIndex = currentIndex < images.length - 1 ? currentIndex + 1 : 0;
-
-            const nextIndicator = slider.querySelector(`.indicator[data-image-index="${nextIndex}"]`);
-            if (nextIndicator) {
-                showImage(nextIndicator, nextIndex);
-            }
-        }
+        });
     </script>
 </body>
 

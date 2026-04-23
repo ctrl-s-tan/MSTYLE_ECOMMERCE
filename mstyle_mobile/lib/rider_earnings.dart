@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'rider_dashboard.dart';
-import 'rider_available_deliveries.dart';
 import 'rider_active_deliveries.dart';
 import 'rider_history_deliveries.dart';
 import 'rider_header.dart';
@@ -86,7 +85,6 @@ class _RiderEarningsPageState extends State<RiderEarningsPage> {
         ? const Center(child: CircularProgressIndicator(color: _gold))
         : CustomScrollView(slivers: [
             _appBar(),
-            SliverToBoxAdapter(child: _pageHeader()),
             SliverToBoxAdapter(child: _totalCard()),
             SliverToBoxAdapter(child: _periodCards()),
             SliverToBoxAdapter(child: _breakdownSection()),

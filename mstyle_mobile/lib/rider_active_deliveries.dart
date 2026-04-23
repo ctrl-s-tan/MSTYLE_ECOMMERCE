@@ -1,11 +1,13 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'rider_dashboard.dart';
-import 'rider_available_deliveries.dart';
 import 'rider_history_deliveries.dart';
 import 'rider_earnings.dart';
 import 'rider_header.dart';
 import 'rider_bottom_navbar.dart';
 import 'supabase_client.dart';
+import 'product_image_carousel.dart' show kFlaskBaseUrl;
 
 const Color _primary   = Color(0xFF1a1a1a);
 const Color _accent    = Color(0xFF2c3e50);
@@ -26,7 +28,7 @@ const _goldGrad = LinearGradient(
 
 // Active statuses — orders assigned to this rider that are not yet completed
 const _activeStatuses = [
-  'Pickup Pending',
+  'For Pickup',
   'Heading to Seller',
   'In Transit',
   'Out for Delivery',
@@ -35,52 +37,52 @@ const _activeStatuses = [
 // Status display helpers
 Color _statusColor(String status) {
   switch (status) {
-    case 'Pickup Pending':   return Colors.orange;
+    case 'For Pickup':        return Colors.orange;
     case 'Heading to Seller': return Colors.indigo;
-    case 'In Transit':       return Colors.blue;
-    case 'Out for Delivery': return Colors.teal;
-    default:                 return Colors.grey;
+    case 'In Transit':        return Colors.blue;
+    case 'Out for Delivery':  return Colors.teal;
+    default:                  return Colors.grey;
   }
 }
 
 IconData _statusIcon(String status) {
   switch (status) {
-    case 'Pickup Pending':   return Icons.access_time;
+    case 'For Pickup':        return Icons.access_time;
     case 'Heading to Seller': return Icons.directions_bike_outlined;
-    case 'In Transit':       return Icons.local_shipping_outlined;
-    case 'Out for Delivery': return Icons.local_shipping;
-    default:                 return Icons.help_outline;
+    case 'In Transit':        return Icons.local_shipping_outlined;
+    case 'Out for Delivery':  return Icons.local_shipping;
+    default:                  return Icons.help_outline;
   }
 }
 
 // What comes after each status when the rider taps the action button
 String? _nextStatus(String status) {
   switch (status) {
-    case 'Pickup Pending':   return 'Heading to Seller';
+    case 'For Pickup':        return 'Heading to Seller';
     case 'Heading to Seller': return 'In Transit';
-    case 'In Transit':       return 'Out for Delivery';
-    case 'Out for Delivery': return 'Completed';
-    default:                 return null;
+    case 'In Transit':        return 'Out for Delivery';
+    case 'Out for Delivery':  return 'Completed';
+    default:                  return null;
   }
 }
 
 String _actionLabel(String status) {
   switch (status) {
-    case 'Pickup Pending':   return 'Start Pickup';
+    case 'For Pickup':        return 'Start Pickup';
     case 'Heading to Seller': return 'Mark Picked Up';
-    case 'In Transit':       return 'Out for Delivery';
-    case 'Out for Delivery': return 'Mark Delivered';
-    default:                 return 'Update';
+    case 'In Transit':        return 'Out for Delivery';
+    case 'Out for Delivery':  return 'Mark Delivered';
+    default:                  return 'Update';
   }
 }
 
 IconData _actionIcon(String status) {
   switch (status) {
-    case 'Pickup Pending':   return Icons.play_circle_outline;
+    case 'For Pickup':        return Icons.play_circle_outline;
     case 'Heading to Seller': return Icons.check_circle_outline;
-    case 'In Transit':       return Icons.local_shipping_outlined;
-    case 'Out for Delivery': return Icons.check_circle;
-    default:                 return Icons.arrow_forward;
+    case 'In Transit':        return Icons.local_shipping_outlined;
+    case 'Out for Delivery':  return Icons.check_circle;
+    default:                  return Icons.arrow_forward;
   }
 }
 
@@ -106,22 +108,43 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
   Future<void> _fetchActive() async {
     setState(() => _loading = true);
     try {
-      final data = await supabase
-          .from('orders')
-          .select()
-          .eq('rider_email', widget.riderEmail)
-          .inFilter('status', _activeStatuses)
-          .order('date', ascending: false);
+      final uri = Uri.parse('$kFlaskBaseUrl/api/mobile/active_deliveries?rider_email=${Uri.encodeComponent(widget.riderEmail)}');
+      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
       if (mounted) {
         setState(() {
-          _deliveries = List<Map<String, dynamic>>.from(data);
+          _deliveries = body['success'] == true
+              ? List<Map<String, dynamic>>.from(body['orders'] as List)
+              : [];
           _loading = false;
         });
       }
-    } catch (_) {
+    } catch (e) {
+      debugPrint('_fetchActive error: $e');
       if (mounted) setState(() => _loading = false);
     }
   }
+
+  Future<void> _syncInBackground() async {
+    try {
+      final uri = Uri.parse('$kFlaskBaseUrl/api/mobile/active_deliveries?rider_email=${Uri.encodeComponent(widget.riderEmail)}');
+      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (mounted && body['success'] == true) {
+        setState(() => _deliveries = List<Map<String, dynamic>>.from(body['orders'] as List));
+      }
+    } catch (_) {}
+  }
+
+  String _pickupAddress(Map<String, dynamic> d) {
+    final addr = (d['seller_address'] as String? ?? '').trim();
+    return addr.isNotEmpty ? addr : 'Pickup address not available';
+  }
+
+  String _deliveryAddress(Map<String, dynamic> d) =>
+      (d['address'] as String?)?.trim().isNotEmpty == true
+          ? d['address'] as String
+          : 'Delivery address not available';
 
   List<Map<String, dynamic>> get _filtered {
     var list = _deliveries.where((d) {
@@ -159,7 +182,7 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
               margin: const EdgeInsets.only(right: 8, bottom: 4),
               padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
               decoration: BoxDecoration(gradient: _premiumGrad, borderRadius: BorderRadius.circular(10)),
-              child: Text('Confirm', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+              child: const Text('Confirm', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
             ),
           ),
         ],
@@ -167,6 +190,12 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
     );
 
     if (confirm != true) return;
+
+    // Optimistic update — change status locally immediately so card stays visible
+    setState(() {
+      final idx = _deliveries.indexWhere((d) => d['id'] == order['id']);
+      if (idx != -1) _deliveries[idx]['status'] = newStatus;
+    });
 
     try {
       await supabase
@@ -180,15 +209,24 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
-        _fetchActive();
+        // Only remove from list if completed, otherwise keep — already updated optimistically
+        if (isCompleted) {
+          setState(() => _deliveries.removeWhere((d) => d['id'] == order['id']));
+        }
+        // Sync quietly in background without showing loading state
+        _syncInBackground();
       }
     } catch (_) {
+      // Revert optimistic update on failure
+      setState(() {
+        final idx = _deliveries.indexWhere((d) => d['id'] == order['id']);
+        if (idx != -1) _deliveries[idx]['status'] = order['status'];
+      });
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: const Text('Failed to update status. Please try again.'),
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Failed to update status. Please try again.'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
         ));
       }
     }
@@ -202,7 +240,6 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
       body: CustomScrollView(
         slivers: [
           RiderAppBar(riderEmail: widget.riderEmail),
-          SliverToBoxAdapter(child: _pageHeader()),
           SliverToBoxAdapter(child: _statsRow()),
           SliverToBoxAdapter(child: _filterSection()),
           if (_loading)
@@ -249,15 +286,27 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
 
   Widget _statsRow() => Container(
     color: Colors.white,
-    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+    padding: const EdgeInsets.fromLTRB(12, 14, 12, 14),
     child: Row(children: [
       Expanded(child: _miniStat('${_deliveries.length}', 'Active', Icons.list_alt_outlined, Colors.blue)),
       _divider(),
-      Expanded(child: _miniStat('${_countByStatus('Pickup Pending')}', 'Pickup\nPending', Icons.access_time, Colors.orange)),
+      Expanded(child: _miniStat('${_countByStatus('For Pickup')}', 'For\nPickup', Icons.access_time, Colors.orange)),
       _divider(),
       Expanded(child: _miniStat('${_countByStatus('Heading to Seller')}', 'Heading to\nSeller', Icons.directions_bike_outlined, Colors.indigo)),
       _divider(),
       Expanded(child: _miniStat('${_countByStatus('Out for Delivery')}', 'Out for\nDelivery', Icons.local_shipping, Colors.teal)),
+      _divider(),
+      GestureDetector(
+        onTap: _fetchActive,
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Column(children: [
+            const Icon(Icons.refresh, color: _gold, size: 18),
+            const SizedBox(height: 4),
+            const Text('Refresh', style: TextStyle(color: _textLight, fontSize: 9, fontWeight: FontWeight.w500)),
+          ]),
+        ),
+      ),
     ]),
   );
 
@@ -277,7 +326,7 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
     child: Row(children: [
       Expanded(child: _dropdown('Status', _filterStatus, {
         'all': 'All Status',
-        'Pickup Pending': 'Pickup Pending',
+        'For Pickup': 'For Pickup',
         'Heading to Seller': 'Heading to Seller',
         'In Transit': 'In Transit',
         'Out for Delivery': 'Out for Delivery',
@@ -326,7 +375,9 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
     final color = _statusColor(status);
     final next = _nextStatus(status);
 
-    return Container(
+    return GestureDetector(
+      onTap: () => _showOrderModal(d),
+      child: Container(
       margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: Colors.white, borderRadius: BorderRadius.circular(16),
@@ -337,25 +388,24 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
         Container(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
           decoration: BoxDecoration(
-            color: _bg,
+            gradient: _premiumGrad,
             borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-            border: Border(bottom: BorderSide(color: _border)),
           ),
           child: Row(children: [
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text('Order #${d['id']}',
-                style: const TextStyle(color: _accent, fontWeight: FontWeight.w800, fontSize: 14)),
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
               const SizedBox(height: 2),
               Text(d['name'] as String? ?? '',
-                style: const TextStyle(color: _textLight, fontSize: 12),
+                style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
                 maxLines: 1, overflow: TextOverflow.ellipsis),
             ])),
             Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: color.withOpacity(0.3)),
+                  color: color.withOpacity(0.2), borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: color.withOpacity(0.5)),
                 ),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [
                   Icon(_statusIcon(status), size: 11, color: color),
@@ -366,8 +416,8 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
               const SizedBox(height: 4),
               Text(isFree ? 'Free' : '₱${fee.toStringAsFixed(0)}',
                 style: TextStyle(
-                  color: isFree ? Colors.teal : _gold,
-                  fontWeight: FontWeight.w900, fontSize: 14)),
+                  color: isFree ? Colors.greenAccent.shade200 : _goldLight,
+                  fontWeight: FontWeight.w900, fontSize: 15)),
             ]),
           ]),
         ),
@@ -375,36 +425,34 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
         Padding(
           padding: const EdgeInsets.all(14),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            // Customer info
-            Row(children: [
-              const Icon(Icons.person_outline, size: 14, color: _textLight),
-              const SizedBox(width: 6),
-              Expanded(child: Text(d['email'] as String? ?? '',
-                style: const TextStyle(color: _textLight, fontSize: 12),
-                maxLines: 1, overflow: TextOverflow.ellipsis)),
+            // Pickup address
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(width: 28, height: 28,
+                decoration: BoxDecoration(color: Colors.orange.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.store_outlined, size: 14, color: Colors.orange)),
+              const SizedBox(width: 8),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Pickup', style: TextStyle(color: _textLight, fontSize: 10, fontWeight: FontWeight.w600)),
+                Text(_pickupAddress(d),
+                  style: const TextStyle(color: _accent, fontSize: 12, fontWeight: FontWeight.w500),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              ])),
             ]),
-            if ((d['address'] as String?)?.isNotEmpty == true) ...[
-              const SizedBox(height: 6),
-              Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                const Icon(Icons.location_on_outlined, size: 14, color: _textLight),
-                const SizedBox(width: 6),
-                Expanded(child: Text(d['address'] as String,
-                  style: const TextStyle(color: _textLight, fontSize: 12),
-                  maxLines: 2, overflow: TextOverflow.ellipsis)),
-              ]),
-            ],
-            if (d['date'] != null) ...[
-              const SizedBox(height: 6),
-              Row(children: [
-                const Icon(Icons.calendar_today_outlined, size: 13, color: _textLight),
-                const SizedBox(width: 6),
-                Text(
-                  DateTime.tryParse(d['date'] as String)?.toLocal().toString().split(' ')[0] ?? '',
-                  style: const TextStyle(color: _textLight, fontSize: 11)),
-              ]),
-            ],
+            const SizedBox(height: 8),
+            // Delivery address
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Container(width: 28, height: 28,
+                decoration: BoxDecoration(color: Colors.red.withOpacity(0.08), borderRadius: BorderRadius.circular(8)),
+                child: const Icon(Icons.location_on_outlined, size: 14, color: Colors.redAccent)),
+              const SizedBox(width: 8),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                const Text('Deliver to', style: TextStyle(color: _textLight, fontSize: 10, fontWeight: FontWeight.w600)),
+                Text(_deliveryAddress(d),
+                  style: const TextStyle(color: _accent, fontSize: 12, fontWeight: FontWeight.w500),
+                  maxLines: 2, overflow: TextOverflow.ellipsis),
+              ])),
+            ]),
             const SizedBox(height: 12),
-            // Action buttons
             Row(children: [
               Expanded(child: _outlineBtn(Icons.flag_outlined, 'Report Issue',
                 Colors.orange, () => _showReportIssue(d))),
@@ -419,8 +467,150 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
           ]),
         ),
       ]),
+    ));
+  }
+
+  void _showOrderModal(Map<String, dynamic> d) {
+    final status = d['status'] as String? ?? '';
+    final fee = (d['shipping_fee'] as num?)?.toDouble() ?? 0;
+    final isFree = fee == 0;
+    final color = _statusColor(status);
+    final next = _nextStatus(status);
+
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        minChildSize: 0.5,
+        maxChildSize: 0.95,
+        builder: (_, scrollCtrl) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(children: [
+            // Handle + close row
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
+              child: Row(children: [
+                const Spacer(),
+                Container(width: 40, height: 4,
+                  decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2))),
+                const Spacer(),
+                IconButton(
+                  icon: const Icon(Icons.close, color: _textLight, size: 20),
+                  onPressed: () => Navigator.pop(context),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
+                ),
+              ]),
+            ),
+            // Header
+            Container(
+              margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(gradient: _premiumGrad, borderRadius: BorderRadius.circular(16)),
+              child: Row(children: [
+                Container(width: 44, height: 44,
+                  decoration: BoxDecoration(color: Colors.white.withOpacity(0.12), shape: BoxShape.circle,
+                    border: Border.all(color: _gold.withOpacity(0.5))),
+                  child: const Icon(Icons.local_shipping_outlined, color: _gold, size: 22)),
+                const SizedBox(width: 12),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Order #${d['id']}',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 16)),
+                  const SizedBox(height: 3),
+                  Text(d['name'] as String? ?? '',
+                    style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                ])),
+                Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                  Text(isFree ? 'Free' : '₱${fee.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      color: isFree ? Colors.greenAccent.shade200 : _goldLight,
+                      fontWeight: FontWeight.w900, fontSize: 18)),
+                  const SizedBox(height: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    decoration: BoxDecoration(
+                      color: color.withOpacity(0.2), borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: color.withOpacity(0.5))),
+                    child: Text(status, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.w700)),
+                  ),
+                ]),
+              ]),
+            ),
+            // Scrollable content
+            Expanded(child: ListView(controller: scrollCtrl, padding: const EdgeInsets.all(16), children: [
+              // Info rows
+              _modalInfoRow(Icons.person_outline, 'Customer', d['email'] as String? ?? '', Colors.blue),
+              _modalInfoRow(Icons.store_outlined, 'Pickup Address', _pickupAddress(d), Colors.orange),
+              _modalInfoRow(Icons.location_on_outlined, 'Delivery Address', _deliveryAddress(d), Colors.red),
+              if (d['date'] != null)
+                _modalInfoRow(Icons.calendar_today_outlined, 'Order Date',
+                  DateTime.tryParse(d['date'] as String)?.toLocal().toString().split(' ')[0] ?? '', Colors.purple),
+              if ((d['variations'] as String?)?.isNotEmpty == true)
+                _modalInfoRow(Icons.palette_outlined, 'Color', d['variations'] as String, Colors.orange),
+              if ((d['size'] as String?)?.isNotEmpty == true)
+                _modalInfoRow(Icons.straighten_outlined, 'Size', d['size'] as String, Colors.teal),
+              if (d['quantity'] != null)
+                _modalInfoRow(Icons.inventory_2_outlined, 'Quantity', '${d['quantity']}', Colors.indigo),
+
+              const SizedBox(height: 8),
+              // Total row
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _gold.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _gold.withOpacity(0.3)),
+                ),
+                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                  const Text('Delivery Fee', style: TextStyle(color: _accent, fontWeight: FontWeight.w600, fontSize: 14)),
+                  Text(isFree ? 'Free' : '₱${fee.toStringAsFixed(0)}',
+                    style: TextStyle(
+                      color: isFree ? Colors.teal : _gold,
+                      fontWeight: FontWeight.w900, fontSize: 16)),
+                ]),
+              ),
+
+              const SizedBox(height: 20),
+              // Action buttons
+              Row(children: [
+                Expanded(child: _outlineBtn(Icons.flag_outlined, 'Report Issue',
+                  Colors.orange, () { Navigator.pop(context); _showReportIssue(d); })),
+                if (next != null) ...[
+                  const SizedBox(width: 10),
+                  Expanded(child: _primaryBtn(
+                    _actionIcon(status), _actionLabel(status),
+                    () { Navigator.pop(context); _updateStatus(d, next); },
+                  )),
+                ],
+              ]),
+              const SizedBox(height: 8),
+            ])),
+          ]),
+        ),
+      ),
     );
   }
+
+  Widget _modalInfoRow(IconData icon, String label, String value, Color color) => Padding(
+    padding: const EdgeInsets.only(bottom: 12),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Container(width: 36, height: 36,
+        decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+        child: Icon(icon, size: 16, color: color)),
+      const SizedBox(width: 12),
+      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        Text(label, style: const TextStyle(color: _textLight, fontSize: 11, fontWeight: FontWeight.w500)),
+        const SizedBox(height: 2),
+        Text(value, style: const TextStyle(color: _accent, fontSize: 13, fontWeight: FontWeight.w600)),
+      ])),
+    ]),
+  );
 
   Widget _outlineBtn(IconData icon, String label, Color color, VoidCallback onTap) => GestureDetector(
     onTap: onTap,
@@ -524,14 +714,14 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
       const SizedBox(height: 20),
       GestureDetector(
         onTap: () => Navigator.pushReplacement(context,
-          MaterialPageRoute(builder: (_) => RiderAvailableDeliveriesPage(riderEmail: widget.riderEmail))),
+          MaterialPageRoute(builder: (_) => RiderDashboardPage(riderEmail: widget.riderEmail))),
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
           decoration: BoxDecoration(gradient: _premiumGrad, borderRadius: BorderRadius.circular(12)),
           child: const Row(mainAxisSize: MainAxisSize.min, children: [
-            Icon(Icons.list_alt_outlined, color: Colors.white, size: 16),
+            Icon(Icons.speed, color: Colors.white, size: 16),
             SizedBox(width: 6),
-            Text('Browse Available Deliveries',
+            Text('Go to Dashboard',
               style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
           ]),
         ),

@@ -80,46 +80,44 @@ class _RiderAppBarState extends State<RiderAppBar> {
       elevation: 6,
       titleSpacing: 16,
       automaticallyImplyLeading: false,
-      title: Row(children: [
-        // ── Avatar circle ──────────────────────────────────────────────────
-        Container(
-          width: 34, height: 34,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            gradient: _goldGrad,
-            boxShadow: [BoxShadow(color: _gold.withOpacity(0.35), blurRadius: 8)],
+      title: GestureDetector(
+        onTap: () => Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => ProfilePage(userEmail: widget.riderEmail),
           ),
-          child: Center(
-            child: Text(
-              _initials,
-              style: const TextStyle(
-                color: _primary, fontWeight: FontWeight.w900, fontSize: 13),
+        ),
+        child: Row(children: [
+          // ── Avatar circle ──────────────────────────────────────────────────
+          Container(
+            width: 34, height: 34,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: _goldGrad,
+              boxShadow: [BoxShadow(color: _gold.withOpacity(0.35), blurRadius: 8)],
+            ),
+            child: Center(
+              child: Text(
+                _initials,
+                style: const TextStyle(
+                  color: _primary, fontWeight: FontWeight.w900, fontSize: 13),
+              ),
             ),
           ),
-        ),
-        const SizedBox(width: 10),
-        // ── Rider name ─────────────────────────────────────────────────────
-        Flexible(
-          child: Text(
-            _riderName.isNotEmpty ? _riderName : widget.riderEmail,
-            style: const TextStyle(
-              color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
-            overflow: TextOverflow.ellipsis,
+          const SizedBox(width: 10),
+          // ── Rider name ─────────────────────────────────────────────────────
+          Flexible(
+            child: Text(
+              _riderName.isNotEmpty ? _riderName : widget.riderEmail,
+              style: const TextStyle(
+                color: Colors.white, fontSize: 15, fontWeight: FontWeight.w700),
+              overflow: TextOverflow.ellipsis,
+            ),
           ),
-        ),
-      ]),
+        ]),
+      ),
       actions: [
         ...widget.extraActions,
-        // ── Messages ───────────────────────────────────────────────────────
-        IconButton(
-          icon: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 22),
-          onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Messages feature coming soon'),
-              behavior: SnackBarBehavior.floating,
-            ),
-          ),
-        ),
         // ── Notifications ──────────────────────────────────────────────────
         IconButton(
           icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
@@ -128,16 +126,6 @@ class _RiderAppBarState extends State<RiderAppBar> {
             MaterialPageRoute(
               builder: (_) =>
                   RiderNotificationsPage(riderEmail: widget.riderEmail),
-            ),
-          ),
-        ),
-        // ── Profile ────────────────────────────────────────────────────────
-        IconButton(
-          icon: const Icon(Icons.person_outline, color: Colors.white, size: 22),
-          onPressed: () => Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (_) => ProfilePage(userEmail: widget.riderEmail),
             ),
           ),
         ),

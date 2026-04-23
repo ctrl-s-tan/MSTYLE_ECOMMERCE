@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'rider_dashboard.dart';
-import 'rider_available_deliveries.dart';
 import 'rider_active_deliveries.dart';
 import 'rider_history_deliveries.dart';
 import 'rider_earnings.dart';
+import 'buyer_messages.dart';
 
 // ─── Theme constants (shared) ─────────────────────────────────────────────────
 const Color _primary = Color(0xFF1a1a1a);
@@ -18,7 +18,7 @@ const Color _gold    = Color(0xFFd4af37);
 ///       currentPage: RiderPage.dashboard,
 ///     ),
 ///   )
-enum RiderPage { dashboard, available, active, history, earnings }
+enum RiderPage { dashboard, active, history, earnings, messages }
 
 class RiderBottomNavBar extends StatelessWidget {
   final String riderEmail;
@@ -58,13 +58,6 @@ class RiderBottomNavBar extends StatelessWidget {
               ),
               _navItem(
                 context,
-                Icons.list_alt_outlined,
-                'Available',
-                currentPage == RiderPage.available,
-                () => _navigateTo(context, RiderPage.available),
-              ),
-              _navItem(
-                context,
                 Icons.local_shipping_outlined,
                 'Active',
                 currentPage == RiderPage.active,
@@ -83,6 +76,13 @@ class RiderBottomNavBar extends StatelessWidget {
                 'Earnings',
                 currentPage == RiderPage.earnings,
                 () => _navigateTo(context, RiderPage.earnings),
+              ),
+              _navItem(
+                context,
+                Icons.chat_bubble_outline,
+                'Messages',
+                currentPage == RiderPage.messages,
+                () => _navigateTo(context, RiderPage.messages),
               ),
             ],
           ),
@@ -134,9 +134,6 @@ class RiderBottomNavBar extends StatelessWidget {
       case RiderPage.dashboard:
         destination = RiderDashboardPage(riderEmail: riderEmail);
         break;
-      case RiderPage.available:
-        destination = RiderAvailableDeliveriesPage(riderEmail: riderEmail);
-        break;
       case RiderPage.active:
         destination = RiderActiveDeliveriesPage(riderEmail: riderEmail);
         break;
@@ -145,6 +142,9 @@ class RiderBottomNavBar extends StatelessWidget {
         break;
       case RiderPage.earnings:
         destination = RiderEarningsPage(riderEmail: riderEmail);
+        break;
+      case RiderPage.messages:
+        destination = BuyerMessagesPage(userEmail: riderEmail);
         break;
     }
 

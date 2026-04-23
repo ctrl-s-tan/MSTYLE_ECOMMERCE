@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Orders</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/homepg_header.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/orders.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/success_message_modal.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/buyer_seller_chat_order.css') }}">
@@ -19,7 +20,7 @@
 </head>
 
 <body data-buyer-email="{{ session.get('email', '') }}">
-    {% include 'buyer_header.html' %}
+    {% include 'homepg_header.html' %}
 
     <!-- Toast Container (disabled - using modals only) -->
     <!-- <div id="toast-container" class="toast-container"></div> -->

@@ -5,7 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>My Profile</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/homepg_header.css') }}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/profile.css') }}">
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap"
         rel="stylesheet">
@@ -20,7 +21,7 @@
     {% elif session.get('user_type') == 'rider' or session.get('user_type') == 'Rider' %}
     {% include 'rider_header.html' %}
     {% else %}
-    {% include 'buyer_header.html' %}
+    {% include 'homepg_header.html' %}
     {% endif %}
 
     <div class="container">

@@ -23,7 +23,7 @@
 </head>
 
 <body>
-    {% include 'homepg_header.html' %}
+    {% if session.get('user_id') %}{% include 'homepg_header.html' %}{% else %}{% include 'header_non-login_users.html' %}{% endif %}
 
     <main>
         <!-- Hero Section -->

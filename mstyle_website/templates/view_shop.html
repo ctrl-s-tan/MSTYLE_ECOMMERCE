@@ -5,8 +5,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ seller_name }}</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/homepage.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/homepg_header.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/homepage.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/view_shop.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/success_message_cartmodal.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/success_message_wishlistmodal.css') }}">
@@ -17,7 +17,7 @@
 </head>
 
 <body>
-    {% include 'homepg_header.html' %}
+    {% if session.get('user_id') %}{% include 'homepg_header.html' %}{% else %}{% include 'header_non-login_users.html' %}{% endif %}
 
     <main>
         <div class="page-container">

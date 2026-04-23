@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'rider_dashboard.dart';
-import 'rider_available_deliveries.dart';
 import 'rider_active_deliveries.dart';
 import 'rider_earnings.dart';
 import 'rider_header.dart';
@@ -76,7 +75,6 @@ class _RiderHistoryDeliveriesPageState extends State<RiderHistoryDeliveriesPage>
       bottomNavigationBar: RiderBottomNavBar(riderEmail: widget.riderEmail, currentPage: RiderPage.history),
       body: CustomScrollView(slivers: [
         _appBar(),
-        SliverToBoxAdapter(child: _pageHeader()),
         SliverToBoxAdapter(child: _filterSection()),
         if (_loading)
           const SliverFillRemaining(child: Center(child: CircularProgressIndicator(color: _gold)))

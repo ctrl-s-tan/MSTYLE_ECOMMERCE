@@ -1,12 +1,14 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'home_page.dart';
-import 'rider_available_deliveries.dart';
 import 'rider_active_deliveries.dart';
 import 'rider_history_deliveries.dart';
 import 'rider_earnings.dart';
 import 'rider_header.dart';
 import 'rider_bottom_navbar.dart';
 import 'supabase_client.dart';
+import 'product_image_carousel.dart' show kFlaskBaseUrl;
 
 const Color _primary   = Color(0xFF1a1a1a);
 const Color _accent    = Color(0xFF2c3e50);
@@ -37,12 +39,14 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
   int    _activeCount    = 0;
   double _totalEarnings  = 0;
   bool   _loadingStats   = true;
-  List<Map<String, dynamic>> _recentHistory = [];
+  List<Map<String, dynamic>> _availableOrders = [];
+  bool   _loadingAvailable = true;
 
   @override
   void initState() {
     super.initState();
     _fetchStats();
+    _fetchAvailableOrders();
   }
 
   Future<void> _fetchStats() async {
@@ -50,7 +54,7 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
       final available = await supabase
           .from('orders')
           .select('id')
-          .inFilter('status', ['Confirmed', 'For Pickup'])
+          .inFilter('status', ['Waiting for Pickup'])
           .isFilter('rider_email', null);
 
       final active = await supabase
@@ -65,14 +69,6 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
           .eq('rider_email', widget.riderEmail)
           .eq('status', 'Completed');
 
-      final history = await supabase
-          .from('orders')
-          .select('id, name, email, shipping_fee, date, status')
-          .eq('rider_email', widget.riderEmail)
-          .eq('status', 'Completed')
-          .order('date', ascending: false)
-          .limit(2);
-
       if (!mounted) return;
 
       final earnings = (completed as List).fold(0.0,
@@ -82,11 +78,29 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
         _availableCount = (available as List).length;
         _activeCount    = (active as List).length;
         _totalEarnings  = earnings;
-        _recentHistory  = List<Map<String, dynamic>>.from(history as List);
         _loadingStats   = false;
       });
     } catch (_) {
       if (mounted) setState(() => _loadingStats = false);
+    }
+  }
+
+  Future<void> _fetchAvailableOrders() async {
+    setState(() => _loadingAvailable = true);
+    try {
+      final uri = Uri.parse('$kFlaskBaseUrl/api/mobile/available_deliveries');
+      final res = await http.get(uri).timeout(const Duration(seconds: 15));
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (mounted) {
+        setState(() {
+          _availableOrders = body['success'] == true
+              ? (List<Map<String, dynamic>>.from(body['orders'] as List)).take(3).toList()
+              : [];
+          _loadingAvailable = false;
+        });
+      }
+    } catch (_) {
+      if (mounted) setState(() => _loadingAvailable = false);
     }
   }
 
@@ -99,7 +113,7 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
         RiderAppBar(riderEmail: widget.riderEmail),
         SliverToBoxAdapter(child: _pageHeader()),
         SliverToBoxAdapter(child: _statsGrid()),
-        SliverToBoxAdapter(child: _recentSection()),
+        SliverToBoxAdapter(child: _availableSection()),
         const SliverToBoxAdapter(child: SizedBox(height: 32)),
       ]),
     );
@@ -160,62 +174,287 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
     ]),
   );
 
-  // ─── Recent Section ───────────────────────────────────────────────────────
-  Widget _recentSection() => Container(
-    margin: const EdgeInsets.fromLTRB(12, 16, 12, 0),
-    padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(
-      color: Colors.white, borderRadius: BorderRadius.circular(16),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 3))],
-    ),
+  // ─── Available Section ────────────────────────────────────────────────────
+  Widget _availableSection() => Padding(
+    padding: const EdgeInsets.fromLTRB(12, 16, 12, 0),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
       Row(children: [
-        const Icon(Icons.history_outlined, color: _gold, size: 16),
+        const Icon(Icons.list_alt_outlined, color: _gold, size: 16),
         const SizedBox(width: 6),
-        const Text('Recent Deliveries', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13)),
+        const Text('Available Deliveries', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13)),
         const Spacer(),
         GestureDetector(
           onTap: () => Navigator.push(context, MaterialPageRoute(
-            builder: (_) => RiderHistoryDeliveriesPage(riderEmail: widget.riderEmail))),
-          child: const Text('See all', style: TextStyle(color: _gold, fontSize: 12, fontWeight: FontWeight.w600)),
+            builder: (_) => RiderActiveDeliveriesPage(riderEmail: widget.riderEmail))),
+          child: const Text('See active', style: TextStyle(color: _gold, fontSize: 12, fontWeight: FontWeight.w600)),
         ),
       ]),
       const SizedBox(height: 12),
-      if (_recentHistory.isEmpty)
+      if (_loadingAvailable)
         const Center(child: Padding(
           padding: EdgeInsets.symmetric(vertical: 16),
-          child: Text('No completed deliveries yet', style: TextStyle(color: _textLight, fontSize: 12)),
+          child: CircularProgressIndicator(color: _gold, strokeWidth: 2),
+        ))
+      else if (_availableOrders.isEmpty)
+        const Center(child: Padding(
+          padding: EdgeInsets.symmetric(vertical: 16),
+          child: Text('No available deliveries right now', style: TextStyle(color: _textLight, fontSize: 12)),
         ))
       else
-        ..._recentHistory.map((d) => _historyTile(d)),
+        ..._availableOrders.map((d) => _availableTile(d)),
     ]),
   );
 
-  Widget _historyTile(Map<String, dynamic> d) => Container(
-    margin: const EdgeInsets.only(bottom: 10),
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: _bg, borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: _border),
-    ),
-    child: Row(children: [
-      Container(
-        width: 38, height: 38,
-        decoration: BoxDecoration(color: Colors.green.shade50, shape: BoxShape.circle,
-          border: Border.all(color: Colors.green.shade200)),
-        child: Icon(Icons.check_circle_outline, color: Colors.green.shade600, size: 18),
+  Widget _availableTile(Map<String, dynamic> d) {
+    final fee = (d['shipping_fee'] as num?)?.toDouble() ?? 0;
+    final isFree = fee == 0;
+    return GestureDetector(
+      onTap: () => _acceptDelivery(d),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.07), blurRadius: 12, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          // ── Header strip ──────────────────────────────────────────────
+          Container(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+            decoration: BoxDecoration(
+              gradient: _premiumGrad,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            ),
+            child: Row(children: [
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.12),
+                  shape: BoxShape.circle,
+                  border: Border.all(color: _gold.withOpacity(0.5)),
+                ),
+                child: const Icon(Icons.local_shipping_outlined, color: _gold, size: 18),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('Order #${d['id']}',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+                const SizedBox(height: 2),
+                Text(d['name'] as String? ?? '',
+                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+              ])),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(isFree ? 'Free' : '₱${fee.toStringAsFixed(0)}',
+                  style: TextStyle(
+                    color: isFree ? Colors.greenAccent.shade200 : _goldLight,
+                    fontWeight: FontWeight.w900, fontSize: 16)),
+                const SizedBox(height: 3),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.orange.withOpacity(0.2),
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                  ),
+                  child: const Text('Ready for Pickup',
+                    style: TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.w700)),
+                ),
+              ]),
+            ]),
+          ),
+
+          // ── Body ──────────────────────────────────────────────────────
+          Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              // Customer
+              Row(children: [
+                Container(
+                  width: 28, height: 28,
+                  decoration: BoxDecoration(
+                    color: _accent.withOpacity(0.08),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.person_outline, size: 14, color: _accent),
+                ),
+                const SizedBox(width: 8),
+                Expanded(child: Text(d['email'] as String? ?? '',
+                  style: const TextStyle(color: _textLight, fontSize: 11),
+                  maxLines: 1, overflow: TextOverflow.ellipsis)),
+              ]),
+
+              // Address
+              if ((d['address'] as String?)?.isNotEmpty == true) ...[
+                const SizedBox(height: 8),
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    width: 28, height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.red.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.location_on_outlined, size: 14, color: Colors.redAccent),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(child: Text(d['address'] as String,
+                    style: const TextStyle(color: _textLight, fontSize: 11),
+                    maxLines: 2, overflow: TextOverflow.ellipsis)),
+                ]),
+              ],
+
+              // Date
+              if (d['date'] != null) ...[
+                const SizedBox(height: 8),
+                Row(children: [
+                  Container(
+                    width: 28, height: 28,
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.blueAccent),
+                  ),
+                  const SizedBox(width: 8),
+                  Text(
+                    DateTime.tryParse(d['date'] as String)?.toLocal().toString().split(' ')[0] ?? '',
+                    style: const TextStyle(color: _textLight, fontSize: 11)),
+                ]),
+              ],
+
+              const SizedBox(height: 14),
+
+              // Accept button
+              GestureDetector(
+                onTap: () => _acceptDelivery(d),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  decoration: BoxDecoration(
+                    gradient: _goldGrad,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [BoxShadow(color: _gold.withOpacity(0.35), blurRadius: 8, offset: const Offset(0, 3))],
+                  ),
+                  child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.check_circle_outline, size: 16, color: _primary),
+                    SizedBox(width: 7),
+                    Text('Accept Delivery',
+                      style: TextStyle(color: _primary, fontWeight: FontWeight.w800, fontSize: 13)),
+                  ]),
+                ),
+              ),
+            ]),
+          ),
+        ]),
       ),
-      const SizedBox(width: 10),
-      Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(d['name'] as String? ?? '',
-          style: const TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 12),
-          maxLines: 1, overflow: TextOverflow.ellipsis),
-        Text(d['email'] as String? ?? '',
-          style: const TextStyle(color: _textLight, fontSize: 10)),
-      ])),
-      Text('₱${((d['shipping_fee'] as num?)?.toStringAsFixed(0)) ?? '0'}',
-        style: const TextStyle(color: Colors.green, fontWeight: FontWeight.w800, fontSize: 13)),
-    ]),
-  );
+    );
+  }
+
+  Future<void> _acceptDelivery(Map<String, dynamic> order) async {
+    final fee = (order['shipping_fee'] as num?)?.toDouble() ?? 0;
+    final confirm = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Accept Delivery',
+          style: TextStyle(color: _accent, fontWeight: FontWeight.w800, fontSize: 16)),
+        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text('Order #${order['id']}',
+            style: const TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13)),
+          const SizedBox(height: 4),
+          Text(order['name'] as String? ?? '',
+            style: const TextStyle(color: _textLight, fontSize: 12),
+            maxLines: 2, overflow: TextOverflow.ellipsis),
+          const SizedBox(height: 12),
+          Row(children: [
+            const Icon(Icons.person_outline, size: 14, color: _textLight),
+            const SizedBox(width: 6),
+            Expanded(child: Text(order['email'] as String? ?? '',
+              style: const TextStyle(color: _textLight, fontSize: 12))),
+          ]),
+          if ((order['address'] as String?)?.isNotEmpty == true) ...[
+            const SizedBox(height: 6),
+            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Icon(Icons.location_on_outlined, size: 14, color: _textLight),
+              const SizedBox(width: 6),
+              Expanded(child: Text(order['address'] as String,
+                style: const TextStyle(color: _textLight, fontSize: 12),
+                maxLines: 2, overflow: TextOverflow.ellipsis)),
+            ]),
+          ],
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            decoration: BoxDecoration(
+              color: _gold.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: _gold.withOpacity(0.3)),
+            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+              const Text('Delivery Fee', style: TextStyle(color: _accent, fontWeight: FontWeight.w600, fontSize: 13)),
+              Text(fee == 0 ? 'Free' : '₱${fee.toStringAsFixed(0)}',
+                style: TextStyle(
+                  color: fee == 0 ? Colors.teal : _gold,
+                  fontWeight: FontWeight.w900, fontSize: 15)),
+            ]),
+          ),
+        ]),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Cancel', style: TextStyle(color: _textLight))),
+          GestureDetector(
+            onTap: () => Navigator.pop(context, true),
+            child: Container(
+              margin: const EdgeInsets.only(right: 8, bottom: 4),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              decoration: BoxDecoration(gradient: _premiumGrad, borderRadius: BorderRadius.circular(10)),
+              child: const Text('Accept', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (confirm != true) return;
+
+    try {
+      final uri = Uri.parse('$kFlaskBaseUrl/api/mobile/accept_delivery');
+      final res = await http.post(
+        uri,
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({'order_id': order['id'], 'rider_email': widget.riderEmail}),
+      ).timeout(const Duration(seconds: 15));
+      final body = jsonDecode(res.body) as Map<String, dynamic>;
+      if (!mounted) return;
+      if (body['success'] == true) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('Order #${order['id']} accepted!'),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+        Navigator.pushReplacement(context, MaterialPageRoute(
+          builder: (_) => RiderActiveDeliveriesPage(riderEmail: widget.riderEmail)));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(body['error'] ?? 'Failed to accept delivery.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ));
+      }
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text('Failed to accept delivery. Please try again.'),
+          backgroundColor: Colors.red,
+          behavior: SnackBarBehavior.floating,
+        ));
+      }
+    }
+  }
 
 }
