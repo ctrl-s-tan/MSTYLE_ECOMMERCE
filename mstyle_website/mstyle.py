@@ -7592,6 +7592,21 @@ def orders_list():
             .execute()
         raw_orders = orders_res.data or []
 
+        # Batch-fetch product prices from products table
+        product_ids = list({o.get('product_id') for o in raw_orders if o.get('product_id')})
+        product_price_map = {}
+        if product_ids:
+            try:
+                pr = sb_admin.table('products') \
+                    .select('id, price') \
+                    .in_('id', product_ids) \
+                    .execute()
+                for p in (pr.data or []):
+                    product_price_map[int(p['id'])] = float(p.get('price') or 0)
+                print(f"✅ product_price_map: {product_price_map}")
+            except Exception as e:
+                print(f"❌ product price fetch error: {e}")
+
         # Batch-fetch buyer info
         buyer_emails = list({o.get('email', '') for o in raw_orders if o.get('email')})
         buyer_map = {}
@@ -7660,8 +7675,12 @@ def orders_list():
 
             # Numeric fields
             o['total_price']    = float(o.get('total_price') or 0)
-            o['original_price'] = o['total_price']
-            o['quantity']       = int(o.get('quantity') or 1)
+            pid = o.get('product_id')
+            unit_price = product_price_map.get(int(pid), 0) if pid else 0
+            qty = int(o.get('quantity') or 1)
+            o['original_price'] = unit_price if unit_price else o['total_price']
+            o['quantity']       = qty
+            print(f"  order {o.get('id')}: pid={pid}, unit_price={unit_price}, orig={o['original_price']}, total={o['total_price']}")
 
             # Promotion defaults
             o.setdefault('promotion_type', '')

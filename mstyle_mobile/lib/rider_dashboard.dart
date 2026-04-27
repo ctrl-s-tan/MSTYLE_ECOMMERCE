@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'rider_active_deliveries.dart';
 import 'rider_header.dart';
@@ -109,13 +111,49 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
     try {
       final data = await supabaseAdminSelect(
         table: 'orders',
-        select: 'id, name, email, address, date, shipping_fee, product_id, rider_email, status',
+        select: 'id, name, email, address, date, shipping_fee, product_id, rider_email, status, seller_email',
         filters: {'status': 'Waiting for Pickup'},
         limit: 10,
       );
 
-      // Filter out already-assigned orders
       final unassigned = data.where((o) => o['rider_email'] == null).take(3).toList();
+
+      // Fetch buyer full name + phone using service role (bypasses RLS)
+      for (final o in unassigned) {
+        final buyerEmail = o['email'] as String? ?? '';
+        if (buyerEmail.isEmpty) continue;
+        try {
+          final uri = Uri.parse(
+            '$supabaseUrl/rest/v1/users?select=first_name,last_name,phone&email=eq.${Uri.encodeComponent(buyerEmail)}&limit=1',
+          );
+          final resp = await http.get(uri, headers: {
+            'apikey':        supabaseServiceRole,
+            'Authorization': 'Bearer $supabaseServiceRole',
+            'Accept':        'application/json',
+          });
+          debugPrint('👤 lookup $buyerEmail → ${resp.statusCode} ${resp.body}');
+          if (resp.statusCode == 200) {
+            final rows = jsonDecode(resp.body) as List;
+            if (rows.isNotEmpty) {
+              final b  = rows.first as Map<String, dynamic>;
+              final fn = (b['first_name'] as String? ?? '').trim();
+              final ln = (b['last_name']  as String? ?? '').trim();
+              o['buyer_full_name'] = [fn, ln].where((s) => s.isNotEmpty).join(' ');
+              final rawPhone = (b['phone'] as String? ?? '').trim();
+              o['buyer_phone'] = rawPhone.startsWith('0')
+                  ? '+63${rawPhone.substring(1)}'
+                  : rawPhone;
+            } else {
+              o['buyer_full_name'] = '';
+              o['buyer_phone']     = '';
+            }
+          }
+        } catch (e) {
+          debugPrint('👤 user lookup error: $e');
+          o['buyer_full_name'] = '';
+          o['buyer_phone']     = '';
+        }
+      }
 
       debugPrint('_fetchAvailableOrders: found ${data.length} total, ${unassigned.length} unassigned');
 
@@ -233,9 +271,7 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
   Widget _availableTile(Map<String, dynamic> d) {
     final fee = (d['shipping_fee'] as num?)?.toDouble() ?? 0;
     final isFree = fee == 0;
-    return GestureDetector(
-      onTap: () => _acceptDelivery(d),
-      child: Container(
+    return Container(
         margin: const EdgeInsets.only(bottom: 12),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -248,41 +284,41 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
           // ── Header strip ──────────────────────────────────────────────
           Container(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-            decoration: BoxDecoration(
-              gradient: _premiumGrad,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
+            decoration: const BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Row(children: [
               Container(
                 width: 36, height: 36,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
+                  color: _accent.withOpacity(0.08),
                   shape: BoxShape.circle,
-                  border: Border.all(color: _gold.withOpacity(0.5)),
+                  border: Border.all(color: _border),
                 ),
-                child: const Icon(Icons.local_shipping_outlined, color: _gold, size: 18),
+                child: const Icon(Icons.local_shipping_outlined, color: _accent, size: 18),
               ),
               const SizedBox(width: 10),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Order #${d['id']}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
+                  style: const TextStyle(color: _accent, fontWeight: FontWeight.w800, fontSize: 13)),
                 const SizedBox(height: 2),
                 Text(d['name'] as String? ?? '',
-                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 11),
+                  style: const TextStyle(color: _textLight, fontSize: 11),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
               ])),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                 Text(isFree ? 'Free' : '₱${fee.toStringAsFixed(0)}',
                   style: TextStyle(
-                    color: isFree ? Colors.greenAccent.shade200 : _goldLight,
+                    color: isFree ? Colors.teal : _gold,
                     fontWeight: FontWeight.w900, fontSize: 16)),
                 const SizedBox(height: 3),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                   decoration: BoxDecoration(
-                    color: Colors.orange.withOpacity(0.2),
+                    color: Colors.orange.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: Colors.orange.withOpacity(0.5)),
+                    border: Border.all(color: Colors.orange.withOpacity(0.4)),
                   ),
                   child: const Text('Ready for Pickup',
                     style: TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.w700)),
@@ -290,12 +326,13 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
               ]),
             ]),
           ),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFE9ECEF)),
 
           // ── Body ──────────────────────────────────────────────────────
           Padding(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              // Customer
+              // Full name
               Row(children: [
                 Container(
                   width: 28, height: 28,
@@ -306,7 +343,10 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
                   child: const Icon(Icons.person_outline, size: 14, color: _accent),
                 ),
                 const SizedBox(width: 8),
-                Expanded(child: Text(d['email'] as String? ?? '',
+                Expanded(child: Text(
+                  (d['buyer_full_name'] as String?)?.isNotEmpty == true
+                      ? d['buyer_full_name'] as String
+                      : (d['email'] as String? ?? ''),
                   style: const TextStyle(color: _textLight, fontSize: 11),
                   maxLines: 1, overflow: TextOverflow.ellipsis)),
               ]),
@@ -330,21 +370,20 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
                 ]),
               ],
 
-              // Date
-              if (d['date'] != null) ...[
+              // Phone
+              if ((d['buyer_phone'] as String?)?.isNotEmpty == true) ...[
                 const SizedBox(height: 8),
                 Row(children: [
                   Container(
                     width: 28, height: 28,
                     decoration: BoxDecoration(
-                      color: Colors.blue.withOpacity(0.08),
+                      color: Colors.green.withOpacity(0.08),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.calendar_today_outlined, size: 13, color: Colors.blueAccent),
+                    child: const Icon(Icons.phone_outlined, size: 13, color: Colors.green),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    DateTime.tryParse(d['date'] as String)?.toLocal().toString().split(' ')[0] ?? '',
+                  Text(d['buyer_phone'] as String,
                     style: const TextStyle(color: _textLight, fontSize: 11)),
                 ]),
               ],
@@ -373,59 +412,23 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
             ]),
           ),
         ]),
-      ),
     );
   }
 
   Future<void> _acceptDelivery(Map<String, dynamic> order) async {
     final fee = (order['shipping_fee'] as num?)?.toDouble() ?? 0;
+    final isFree = fee == 0;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (_) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Text('Accept Delivery',
           style: TextStyle(color: _accent, fontWeight: FontWeight.w800, fontSize: 16)),
-        content: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('Order #${order['id']}',
-            style: const TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13)),
-          const SizedBox(height: 4),
-          Text(order['name'] as String? ?? '',
-            style: const TextStyle(color: _textLight, fontSize: 12),
-            maxLines: 2, overflow: TextOverflow.ellipsis),
-          const SizedBox(height: 12),
-          Row(children: [
-            const Icon(Icons.person_outline, size: 14, color: _textLight),
-            const SizedBox(width: 6),
-            Expanded(child: Text(order['email'] as String? ?? '',
-              style: const TextStyle(color: _textLight, fontSize: 12))),
-          ]),
-          if ((order['address'] as String?)?.isNotEmpty == true) ...[
-            const SizedBox(height: 6),
-            Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              const Icon(Icons.location_on_outlined, size: 14, color: _textLight),
-              const SizedBox(width: 6),
-              Expanded(child: Text(order['address'] as String,
-                style: const TextStyle(color: _textLight, fontSize: 12),
-                maxLines: 2, overflow: TextOverflow.ellipsis)),
-            ]),
-          ],
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: _gold.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: _gold.withOpacity(0.3)),
-            ),
-            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-              const Text('Delivery Fee', style: TextStyle(color: _accent, fontWeight: FontWeight.w600, fontSize: 13)),
-              Text(fee == 0 ? 'Free' : '₱${fee.toStringAsFixed(0)}',
-                style: TextStyle(
-                  color: fee == 0 ? Colors.teal : _gold,
-                  fontWeight: FontWeight.w900, fontSize: 15)),
-            ]),
-          ),
-        ]),
+        content: Text(
+          'Accept Order #${order['id']} — ${order['name'] ?? ''}?',
+          style: const TextStyle(color: _textLight, fontSize: 13),
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -446,13 +449,51 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
     if (confirm != true) return;
 
     try {
-      await supabase
-          .from('orders')
-          .update({
-            'rider_email': widget.riderEmail,
-            'status': 'Heading to Seller',
-          })
-          .eq('id', order['id']);
+      // Use service role to bypass RLS
+      final updateUri = Uri.parse('$supabaseUrl/rest/v1/orders?id=eq.${order['id']}');
+      final updateResp = await http.patch(updateUri,
+        headers: {
+          'apikey':        supabaseServiceRole,
+          'Authorization': 'Bearer $supabaseServiceRole',
+          'Content-Type':  'application/json',
+          'Prefer':        'return=minimal',
+        },
+        body: jsonEncode({
+          'rider_email': widget.riderEmail,
+          'status':      'Heading to Seller',
+        }),
+      );
+      debugPrint('✅ order update: ${updateResp.statusCode} ${updateResp.body}');
+      if (updateResp.statusCode != 200 && updateResp.statusCode != 204) {
+        throw Exception('Update failed: ${updateResp.statusCode}');
+      }
+
+      // Notify the seller using service role to bypass RLS
+      final sellerEmail = order['seller_email'] as String?;
+      if (sellerEmail != null && sellerEmail.isNotEmpty) {
+        try {
+          final notifUri = Uri.parse('$supabaseUrl/rest/v1/notifications');
+          await http.post(notifUri,
+            headers: {
+              'apikey':        supabaseServiceRole,
+              'Authorization': 'Bearer $supabaseServiceRole',
+              'Content-Type':  'application/json',
+              'Prefer':        'return=minimal',
+            },
+            body: jsonEncode({
+              'seller_email': sellerEmail,
+              'message':      'A rider has accepted Order #${order['id']} and is heading to pick it up.',
+              'type':         'rider_assigned',
+              'is_read':      false,
+              'order_id':     order['id'],
+              'created_at':   DateTime.now().toIso8601String(),
+            }),
+          );
+          debugPrint('✅ seller notified: $sellerEmail');
+        } catch (e) {
+          debugPrint('seller notification error: $e');
+        }
+      }
 
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -461,7 +502,7 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ));
-      Navigator.pushReplacement(context, MaterialPageRoute(
+      Navigator.push(context, MaterialPageRoute(
         builder: (_) => RiderActiveDeliveriesPage(riderEmail: widget.riderEmail)));
     } catch (_) {
       if (mounted) {

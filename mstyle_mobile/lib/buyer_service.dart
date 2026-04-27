@@ -656,6 +656,14 @@ class BuyerService {
         .eq('buyer_email', email);
   }
 
+  /// Save OneSignal player ID to users table so Edge Function can send push
+  static Future<void> savePlayerID(String email, String playerId) async {
+    await supabase
+        .from('users')
+        .update({'onesignal_player_id': playerId})
+        .eq('email', email);
+  }
+
   // ── Products ──────────────────────────────────────────────────────────────
 
   /// Fetch featured/all products

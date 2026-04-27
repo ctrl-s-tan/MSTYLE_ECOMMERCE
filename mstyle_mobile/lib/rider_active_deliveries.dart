@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'package:url_launcher/url_launcher.dart';
 import 'rider_dashboard.dart';
 import 'supabase_client.dart';
 
@@ -151,6 +154,67 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
         o['seller_address'] = sellerMap[o['seller_email'] ?? ''] ?? '';
       }
 
+      // 5. Fetch unit price from products table
+      final productIds = orders
+          .map((o) => o['product_id'])
+          .whereType<int>().toSet().toList();
+      if (productIds.isNotEmpty) {
+        final productsRes = await supabaseAdminSelectIn(
+          table: 'products',
+          select: 'id, price',
+          column: 'id',
+          values: productIds.map((id) => '$id').toList(),
+        ).catchError((_) => <Map<String, dynamic>>[]);
+        final priceMap = <int, double>{
+          for (final p in productsRes)
+            (p['id'] as int): (double.tryParse('${p['price']}') ?? 0),
+        };
+        for (final o in orders) {
+          final pid = o['product_id'] as int?;
+          o['unit_price'] = pid != null ? (priceMap[pid] ?? 0.0) : 0.0;
+        }
+      }
+
+      // 6. Fetch buyer + seller full name & phone
+      final buyerEmails = orders
+          .map((o) => o['email'] as String?)
+          .whereType<String>().toSet().toList();
+      final allEmails = {...sellerEmails, ...buyerEmails}.toList();
+
+      if (allEmails.isNotEmpty) {
+        final usersRes = await supabaseAdminSelectIn(
+          table: 'users',
+          select: 'email, first_name, last_name, phone',
+          column: 'email',
+          values: allEmails,
+        ).catchError((_) => <Map<String, dynamic>>[]);
+
+        final userMap = <String, Map<String, dynamic>>{
+          for (final u in usersRes) (u['email'] as String): u,
+        };
+
+        for (final o in orders) {
+          // buyer
+          final buyer = userMap[o['email'] as String? ?? ''];
+          if (buyer != null) {
+            final fn = (buyer['first_name'] as String? ?? '').trim();
+            final ln = (buyer['last_name']  as String? ?? '').trim();
+            o['buyer_full_name'] = [fn, ln].where((s) => s.isNotEmpty).join(' ');
+            final raw = (buyer['phone'] as String? ?? '').trim();
+            o['buyer_phone'] = raw.startsWith('0') ? '+63${raw.substring(1)}' : raw;
+          }
+          // seller
+          final seller = userMap[o['seller_email'] as String? ?? ''];
+          if (seller != null) {
+            final fn = (seller['first_name'] as String? ?? '').trim();
+            final ln = (seller['last_name']  as String? ?? '').trim();
+            o['seller_full_name'] = [fn, ln].where((s) => s.isNotEmpty).join(' ');
+            final raw = (seller['phone'] as String? ?? '').trim();
+            o['seller_phone'] = raw.startsWith('0') ? '+63${raw.substring(1)}' : raw;
+          }
+        }
+      }
+
       if (mounted) setState(() { _deliveries = orders; _loading = false; });
     } catch (e) {
       debugPrint('_fetchActive error: $e');
@@ -201,11 +265,51 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
       final updateData = <String, dynamic>{'status': newStatus};
       if (isCompleted) updateData['delivered_at'] = DateTime.now().toIso8601String();
 
-      await supabase
-          .from('orders')
-          .update(updateData)
-          .eq('id', order['id'])
-          .eq('rider_email', widget.riderEmail);
+      // Use service role to bypass RLS
+      final updateUri = Uri.parse(
+        '$supabaseUrl/rest/v1/orders?id=eq.${order['id']}',
+      );
+      final updateResp = await http.patch(updateUri,
+        headers: {
+          'apikey':        supabaseServiceRole,
+          'Authorization': 'Bearer $supabaseServiceRole',
+          'Content-Type':  'application/json',
+          'Prefer':        'return=minimal',
+        },
+        body: jsonEncode(updateData),
+      );
+      debugPrint('✅ status update: ${updateResp.statusCode} ${updateResp.body}');
+      if (updateResp.statusCode != 200 && updateResp.statusCode != 204) {
+        throw Exception('Update failed: ${updateResp.statusCode}');
+      }
+
+      // Notify the buyer using service role
+      final buyerEmail = order['email'] as String?;
+      if (buyerEmail != null && buyerEmail.isNotEmpty) {
+        final productName = order['name'] as String? ?? 'your order';
+        final message = isCompleted
+            ? 'Your order "$productName" has been delivered! Thank you for shopping with us.'
+            : 'Your order "$productName" status has been updated to "$newStatus".';
+        try {
+          final notifUri = Uri.parse('$supabaseUrl/rest/v1/buyer_notifications');
+          await http.post(notifUri,
+            headers: {
+              'apikey':        supabaseServiceRole,
+              'Authorization': 'Bearer $supabaseServiceRole',
+              'Content-Type':  'application/json',
+              'Prefer':        'return=minimal',
+            },
+            body: jsonEncode({
+              'buyer_email': buyerEmail,
+              'message':     message,
+              'is_read':     false,
+              'created_at':  DateTime.now().toIso8601String(),
+            }),
+          );
+        } catch (e) {
+          debugPrint('buyer notification error: $e');
+        }
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -389,24 +493,24 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
           Container(
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
             decoration: const BoxDecoration(
-              gradient: _premiumGrad,
+              color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
             ),
             child: Row(children: [
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Order #${d['id']}',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+                  style: const TextStyle(color: _accent, fontWeight: FontWeight.w800, fontSize: 14)),
                 const SizedBox(height: 2),
                 Text(d['name'] as String? ?? '',
-                  style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+                  style: const TextStyle(color: _textLight, fontSize: 12),
                   maxLines: 1, overflow: TextOverflow.ellipsis),
               ])),
               Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                   decoration: BoxDecoration(
-                    color: color.withOpacity(0.2), borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: color.withOpacity(0.5)),
+                    color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: color.withOpacity(0.4)),
                   ),
                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                     Icon(_statusIcon(status), size: 11, color: color),
@@ -417,11 +521,12 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
                 const SizedBox(height: 4),
                 Text(isFree ? 'Free' : '₱${fee.toStringAsFixed(0)}',
                   style: TextStyle(
-                    color: isFree ? Colors.greenAccent.shade200 : _goldLight,
+                    color: isFree ? Colors.teal : _gold,
                     fontWeight: FontWeight.w900, fontSize: 15)),
               ]),
             ]),
           ),
+          const Divider(height: 1, thickness: 1, color: Color(0xFFE9ECEF)),
           Padding(
             padding: const EdgeInsets.all(14),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -451,17 +556,11 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
                 ])),
               ]),
               const SizedBox(height: 12),
-              Row(children: [
-                Expanded(child: _outlineBtn(Icons.flag_outlined, 'Report Issue',
-                  Colors.orange, () => _showReportIssue(d))),
-                if (next != null) ...[
-                  const SizedBox(width: 10),
-                  Expanded(child: _primaryBtn(
-                    _actionIcon(status), _actionLabel(status),
-                    () => _updateStatus(d, next),
-                  )),
-                ],
-              ]),
+              if (next != null)
+                _primaryBtn(
+                  _actionIcon(status), _actionLabel(status),
+                  () => _updateStatus(d, next),
+                ),
             ]),
           ),
         ]),
@@ -488,21 +587,12 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Column(children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 8, 0),
-              child: Row(children: [
-                const Spacer(),
-                Container(width: 40, height: 4,
-                  decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2))),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.close, color: _textLight, size: 20),
-                  onPressed: () => Navigator.pop(context),
-                  padding: EdgeInsets.zero,
-                  constraints: const BoxConstraints(),
-                ),
-              ]),
-            ),
+            // drag handle
+            Center(child: Container(
+              margin: const EdgeInsets.symmetric(vertical: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2)),
+            )),
             Container(
               margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               padding: const EdgeInsets.all(16),
@@ -538,32 +628,103 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
               ]),
             ),
             Expanded(child: ListView(controller: scrollCtrl, padding: const EdgeInsets.all(16), children: [
-              _modalInfoRow(Icons.person_outline, 'Customer', d['email'] as String? ?? '', Colors.blue),
-              _modalInfoRow(Icons.store_outlined, 'Pickup Address', _pickupAddress(d), Colors.orange),
-              _modalInfoRow(Icons.location_on_outlined, 'Delivery Address', _deliveryAddress(d), Colors.red),
-              if (d['date'] != null)
-                _modalInfoRow(Icons.calendar_today_outlined, 'Order Date',
-                  DateTime.tryParse(d['date'] as String)?.toLocal().toString().split(' ')[0] ?? '', Colors.purple),
+              // ── Product Details ──────────────────────────────────────
+              _sectionHeader('Product Details', Icons.inventory_2_outlined, Colors.indigo),
+              _modalInfoRow(Icons.tag, 'Order #', '${d['id']}', Colors.indigo),
+              _modalInfoRow(Icons.shopping_bag_outlined, 'Product', d['name'] as String? ?? '', Colors.indigo),
               if ((d['variations'] as String?)?.isNotEmpty == true)
                 _modalInfoRow(Icons.palette_outlined, 'Color', d['variations'] as String, Colors.orange),
               if ((d['size'] as String?)?.isNotEmpty == true)
                 _modalInfoRow(Icons.straighten_outlined, 'Size', d['size'] as String, Colors.teal),
               if (d['quantity'] != null)
-                _modalInfoRow(Icons.inventory_2_outlined, 'Quantity', '${d['quantity']}', Colors.indigo),
-              const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                decoration: BoxDecoration(
-                  color: _gold.withOpacity(0.08),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: _gold.withOpacity(0.3)),
+                _modalInfoRow(Icons.numbers_outlined, 'Quantity', '${d['quantity']}', Colors.blue),
+              if (d['unit_price'] != null && (d['unit_price'] as double) > 0)
+                _modalInfoRow(Icons.payments_outlined, 'Price',
+                  '₱${(d['unit_price'] as double).toStringAsFixed(2)}', Colors.green),
+              if (d['date'] != null)
+                _modalInfoRow(Icons.calendar_today_outlined, 'Order Date',
+                  DateTime.tryParse(d['date'] as String)?.toLocal().toString().split(' ')[0] ?? '', Colors.purple),
+              const SizedBox(height: 12),
+
+              // ── Customer Details ─────────────────────────────────────
+              _sectionHeader('Customer Details', Icons.person_outline, Colors.blue),
+              if ((d['buyer_full_name'] as String?)?.isNotEmpty == true)
+                _modalInfoRow(Icons.badge_outlined, 'Full Name', d['buyer_full_name'] as String, Colors.blue),
+              _modalInfoRow(Icons.email_outlined, 'Email', d['email'] as String? ?? '', Colors.blue),
+              if ((d['buyer_phone'] as String?)?.isNotEmpty == true)
+                _modalInfoRow(Icons.phone_outlined, 'Phone', d['buyer_phone'] as String, Colors.green),
+              _modalInfoRow(Icons.location_on_outlined, 'Delivery Address', _deliveryAddress(d), Colors.red),
+              if (status == 'In Transit' || status == 'Out for Delivery') ...[
+                const SizedBox(height: 8),
+                GestureDetector(
+                  onTap: () async {
+                    final addr = _deliveryAddress(d);
+                    final query = Uri.encodeComponent(addr);
+                    // Try geo URI first (opens native maps app), fallback to browser
+                    final geoUri = Uri.parse('geo:0,0?q=$query');
+                    final webUri = Uri.parse('https://www.google.com/maps/search/?api=1&query=$query');
+                    try {
+                      if (await canLaunchUrl(geoUri)) {
+                        await launchUrl(geoUri);
+                      } else {
+                        await launchUrl(webUri, mode: LaunchMode.externalApplication);
+                      }
+                    } catch (_) {
+                      await launchUrl(webUri, mode: LaunchMode.externalApplication);
+                    }
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    decoration: BoxDecoration(
+                      color: Colors.blue.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.blue.withOpacity(0.3)),
+                    ),
+                    child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      Icon(Icons.map_outlined, size: 15, color: Colors.blue),
+                      SizedBox(width: 6),
+                      Text('View Route on Maps',
+                        style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w700, fontSize: 12)),
+                    ]),
+                  ),
                 ),
-                child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                  const Text('Delivery Fee', style: TextStyle(color: _accent, fontWeight: FontWeight.w600, fontSize: 14)),
-                  Text(isFree ? 'Free' : '₱${fee.toStringAsFixed(0)}',
-                    style: TextStyle(color: isFree ? Colors.teal : _gold, fontWeight: FontWeight.w900, fontSize: 16)),
-                ]),
-              ),
+              ],
+              const SizedBox(height: 12),
+
+              // ── Pickup / Seller Details ──────────────────────────────
+              _sectionHeader('Pickup Details', Icons.store_outlined, Colors.orange),
+              if ((d['seller_full_name'] as String?)?.isNotEmpty == true)
+                _modalInfoRow(Icons.badge_outlined, 'Name', d['seller_full_name'] as String, Colors.orange),
+              if ((d['seller_email'] as String?)?.isNotEmpty == true)
+                _modalInfoRow(Icons.email_outlined, 'Email', d['seller_email'] as String, Colors.orange),
+              if ((d['seller_phone'] as String?)?.isNotEmpty == true)
+                _modalInfoRow(Icons.phone_outlined, 'Phone', d['seller_phone'] as String, Colors.green),
+              _modalInfoRow(Icons.location_on_outlined, 'Pickup Address', _pickupAddress(d), Colors.orange),
+              const SizedBox(height: 12),
+
+              // ── Pricing Summary ──────────────────────────────────────
+              Builder(builder: (_) {
+                final unitPrice = (d['unit_price'] as double?) ?? 0.0;
+                final qty = (d['quantity'] as int?) ?? 1;
+                final deliveryFee = fee;
+                final subtotal = unitPrice * qty;
+                final totalPrice = subtotal + deliveryFee;
+                return Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: _gold.withOpacity(0.06),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _gold.withOpacity(0.25)),
+                  ),
+                  child: Column(children: [
+                    _pricingRow('Subtotal', '₱${subtotal.toStringAsFixed(2)}', _accent, false),
+                    const Divider(height: 14),
+                    _pricingRow('Delivery Fee', isFree ? 'Free' : '₱${deliveryFee.toStringAsFixed(2)}', Colors.teal, false),
+                    const Divider(height: 14),
+                    _pricingRow('Total', '₱${totalPrice.toStringAsFixed(2)}', _gold, true),
+                  ]),
+                );
+              }),
               const SizedBox(height: 20),
               Row(children: [
                 Expanded(child: _outlineBtn(Icons.flag_outlined, 'Report Issue',
@@ -576,6 +737,21 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
                   )),
                 ],
               ]),
+              const SizedBox(height: 12),
+              GestureDetector(
+                onTap: () => Navigator.pop(context),
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 13),
+                  decoration: BoxDecoration(
+                    color: _bg,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: _border),
+                  ),
+                  child: const Center(child: Text('Cancel',
+                    style: TextStyle(color: _textLight, fontWeight: FontWeight.w700, fontSize: 14))),
+                ),
+              ),
               const SizedBox(height: 8),
             ])),
           ]),
@@ -583,6 +759,34 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
       ),
     );
   }
+
+  Widget _pricingRow(String label, String value, Color color, bool bold) => Row(
+    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    children: [
+      Text(label, style: TextStyle(
+        color: bold ? _accent : _textLight,
+        fontSize: bold ? 14 : 13,
+        fontWeight: bold ? FontWeight.w800 : FontWeight.w500)),
+      Text(value, style: TextStyle(
+        color: color,
+        fontSize: bold ? 16 : 13,
+        fontWeight: bold ? FontWeight.w900 : FontWeight.w600)),
+    ],
+  );
+
+  Widget _sectionHeader(String title, IconData icon, Color color) => Padding(
+    padding: const EdgeInsets.only(bottom: 10),
+    child: Row(children: [
+      Container(
+        width: 28, height: 28,
+        decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+        child: Icon(icon, size: 14, color: color)),
+      const SizedBox(width: 8),
+      Text(title, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.w800, letterSpacing: 0.3)),
+      const SizedBox(width: 8),
+      Expanded(child: Container(height: 1, color: color.withOpacity(0.15))),
+    ]),
+  );
 
   Widget _modalInfoRow(IconData icon, String label, String value, Color color) => Padding(
     padding: const EdgeInsets.only(bottom: 12),

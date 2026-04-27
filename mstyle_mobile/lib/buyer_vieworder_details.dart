@@ -28,7 +28,6 @@ class BuyerViewOrderDetails extends StatelessWidget {
     final status     = order['status'] as String? ?? 'Pending';
     debugPrint('🔍 BuyerViewOrderDetails status: "$status"');
     final name       = order['name'] as String? ?? '';
-    final totalPrice = double.tryParse(order['total_price']?.toString() ?? '0') ?? 0;
     final date       = order['date'] as String? ?? '';
     final color      = order['variations'] as String?;
     final size       = order['size'] as String?;
@@ -38,6 +37,8 @@ class BuyerViewOrderDetails extends StatelessWidget {
     final email      = order['email'] as String? ?? '';
     final payment    = order['payment_method'] as String? ?? 'Cash on Delivery';
     final shipping   = double.tryParse(order['shipping_fee']?.toString() ?? '50') ?? 50;
+    final totalPrice = double.tryParse(order['total_price']?.toString() ?? '0') ?? 0;
+    final subtotal   = totalPrice - shipping;
     final imageRaw   = order['image'] as String?;
     final imageUrl   = buildImageUrl(imageRaw?.split(',').first.trim());
     final statusColor = _statusColor(status);
@@ -122,11 +123,11 @@ class BuyerViewOrderDetails extends StatelessWidget {
                 // ── Pricing ──────────────────────────────────────────────
                 _sectionTitle('Pricing'),
                 _card(children: [
-                  _priceRow('Subtotal', '₱${totalPrice.toStringAsFixed(2)}'),
+                  _priceRow('Subtotal', '₱${subtotal.toStringAsFixed(2)}'),
                   const Divider(height: 16),
                   _priceRow('Shipping Fee', '₱${shipping.toStringAsFixed(2)}'),
                   const Divider(height: 16),
-                  _priceRow('Total', '₱${(totalPrice + shipping).toStringAsFixed(2)}',
+                  _priceRow('Total', '₱${totalPrice.toStringAsFixed(2)}',
                     highlight: true),
                 ]),
 

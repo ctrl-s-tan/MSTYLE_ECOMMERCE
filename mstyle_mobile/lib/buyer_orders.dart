@@ -127,6 +127,16 @@ class _BuyerOrdersPageState extends State<BuyerOrdersPage> {
 
   List<Map<String, dynamic>> get _filtered {
     if (_filter == OrderStatus.all) return _orders;
+    if (_filter == OrderStatus.shipped) {
+      // "Shipped" covers all in-transit statuses
+      const transitStatuses = [
+        'shipped', 'heading to seller', 'for pickup',
+        'in transit', 'out for delivery', 'waiting for pickup',
+      ];
+      return _orders.where((o) =>
+        transitStatuses.contains((o['status'] as String? ?? '').toLowerCase())
+      ).toList();
+    }
     final statusName = _filter.name.toLowerCase();
     return _orders.where((o) =>
       (o['status'] as String? ?? '').toLowerCase() == statusName
@@ -395,23 +405,37 @@ class _BuyerOrdersPageState extends State<BuyerOrdersPage> {
 
   Color _statusColor(String status) {
     switch (status.toLowerCase()) {
-      case 'pending':   return Colors.orange;
-      case 'shipped':   return Colors.blue;
-      case 'delivered': return Colors.teal;
-      case 'completed': return Colors.green;
-      case 'cancelled': return Colors.red;
-      default:          return _textLight;
+      case 'pending':            return Colors.orange;
+      case 'confirmed':          return Colors.blue.shade300;
+      case 'preparing':          return Colors.purple;
+      case 'waiting for pickup': return Colors.amber.shade700;
+      case 'heading to seller':  return Colors.indigo;
+      case 'for pickup':         return Colors.orange;
+      case 'in transit':         return Colors.blue;
+      case 'out for delivery':   return Colors.teal;
+      case 'shipped':            return Colors.blue;
+      case 'delivered':          return Colors.teal;
+      case 'completed':          return Colors.green;
+      case 'cancelled':          return Colors.red;
+      default:                   return _textLight;
     }
   }
 
   IconData _statusIconFromString(String status) {
     switch (status.toLowerCase()) {
-      case 'pending':   return Icons.hourglass_empty;
-      case 'shipped':   return Icons.local_shipping_outlined;
-      case 'delivered': return Icons.check_circle_outline;
-      case 'completed': return Icons.check_circle;
-      case 'cancelled': return Icons.cancel_outlined;
-      default:          return Icons.help_outline;
+      case 'pending':            return Icons.hourglass_empty;
+      case 'confirmed':          return Icons.check_circle_outline;
+      case 'preparing':          return Icons.build_outlined;
+      case 'waiting for pickup': return Icons.inventory_2_outlined;
+      case 'heading to seller':  return Icons.directions_bike_outlined;
+      case 'for pickup':         return Icons.access_time;
+      case 'in transit':         return Icons.local_shipping_outlined;
+      case 'out for delivery':   return Icons.local_shipping;
+      case 'shipped':            return Icons.local_shipping_outlined;
+      case 'delivered':          return Icons.check_circle_outline;
+      case 'completed':          return Icons.check_circle;
+      case 'cancelled':          return Icons.cancel_outlined;
+      default:                   return Icons.help_outline;
     }
   }
 

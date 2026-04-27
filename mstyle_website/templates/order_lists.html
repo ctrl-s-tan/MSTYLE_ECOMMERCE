@@ -117,9 +117,9 @@
                                 <th><i class="bi bi-box"></i> Product</th>
                                 <th><i class="bi bi-gear"></i> Specifications</th>
                                 <th><i class="bi bi-box-seam"></i> Quantity</th>
-                                <th><i class="bi bi-currency-exchange"></i> Original Price</th>
+                                <th><i class="bi bi-currency-exchange"></i> Product Price</th>
                                 <th><i class="bi bi-tag"></i> Promotion</th>
-                                <th><i class="bi bi-currency-dollar"></i> Total Price</th>
+                                <th><i class="bi bi-currency-dollar"></i> Total Price <small style="font-weight:400;font-size:10px;">(w/ shipping)</small></th>
                                 <th><i class="bi bi-calendar3"></i> Date</th>
                                 <th><i class="bi bi-flag"></i> Status</th>
                                 <th><i class="bi bi-tools"></i> Action</th>
@@ -228,21 +228,9 @@
                                 </td>
                                 <td>{{ order.quantity }}</td>
                                 <td>
-                                    {% set original_price = order.original_price|float if order.original_price else order.total_price|float %}
-                                    {% set total_price = order.total_price|float %}
-                                    {% if original_price and original_price != total_price %}
-                                    <div class="original-price-info">
-                                        <span class="original-amount">₱{{ "%.2f"|format(original_price) }}</span>
-                                        {% if order.promotion_type in ['percentage', 'fixed'] %}
-                                        <span class="discount-indicator">
-                                            <i class="bi bi-arrow-down"></i>
-                                            ₱{{ "%.2f"|format(original_price - total_price) }}
-                                        </span>
-                                        {% endif %}
-                                    </div>
-                                    {% else %}
-                                    <span class="no-discount">₱{{ "%.2f"|format(total_price) }}</span>
-                                    {% endif %}
+                                    {% set prod_price = order.original_price|float %}
+                                    {% set total = order.total_price|float %}
+                                    <span class="no-discount">₱{{ "%.2f"|format(prod_price) }}</span>
                                 </td>
                                 <td>
                                     {% if order.promotion_type %}
@@ -282,15 +270,9 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% set original_price = order.original_price|float if order.original_price else order.total_price|float %}
-                                    {% set total_price = order.total_price|float %}
+                                    {% set total = order.total_price|float %}
                                     <div class="total-price-info">
-                                        <span class="total-amount">₱{{ "%.2f"|format(total_price) }}</span>
-                                        {% if order.promotion_type in ['percentage', 'fixed'] and original_price and original_price != total_price %}
-                                        <span class="savings-badge">
-                                            Save ₱{{ "%.2f"|format(original_price - total_price) }}
-                                        </span>
-                                        {% endif %}
+                                        <span class="total-amount">₱{{ "%.2f"|format(total) }}</span>
                                     </div>
                                 </td>
                                 <td>

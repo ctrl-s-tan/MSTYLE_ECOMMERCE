@@ -6,6 +6,8 @@ import 'register.dart';
 import 'buyer_homepage.dart';
 import 'seller_dashboard.dart';
 import 'rider_dashboard.dart';
+import 'buyer_service.dart';
+import 'notification_service.dart';
 
 const Color _primary   = Color(0xFF1a1a1a);
 const Color _accent    = Color(0xFF2c3e50);
@@ -104,6 +106,11 @@ class _LoginPageState extends State<LoginPage> {
         Navigator.pushReplacement(context,
           MaterialPageRoute(builder: (_) => SellerDashboardPage(sellerEmail: email)));
       } else {
+        // Save OneSignal player ID for this buyer so push notifications work
+        final playerId = await NotificationService.getPlayerId();
+        if (playerId != null) {
+          await BuyerService.savePlayerID(email, playerId);
+        }
         Navigator.pushReplacement(context,
           MaterialPageRoute(builder: (_) => BuyerHomePage(userEmail: email)));
       }
