@@ -594,14 +594,29 @@ class _BuyerCheckoutPageState extends State<BuyerCheckoutPage> {
     }
     try {
       for (final item in widget.items) {
+        // Resolve productId — try numeric id first, then look up by name
+        int resolvedProductId = item.productId ?? int.tryParse(item.id) ?? 0;
+        String resolvedSellerEmail = '';
+
+        if (resolvedProductId == 0) {
+          // Look up product by name to get real id + seller_email
+          try {
+            final res = await BuyerService.findProductByName(item.name);
+            if (res != null) {
+              resolvedProductId = res['id'] as int? ?? 0;
+              resolvedSellerEmail = res['seller_email'] as String? ?? '';
+            }
+          } catch (_) {}
+        }
+
         await BuyerService.placeOrder(
           email:         widget.userEmail,
           name:          item.name,
-          productId:     item.productId ?? int.tryParse(item.id) ?? 0,
+          productId:     resolvedProductId,
           totalPrice:    item.subtotal + item.shippingFee,
           quantity:      item.quantity,
           address:       _address,
-          sellerEmail:   '',
+          sellerEmail:   resolvedSellerEmail,
           paymentMethod: _paymentMethod,
           color:         item.color,
           size:          item.size,

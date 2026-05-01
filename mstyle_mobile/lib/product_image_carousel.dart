@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 // ─── Image URL builder ────────────────────────────────────────────────────────
 // New products: image column stores full Supabase Storage URLs
 // Old products: plain filenames served by Flask (update IP for physical device)
-const String kFlaskBaseUrl = 'http://192.168.1.3:5000';
+const String kFlaskBaseUrl = 'http://192.168.1.5:5000';
 
 String? buildImageUrl(String? raw) {
   if (raw == null || raw.trim().isEmpty) return null;

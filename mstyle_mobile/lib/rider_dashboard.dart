@@ -468,6 +468,13 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
         throw Exception('Update failed: ${updateResp.statusCode}');
       }
 
+      // Remove from available list immediately (optimistic)
+      setState(() {
+        _availableOrders.removeWhere((o) => o['id'] == order['id']);
+        _availableCount = (_availableCount - 1).clamp(0, 999);
+        _activeCount = _activeCount + 1;
+      });
+
       // Notify the seller using service role to bypass RLS
       final sellerEmail = order['seller_email'] as String?;
       if (sellerEmail != null && sellerEmail.isNotEmpty) {
@@ -502,8 +509,15 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ));
-      Navigator.push(context, MaterialPageRoute(
+      // Refresh dashboard data immediately so accepted order disappears
+      _fetchStats();
+      _fetchAvailableOrders();
+      // Navigate to active deliveries and refresh on return
+      await Navigator.push(context, MaterialPageRoute(
         builder: (_) => RiderActiveDeliveriesPage(riderEmail: widget.riderEmail)));
+      // Refresh again when rider comes back from active deliveries
+      _fetchStats();
+      _fetchAvailableOrders();
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(

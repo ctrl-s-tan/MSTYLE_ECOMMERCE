@@ -326,7 +326,7 @@ class BuyerService {
     return List<Map<String, dynamic>>.from(res as List);
   }
 
-  /// Place a new order via Flask API (uses service role to bypass RLS)
+  /// Place a new order directly via Supabase service role (no Flask needed)
   static Future<void> placeOrder({
     required String email,
     required String name,
@@ -341,36 +341,122 @@ class BuyerService {
     String? image,
     double shippingFee = 50,
   }) async {
-    // Direct Supabase insert is blocked by RLS for the anon key.
-    // Route through Flask API which uses the service role key.
-    final unitPrice = (totalPrice - shippingFee) / quantity;
-    final uri = Uri.parse('$kFlaskBaseUrl/api/mobile/place_order');
-    final response = await _http.post(
-      uri,
-      headers: {'Content-Type': 'application/json'},
-      body: jsonEncode({
-        'email':          email,
-        'payment_method': paymentMethod,
-        'address':        address,
-        'items': [
-          {
-            'name':         name,
-            'product_id':   productId,
-            'price':        unitPrice,
-            'quantity':     quantity,
-            'color':        color ?? '',
-            'size':         size ?? '',
-            'image':        image ?? '',
-            'seller_email': sellerEmail,
-            'shipping_fee': shippingFee,
-          }
-        ],
-      }),
-    );
-    final body = jsonDecode(response.body) as Map<String, dynamic>;
-    if (response.statusCode != 200 || body['success'] != true) {
-      throw Exception(body['error'] ?? 'Failed to place order (${response.statusCode})');
+    // Resolve seller_email from products table if not provided
+    String resolvedSellerEmail = sellerEmail;
+    if (resolvedSellerEmail.isEmpty && productId > 0) {
+      try {
+        final pr = await supabaseAdminSelect(
+          table: 'products', select: 'seller_email',
+          filters: {'id': '$productId'}, limit: 1,
+        );
+        if (pr.isNotEmpty) {
+          resolvedSellerEmail = pr[0]['seller_email'] as String? ?? '';
+        }
+      } catch (_) {}
     }
+
+    final now = DateTime.now().toUtc().toIso8601String();
+    final orderRow = {
+      'email':          email,
+      'name':           name,
+      'product_id':     productId > 0 ? productId : null,
+      'total_price':    totalPrice,
+      'quantity':       quantity,
+      'address':        address,
+      'seller_email':   resolvedSellerEmail,
+      'payment_method': paymentMethod,
+      'status':         'Pending',
+      'variations':     color ?? '',
+      'size':           size ?? '',
+      'image':          image ?? '',
+      'shipping_fee':   shippingFee,
+      'date':           now,
+    };
+
+    // Insert using service role to bypass RLS
+    final uri = Uri.parse('$supabaseUrl/rest/v1/orders');
+    final resp = await http.post(uri,
+      headers: {
+        'apikey':        supabaseServiceRole,
+        'Authorization': 'Bearer $supabaseServiceRole',
+        'Content-Type':  'application/json',
+        'Prefer':        'return=representation',
+      },
+      body: jsonEncode(orderRow),
+    );
+    if (resp.statusCode != 200 && resp.statusCode != 201) {
+      throw Exception('Failed to place order (${resp.statusCode}): ${resp.body}');
+    }
+
+    final inserted = jsonDecode(resp.body);
+    final orderId = inserted is List && inserted.isNotEmpty
+        ? inserted[0]['id'] : null;
+
+    // Decrement variant stock (best-effort)
+    if (productId > 0 && (color?.isNotEmpty == true || size?.isNotEmpty == true)) {
+      try {
+        final vi = await supabaseAdminSelect(
+          table: 'variant_inventory',
+          select: 'id, stock_quantity',
+          filters: {
+            'product_id': '$productId',
+            'color': color ?? '',
+            'size': size ?? '',
+          },
+          limit: 1,
+        );
+        if (vi.isNotEmpty) {
+          final newStock = ((vi[0]['stock_quantity'] as int? ?? 0) - quantity).clamp(0, 999999);
+          final viUri = Uri.parse('$supabaseUrl/rest/v1/variant_inventory?id=eq.${vi[0]['id']}');
+          await http.patch(viUri,
+            headers: {
+              'apikey': supabaseServiceRole,
+              'Authorization': 'Bearer $supabaseServiceRole',
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal',
+            },
+            body: jsonEncode({'stock_quantity': newStock}),
+          );
+        }
+      } catch (_) {}
+    }
+
+    // Update product quantity + sold (best-effort)
+    if (productId > 0) {
+      try {
+        final pr = await supabaseAdminSelect(
+          table: 'products', select: 'quantity, sold',
+          filters: {'id': '$productId'}, limit: 1,
+        );
+        if (pr.isNotEmpty) {
+          final newQty  = ((pr[0]['quantity'] as int? ?? 0) - quantity).clamp(0, 999999);
+          final newSold = (pr[0]['sold'] as int? ?? 0) + quantity;
+          final pUri = Uri.parse('$supabaseUrl/rest/v1/products?id=eq.$productId');
+          await http.patch(pUri,
+            headers: {
+              'apikey': supabaseServiceRole,
+              'Authorization': 'Bearer $supabaseServiceRole',
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal',
+            },
+            body: jsonEncode({'quantity': newQty, 'sold': newSold}),
+          );
+        }
+      } catch (_) {}
+    }
+
+    // Remove from cart (best-effort)
+    try {
+      await supabaseAdminDelete(
+        table: 'cart',
+        filters: {
+          'email': email,
+          'product_id': '$productId',
+          'variations': color ?? '',
+          'size': size ?? '',
+        },
+      );
+    } catch (_) {}
   }
 
   /// Cancel an order
@@ -665,6 +751,21 @@ class BuyerService {
   }
 
   // ── Products ──────────────────────────────────────────────────────────────
+
+  /// Find a product by name — used as fallback when productId is unknown
+  static Future<Map<String, dynamic>?> findProductByName(String name) async {
+    try {
+      final res = await supabase
+          .from('products')
+          .select('id, seller_email')
+          .ilike('name', name.trim())
+          .limit(1)
+          .maybeSingle();
+      return res;
+    } catch (_) {
+      return null;
+    }
+  }
 
   /// Fetch featured/all products
   /// Only returns products that have had stock set (quantity > 0 OR sold > 0).
