@@ -2788,16 +2788,7 @@ def upload_profile_picture():
             except Exception as sb_err:
                 print(f"?? Supabase profile picture update error: {sb_err}")
 
-            try:
-                connection = get_db_connection()
-                cursor = connection.cursor()
-                cursor.execute(
-                    "UPDATE users SET profile_picture = %s WHERE email = %s",
-                    (filename, session.get('email'))
-                )
-                connection.commit()
-            except Exception as mysql_err:
-                print(f"?? MySQL profile picture update skipped: {mysql_err}")
+            # MySQL mirror removed
             
             return jsonify({
                 'success': True, 
@@ -4766,42 +4757,7 @@ def add_new_product():
                 return redirect(request.url)
 
             # -- SECONDARY: Mirror to MySQL (best-effort, non-blocking) ----
-            try:
-                db = get_db_connection()
-                cursor = db.cursor()
-                try:
-                    cursor.execute('''INSERT INTO products 
-                            (name, category, description, variations, price, image,
-                             quantity, low_stock_threshold, seller_email, image_colors, sizes, sku)
-                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
-                        (product_name, category, description, variations_string,
-                         regular_price, images_string, 0, low_stock_threshold,
-                         seller_email, image_color_string, product_sizes, sku))
-                except mysql.connector.Error as sku_err:
-                    if "Unknown column 'sku'" in str(sku_err):
-                        cursor.execute('''INSERT INTO products 
-                                (name, category, description, variations, price, image,
-                                 quantity, low_stock_threshold, seller_email, image_colors, sizes)
-                                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
-                            (product_name, category, description, variations_string,
-                             regular_price, images_string, 0, low_stock_threshold,
-                             seller_email, image_color_string, product_sizes))
-                    else:
-                        raise sku_err
-
-                mysql_product_id = cursor.lastrowid
-                for color in variations_list:
-                    for size in sizes_list:
-                        cursor.execute('''INSERT INTO variant_inventory 
-                                (product_id, color, size, stock_quantity, low_stock_threshold)
-                                VALUES (%s, %s, %s, %s, %s)''',
-                            (mysql_product_id, color, size, 0, low_stock_threshold))
-                db.commit()
-                cursor.close()
-                db.close()
-                print(f"? Product also mirrored to MySQL id={mysql_product_id}")
-            except Exception as mysql_err:
-                print(f"?? MySQL mirror failed (non-fatal, Supabase is primary): {mysql_err}")
+            # MySQL product mirror removed
 
             flash('Product added successfully! Set stock quantities in Variant Inventory.', 'success')
             return redirect(url_for('variant_inventory'))
@@ -5083,907 +5039,8 @@ def test_sizes_update(product_id):
     if 'email' not in session:
         return jsonify({'error': 'Not logged in'}), 401
     
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # Get current values first
-        cursor.execute("SELECT sizes, variations FROM products WHERE id = %s AND seller_email = %s", (product_id, session['email']))
-        current_product = cursor.fetchone()
-        
-        if not current_product:
-            return jsonify({'error': 'Product not found or access denied'}), 404
-        
-        # Get the test data from request
-        test_sizes = request.form.get('test_sizes', 'Test Size 1, Test Size 2')
-        test_variations = request.form.get('test_variations', 'Red, Blue, Green')
-        
-        print(f"?? TEST SIZES & VARIATIONS UPDATE:")
-        print(f"  - Product ID: {product_id}")
-        print(f"  - Current sizes: '{current_product['sizes']}'")
-        print(f"  - Current variations: '{current_product['variations']}'")
-        print(f"  - Test sizes: '{test_sizes}'")
-        print(f"  - Test variations: '{test_variations}'")
-        print(f"  - Seller email: {session['email']}")
-        
-        # Update both sizes and variations
-        update_query = "UPDATE products SET sizes = %s, variations = %s WHERE id = %s AND seller_email = %s"
-        params = [test_sizes, test_variations, product_id, session['email']]
-        
-        print(f"  - Query: {update_query}")
-        print(f"  - Params: {params}")
-        
-        cursor.execute(update_query, params)
-        affected_rows = cursor.rowcount
-        connection.commit()
-        
-        print(f"  - Affected rows: {affected_rows}")
-        
-        # Verify the update
-        cursor.execute("SELECT sizes, variations FROM products WHERE id = %s", (product_id,))
-        result = cursor.fetchone()
-        
-        if result:
-            saved_sizes = result['sizes']
-            saved_variations = result['variations']
-            print(f"  - Saved sizes: '{saved_sizes}'")
-            print(f"  - Saved variations: '{saved_variations}'")
-            
-            cursor.close()
-            connection.close()
-            
-            return jsonify({
-                'success': True,
-                'affected_rows': affected_rows,
-                'before': {
-                    'sizes': current_product['sizes'],
-                    'variations': current_product['variations']
-                },
-                'test_values': {
-                    'sizes': test_sizes,
-                    'variations': test_variations
-                },
-                'after': {
-                    'sizes': saved_sizes,
-                    'variations': saved_variations
-                },
-                'sizes_match': saved_sizes == test_sizes,
-                'variations_match': saved_variations == test_variations
-            })
-        else:
-            cursor.close()
-            connection.close()
-            return jsonify({'error': 'Could not verify update'}), 500
-            
-    except Exception as e:
-        print(f"? Test update error: {str(e)}")
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/products', methods=['GET'])
-def products():
-    if 'email' not in session:
-        return redirect(url_for('home'))
-
-    user_email = session['email']
-    search_query = request.args.get('search', '').strip()
-    selected_category = request.args.get('category', '').strip()
-    selected_status = request.args.get('status', '').strip()
-    sort_by = request.args.get('sort_by', 'newest').strip()
-    page = request.args.get('page', 1, type=int)
-    per_page = 12
-
-    # -- Seller name from Supabase -----------------------------------------
-    seller_name = session.get('first_name', 'Seller')
-    try:
-        sb_res = sb_admin.table('users').select('first_name, last_name, business_name').eq('email', user_email).execute()
-        if sb_res.data:
-            u = sb_res.data[0]
-            seller_name = u.get('business_name') or f"{u.get('first_name', '')} {u.get('last_name', '')}".strip() or 'Seller'
-    except Exception as sb_err:
-        print(f"?? Supabase name fetch failed in products: {sb_err}")
-
-    try:
-        # -- Fetch all seller products from Supabase -----------------------
-        products_res = sb_admin.table('products') \
-            .select(
-                'id, name, category, description, variations, price, image, '
-                'quantity, low_stock_threshold, seller_email, sold, rating, '
-                'image_colors, sizes, flagged_at, flag_reason, flagged_by, is_active'
-            ) \
-            .eq('seller_email', user_email) \
-            .execute()
-
-        all_products = products_res.data or []
-
-        # -- Fetch reviews for rating calculation --------------------------
-        if all_products:
-            product_ids = [p['id'] for p in all_products]
-            reviews_res = sb_admin.table('reviews') \
-                .select('product_id, rating') \
-                .in_('product_id', product_ids) \
-                .execute()
-
-            # Build rating aggregates per product
-            from collections import defaultdict
-            rating_map = defaultdict(list)
-            for r in (reviews_res.data or []):
-                rating_map[r['product_id']].append(r['rating'])
-
-            for p in all_products:
-                ratings = rating_map.get(p['id'], [])
-                if ratings:
-                    p['calculated_rating'] = round(sum(ratings) / len(ratings), 1)
-                    p['review_count'] = len(ratings)
-                    p['rating'] = p['calculated_rating']
-                else:
-                    p['calculated_rating'] = 0
-                    p['review_count'] = 0
-                    p['rating'] = None
-        else:
-            for p in all_products:
-                p['calculated_rating'] = 0
-                p['review_count'] = 0
-                p['rating'] = None
-
-        # -- Apply filters in Python ---------------------------------------
-        filtered = all_products
-
-        if search_query:
-            sq = search_query.lower()
-            filtered = [p for p in filtered if sq in p['name'].lower() or sq in p['category'].lower()]
-
-        if selected_category:
-            filtered = [p for p in filtered if p['category'] == selected_category]
-
-        if selected_status:
-            if selected_status == 'active':
-                filtered = [p for p in filtered if p.get('is_active') and not p.get('flagged_at')]
-            elif selected_status == 'inactive':
-                filtered = [p for p in filtered if not p.get('is_active')]
-            elif selected_status == 'flagged':
-                filtered = [p for p in filtered if p.get('flagged_at')]
-            elif selected_status == 'out_of_stock':
-                filtered = [p for p in filtered if int(p.get('quantity') or 0) == 0]
-            elif selected_status == 'low_stock':
-                def _is_low(p):
-                    qty = int(p.get('quantity') or 0)
-                    thr = int(p.get('low_stock_threshold') or 5)
-                    return qty > 0 and qty <= thr
-                filtered = [p for p in filtered if _is_low(p)]
-
-        # -- Sort ----------------------------------------------------------
-        def _price(p):
-            try: return float(p.get('price') or 0)
-            except: return 0.0
-
-        def _qty(p):
-            try: return int(p.get('quantity') or 0)
-            except: return 0
-
-        if sort_by == 'oldest':
-            filtered.sort(key=lambda p: p['id'])
-        elif sort_by == 'price_low':
-            filtered.sort(key=_price)
-        elif sort_by == 'price_high':
-            filtered.sort(key=_price, reverse=True)
-        elif sort_by == 'name_asc':
-            filtered.sort(key=lambda p: p['name'].lower())
-        elif sort_by == 'name_desc':
-            filtered.sort(key=lambda p: p['name'].lower(), reverse=True)
-        elif sort_by == 'stock_high':
-            filtered.sort(key=_qty, reverse=True)
-        elif sort_by == 'stock_low':
-            filtered.sort(key=_qty)
-        elif sort_by == 'sold_high':
-            filtered.sort(key=lambda p: int(p.get('sold') or 0), reverse=True)
-        elif sort_by == 'rating_high':
-            filtered.sort(key=lambda p: (p.get('calculated_rating') or 0, p.get('review_count') or 0), reverse=True)
-        else:  # newest (default)
-            filtered.sort(key=lambda p: p['id'], reverse=True)
-
-        # -- Distinct categories for dropdown ------------------------------
-        categories = sorted(set(p['category'] for p in all_products if p.get('category')))
-
-        # -- Paginate ------------------------------------------------------
-        total_products = len(filtered)
-        total_pages = max(1, (total_products + per_page - 1) // per_page)
-        page = max(1, min(page, total_pages))
-        offset = (page - 1) * per_page
-        products_page = filtered[offset: offset + per_page]
-
-        print(f"? Products loaded from Supabase: {total_products} total, page {page}/{total_pages}")
-
-    except Exception as e:
-        print(f"? Error loading products from Supabase: {e}")
-        products_page = []
-        categories = []
-        total_products = 0
-        total_pages = 1
-
-    return render_template('products.html',
-                           products=products_page,
-                           categories=categories,
-                           selected_category=selected_category,
-                           selected_status=selected_status,
-                           sort_by=sort_by,
-                           page=page,
-                           total_pages=total_pages,
-                           total_products=total_products,
-                           per_page=per_page,
-                           user_name=seller_name,
-                           user_email=session.get('email', 'Seller'))
-
-# Variant Inventory Routes
-@app.route('/variant_inventory')
-def variant_inventory():
-    """Variant inventory management page for sellers"""
-    if 'email' not in session or session.get('user_type') != 'Seller':
-        flash('Please log in as a seller to access this page', 'error')
-        return redirect(url_for('login'))
-    
-    user_name = f"{session.get('first_name', '')} {session.get('last_name', '')}".strip()
-    return render_template('variant_inventory.html', user_name=user_name, user_email=session.get('email', 'Seller'))
-
-
-@app.route('/api/product/<int:product_id>/variant-stock')
-def get_product_variant_stock(product_id):
-    """Get variant stock for a specific product (public endpoint for buyers) — reads from Supabase"""
-    try:
-        res = sb_admin.table('variant_inventory') \
-            .select('color, size, stock_quantity') \
-            .eq('product_id', product_id) \
-            .execute()
-
-        return jsonify({'success': True, 'variants': res.data or []})
-
-    except Exception as e:
-        print(f"? Error fetching variant stock from Supabase: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/debug/seller-lookup/<int:product_id>')
-def debug_seller_lookup(product_id):
-    """Temporary debug: show what seller email is stored and what users table returns."""
-    try:
-        prod = sb_admin.table('products').select('seller_email').eq('id', product_id).limit(1).execute()
-        if not prod.data:
-            return jsonify({'error': 'product not found'})
-        seller_email = prod.data[0].get('seller_email', '')
-        # Try exact
-        exact = sb_admin.table('users').select('email, business_name, first_name, last_name').eq('email', seller_email).limit(1).execute()
-        # Try ilike
-        ilike = sb_admin.table('users').select('email, business_name, first_name, last_name').ilike('email', seller_email).limit(1).execute()
-        # List first 5 users emails for comparison
-        all_users = sb_admin.table('users').select('email, business_name').limit(5).execute()
-        return jsonify({
-            'product_seller_email': seller_email,
-            'exact_match': exact.data,
-            'ilike_match': ilike.data,
-            'sample_users': all_users.data,
-        })
-    except Exception as e:
-        return jsonify({'error': str(e)})
-
-
-@app.route('/api/mobile/seller_info', methods=['GET'])
-def mobile_seller_info():
-    """Return seller business_name and profile_picture for a given seller email."""
-    seller_email = request.args.get('email', '').strip()
-    if not seller_email:
-        return jsonify({'success': False, 'error': 'email required'}), 400
-    try:
-        res = sb_admin.table('users') \
-            .select('business_name, first_name, last_name, profile_picture') \
-            .eq('email', seller_email) \
-            .limit(1) \
-            .execute()
-        if not res.data:
-            return jsonify({'success': False, 'error': 'not found'}), 404
-        u = res.data[0]
-        biz   = (u.get('business_name') or '').strip()
-        first = (u.get('first_name') or '').strip()
-        last  = (u.get('last_name') or '').strip()
-        name  = biz if biz else f"{first} {last}".strip() or seller_email
-        pic   = u.get('profile_picture') or ''
-        return jsonify({'success': True, 'name': name, 'profile_picture': pic})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/mobile/get_mysql_user_id', methods=['GET'])
-def get_mysql_user_id():
-    """Return a stable integer user_id for a given email using polynomial hash.
-    Same algorithm as _resolve_wishlist_user_id and Dart _getMysqlUserId."""
-    email = request.args.get('email', '').strip()
-    if not email:
-        return jsonify({'success': False, 'error': 'email required'}), 400
-    hash_id = 0
-    for c in email.lower().encode('utf-8'):
-        hash_id = (hash_id * 31 + c) & 0x7FFFFFFF
-    return jsonify({'success': True, 'user_id': hash_id, 'source': 'polynomial_hash'})
-
-
-def _resolve_wishlist_user_id(email):
-    """
-    Returns a stable integer user_id for the wishlist table.
-    Uses the same polynomial hash as the Dart/Flutter mobile app:
-      hashId = (hashId * 31 + codeUnit) & 0x7FFFFFFF
-    This ensures website and mobile app always produce the same user_id.
-    """
-    hash_id = 0
-    for c in email.lower().encode('utf-8'):
-        hash_id = (hash_id * 31 + c) & 0x7FFFFFFF
-    return hash_id
-
-
-def _get_wishlist_ids():
-    """Return a set of product_id strings for the current session user's wishlist."""
-    try:
-        email = session.get('email')
-        if not email:
-            return set()
-        uid = _resolve_wishlist_user_id(email)
-        res = sb_admin.table('wishlist').select('product_id').eq('user_id', uid).execute()
-        return {str(r['product_id']) for r in (res.data or [])}
-    except Exception:
-        return set()
-
-
-@app.route('/api/mobile/wishlist', methods=['GET'])
-def mobile_wishlist_get():
-    email = request.args.get('email', '').strip()
-    if not email:
-        return jsonify({'success': False, 'error': 'email required'}), 400
-    try:
-        user_id = _resolve_wishlist_user_id(email)
-        wl_res = sb_admin.table('wishlist').select('id, product_id').eq('user_id', user_id).order('id', desc=True).execute()
-        rows = wl_res.data or []
-        if not rows:
-            return jsonify({'success': True, 'items': []})
-        product_ids = [r['product_id'] for r in rows]
-        prod_res = sb_admin.table('products').select('id, name, price, image, seller_email, variations, sizes').in_('id', product_ids).execute()
-        prod_map = {p['id']: p for p in (prod_res.data or [])}
-        from datetime import date as _date
-        today = _date.today().isoformat()
-        promo_map = {}
-        try:
-            promo_res = sb_admin.table('promotions').select('id, type, discount_value, code, product_scope').eq('is_active', True).lte('start_date', today).gte('end_date', today).execute()
-            for promo in (promo_res.data or []):
-                scope = promo.get('product_scope', 'all')
-                if scope == 'all':
-                    for pid in product_ids:
-                        if pid not in promo_map: promo_map[pid] = promo
-                elif scope == 'specific':
-                    pp_res = sb_admin.table('promotion_products').select('product_id').eq('promotion_id', promo['id']).in_('product_id', product_ids).execute()
-                    for pp in (pp_res.data or []):
-                        pid = pp['product_id']
-                        if pid not in promo_map: promo_map[pid] = promo
-        except Exception as pe:
-            print(f'Promo fetch error: {pe}')
-        items = []
-        for r in rows:
-            pid = r['product_id']
-            prod = prod_map.get(pid)
-            if not prod: continue
-            base_price = float(prod.get('price') or 0)
-            promo = promo_map.get(pid)
-            sale_price = None; promo_type = ''; promo_discount = 0.0; promo_code = ''
-            if promo:
-                promo_type = promo.get('type', ''); promo_discount = float(promo.get('discount_value') or 0); promo_code = promo.get('code', '')
-                if promo_type == 'percentage' and promo_discount > 0: sale_price = max(base_price * (1 - promo_discount / 100), 0.01)
-                elif promo_type == 'fixed' and promo_discount > 0: sale_price = max(base_price - promo_discount, 0.01)
-            items.append({'id': r['id'], 'product_id': pid, 'products': {'id': pid, 'name': prod.get('name', ''), 'price': base_price, 'sale_price': sale_price, 'image': prod.get('image') or '', 'seller_email': prod.get('seller_email') or '', 'variations': prod.get('variations') or '', 'sizes': prod.get('sizes') or '', 'promotion_type': promo_type, 'promotion_discount': promo_discount, 'promotion_code': promo_code}})
-        return jsonify({'success': True, 'items': items})
-    except Exception as e:
-        print(f'mobile_wishlist_get error: {e}')
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/mobile/wishlist/add', methods=['POST'])
-def mobile_wishlist_add():
-    data = request.get_json() or {}
-    email = data.get('email', '').strip()
-    product_id = data.get('product_id')
-    if not email or not product_id:
-        return jsonify({'success': False, 'error': 'email and product_id required'}), 400
-    try:
-        user_id = _resolve_wishlist_user_id(email)
-        existing = sb_admin.table('wishlist').select('id').eq('user_id', user_id).eq('product_id', int(product_id)).execute()
-        if not existing.data:
-            sb_admin.table('wishlist').insert({'user_id': user_id, 'product_id': int(product_id)}).execute()
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f'mobile_wishlist_add error: {e}')
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/mobile/wishlist/remove', methods=['POST'])
-def mobile_wishlist_remove():
-    data = request.get_json() or {}
-    email = data.get('email', '').strip()
-    product_id = data.get('product_id')
-    if not email or not product_id:
-        return jsonify({'success': False, 'error': 'email and product_id required'}), 400
-    try:
-        user_id = _resolve_wishlist_user_id(email)
-        sb_admin.table('wishlist').delete().eq('user_id', user_id).eq('product_id', int(product_id)).execute()
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f'mobile_wishlist_remove error: {e}')
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/mobile/wishlist/check', methods=['GET'])
-def mobile_wishlist_check():
-    email = request.args.get('email', '').strip()
-    product_id = request.args.get('product_id', '').strip()
-    if not email or not product_id:
-        return jsonify({'in_wishlist': False}), 200
-    try:
-        user_id = _resolve_wishlist_user_id(email)
-        res = sb_admin.table('wishlist').select('id').eq('user_id', user_id).eq('product_id', int(product_id)).execute()
-        return jsonify({'in_wishlist': bool(res.data)})
-    except Exception as e:
-        print(f'mobile_wishlist_check error: {e}')
-        return jsonify({'in_wishlist': False}), 200
-
-
-@app.route('/api/mobile/available_deliveries', methods=['GET'])
-def mobile_available_deliveries():
-    """
-    Returns orders with status 'Waiting for Pickup' and no rider assigned.
-    Uses sb_admin to bypass RLS � safe because it only returns non-sensitive order data.
-    """
-    try:
-        res = sb_admin.table('orders') \
-            .select('id, name, email, address, date, total_price, shipping_fee, '
-                    'quantity, variations, size, payment_method, status, product_id, image') \
-            .eq('status', 'Waiting for Pickup') \
-            .is_('rider_email', 'null') \
-            .order('date', desc=True) \
-            .execute()
-        return jsonify({'success': True, 'orders': res.data or []})
-    except Exception as e:
-        print(f"? mobile_available_deliveries error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/mobile/accept_delivery', methods=['POST'])
-def mobile_accept_delivery():
-    """
-    Rider accepts a delivery � sets status to 'For Pickup' and assigns rider_email.
-    Uses sb_admin to bypass RLS.
-    """
-    try:
-        data = request.get_json()
-        order_id    = data.get('order_id')
-        rider_email = data.get('rider_email')
-        if not order_id or not rider_email:
-            return jsonify({'success': False, 'error': 'Missing order_id or rider_email'}), 400
-
-        sb_admin.table('orders').update({
-            'status':      'For Pickup',
-            'rider_email': rider_email,
-        }).eq('id', int(order_id)).eq('status', 'Waiting for Pickup').execute()
-
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"? mobile_accept_delivery error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/mobile/active_deliveries', methods=['GET'])
-def mobile_active_deliveries():
-    """
-    Returns active orders for a rider with seller address included.
-    """
-    rider_email = request.args.get('rider_email', '').strip()
-    if not rider_email:
-        return jsonify({'success': False, 'error': 'rider_email required'}), 400
-    try:
-        active_statuses = ['For Pickup', 'Heading to Seller', 'In Transit', 'Out for Delivery']
-        print(f"🔍 mobile_active_deliveries: rider_email={rider_email!r}, statuses={active_statuses}")
-
-        # Use '*' to avoid PostgREST FK-join ambiguity on 'address' column
-        orders_res = sb_admin.table('orders') \
-            .select('*') \
-            .eq('rider_email', rider_email) \
-            .in_('status', active_statuses) \
-            .order('date', desc=True) \
-            .execute()
-        orders = orders_res.data or []
-        print(f"✅ Found {len(orders)} active orders for rider {rider_email!r}")
-
-        # Collect unique seller emails and fetch addresses
-        seller_emails = list({o['seller_email'] for o in orders if o.get('seller_email')})
-        seller_map = {}
-        if seller_emails:
-            try:
-                sellers_res = sb_admin.table('users') \
-                    .select('email, house_street, barangay, city, province, region, zip_code') \
-                    .in_('email', seller_emails) \
-                    .execute()
-                for s in (sellers_res.data or []):
-                    parts = [
-                        s.get('house_street', '') or '',
-                        s.get('barangay', '') or '',
-                        s.get('city', '') or '',
-                        s.get('province', '') or '',
-                        s.get('region', '') or '',
-                        s.get('zip_code', '') or '',
-                    ]
-                    seller_map[s['email']] = ', '.join(p for p in parts if p)
-            except Exception as addr_err:
-                print(f"⚠️ seller address fetch failed (non-fatal): {addr_err}")
-
-        # Attach seller_address to each order
-        for o in orders:
-            o['seller_address'] = seller_map.get(o.get('seller_email', ''), '')
-
-        return jsonify({'success': True, 'orders': orders})
-    except Exception as e:
-        print(f"? mobile_active_deliveries error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/mobile/update_delivery_status', methods=['POST'])
-def mobile_update_delivery_status():
-    """Mobile: Rider updates delivery status."""
-    try:
-        data        = request.get_json()
-        order_id    = data.get('order_id')
-        new_status  = data.get('status')
-        rider_email = data.get('rider_email')
-        if not order_id or not new_status or not rider_email:
-            return jsonify({'success': False, 'error': 'Missing fields'}), 400
-
-        allowed = ['Heading to Seller', 'In Transit', 'Out for Delivery', 'Completed']
-        if new_status not in allowed:
-            return jsonify({'success': False, 'error': f'Invalid status: {new_status}'}), 400
-
-        update_payload = {'status': new_status}
-        if new_status == 'Completed':
-            from datetime import datetime as _dt, timedelta as _td
-            update_payload['delivered_at']     = _dt.now().isoformat()
-            update_payload['auto_complete_at'] = (_dt.now() + _td(days=7)).isoformat()
-
-        res = sb_admin.table('orders') \
-            .update(update_payload) \
-            .eq('id', int(order_id)) \
-            .eq('rider_email', rider_email) \
-            .execute()
-
-        if not res.data:
-            return jsonify({'success': False, 'error': 'Order not found or not assigned to you'}), 404
-
-        return jsonify({'success': True})
-    except Exception as e:
-        print(f"? mobile_update_delivery_status error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-
-@app.route('/api/mobile/place_order', methods=['POST'])
-def mobile_place_order():
-    """
-    Mobile order placement endpoint � uses sb_admin (service role) to bypass RLS.
-    Accepts JSON: { email, items: [{name, product_id, price, quantity, color, size,
-                                    image, seller_email, shipping_fee}],
-                    payment_method, address }
-    """
-    try:
-        data = request.get_json()
-        if not data:
-            return jsonify({'success': False, 'error': 'No data provided'}), 400
-
-        email          = (data.get('email') or '').strip()
-        items          = data.get('items', [])
-        payment_method = (data.get('payment_method') or 'cod').strip()
-        address        = (data.get('address') or '').strip()
-
-        if not email or not items:
-            return jsonify({'success': False, 'error': 'Missing email or items'}), 400
-
-        # Verify the buyer exists in Supabase users table
-        user_check = sb_admin.table('users').select('email').eq('email', email).execute()
-        if not user_check.data:
-            return jsonify({'success': False, 'error': 'User not found'}), 404
-
-        order_ids = []
-        now = __import__('datetime').datetime.utcnow().isoformat()
-
-        for item in items:
-            product_id  = item.get('product_id')
-            quantity    = int(item.get('quantity') or 1)
-            color       = (item.get('color') or '').strip()
-            size        = (item.get('size') or '').strip()
-            price       = float(item.get('price') or 0)
-            shipping_fee = float(item.get('shipping_fee') or 50)
-            total_price = price * quantity + shipping_fee
-            seller_email = (item.get('seller_email') or '').strip()
-            image        = (item.get('image') or '').strip()
-            name         = (item.get('name') or '').strip()
-
-            # Fetch seller_email from product if not provided
-            if not seller_email and product_id:
-                try:
-                    pr = sb_admin.table('products').select('seller_email').eq('id', int(product_id)).execute()
-                    if pr.data:
-                        seller_email = pr.data[0].get('seller_email', '')
-                except Exception:
-                    pass
-
-            # Insert order via service role (bypasses RLS)
-            order_row = {
-                'email':          email,
-                'name':           name,
-                'product_id':     int(product_id) if product_id else None,
-                'total_price':    total_price,
-                'quantity':       quantity,
-                'address':        address,
-                'seller_email':   seller_email,
-                'payment_method': payment_method,
-                'status':         'Pending',
-                'variations':     color,
-                'size':           size,
-                'image':          image,
-                'shipping_fee':   shipping_fee,
-                'date':           now,
-            }
-            order_res = sb_admin.table('orders').insert(order_row).execute()
-            if order_res.data:
-                order_ids.append(order_res.data[0].get('id'))
-
-            # Decrement variant_inventory stock
-            if product_id and (color or size):
-                try:
-                    vi_res = sb_admin.table('variant_inventory') \
-                        .select('id, stock_quantity') \
-                        .eq('product_id', int(product_id)) \
-                        .eq('color', color) \
-                        .eq('size', size) \
-                        .execute()
-                    if vi_res.data:
-                        vi = vi_res.data[0]
-                        new_stock = max(0, int(vi['stock_quantity']) - quantity)
-                        sb_admin.table('variant_inventory') \
-                            .update({'stock_quantity': new_stock}) \
-                            .eq('id', vi['id']) \
-                            .execute()
-                except Exception as vi_err:
-                    print(f"?? mobile_place_order: variant stock update failed: {vi_err}")
-
-            # Update product total quantity + sold count
-            if product_id:
-                try:
-                    prod_res = sb_admin.table('products') \
-                        .select('quantity, sold') \
-                        .eq('id', int(product_id)) \
-                        .execute()
-                    if prod_res.data:
-                        p = prod_res.data[0]
-                        new_qty  = max(0, int(p.get('quantity') or 0) - quantity)
-                        new_sold = int(p.get('sold') or 0) + quantity
-                        sb_admin.table('products') \
-                            .update({'quantity': new_qty, 'sold': new_sold}) \
-                            .eq('id', int(product_id)) \
-                            .execute()
-                except Exception as pq_err:
-                    print(f"?? mobile_place_order: product quantity update failed: {pq_err}")
-
-            # Remove item from cart (best-effort)
-            try:
-                sb_admin.table('cart') \
-                    .delete() \
-                    .eq('email', email) \
-                    .eq('product_id', int(product_id)) \
-                    .eq('variations', color) \
-                    .eq('size', size) \
-                    .execute()
-            except Exception:
-                pass
-
-        print(f"? mobile_place_order: {len(order_ids)} orders placed for {email}")
-        return jsonify({'success': True, 'order_ids': order_ids})
-
-    except Exception as e:
-        print(f"? mobile_place_order error: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/seller/products-with-variants')
-def get_products_with_variants():
-    """Get all products with their variants for the logged-in seller � reads from Supabase"""
-    seller_email = session.get('email')
-    user_type = session.get('user_type')
-
-    if not seller_email or user_type != 'Seller':
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
-
-    try:
-        # Fetch products from Supabase
-        products_res = sb_admin.table('products') \
-            .select('id, name, category, image, variations, sizes, quantity, low_stock_threshold') \
-            .eq('seller_email', seller_email) \
-            .eq('is_active', True) \
-            .order('id', desc=True) \
-            .execute()
-
-        products = products_res.data or []
-
-        if not products:
-            return jsonify({'success': True, 'products': []})
-
-        # Fetch all variant_inventory rows for these products in one query
-        product_ids = [p['id'] for p in products]
-        variants_res = sb_admin.table('variant_inventory') \
-            .select('product_id, color, size, stock_quantity, low_stock_threshold') \
-            .in_('product_id', product_ids) \
-            .execute()
-
-        # Group variants by product_id
-        variants_by_product = {}
-        for v in (variants_res.data or []):
-            pid = v['product_id']
-            variants_by_product.setdefault(pid, []).append(v)
-
-        result_products = []
-        for product in products:
-            pid = product['id']
-            images = [i.strip() for i in product['image'].split(',') if i.strip()] if product.get('image') else []
-            colors = [c.strip() for c in product['variations'].split(',') if c.strip()] if product.get('variations') else []
-            sizes  = [s.strip() for s in product['sizes'].split(',') if s.strip()] if product.get('sizes') else []
-
-            variants = variants_by_product.get(pid, [])
-            total_quantity = sum(v['stock_quantity'] for v in variants) if variants else (product.get('quantity') or 0)
-            low_stock_threshold = product.get('low_stock_threshold') or 5
-
-            result_products.append({
-                'id':                  pid,
-                'name':                product['name'],
-                'category':            product['category'],
-                'images':              images,
-                'colors':              colors,
-                'sizes':               sizes,
-                'total_quantity':      total_quantity,
-                'low_stock_threshold': low_stock_threshold,
-                'variants':            variants,
-            })
-
-        return jsonify({'success': True, 'products': result_products})
-
-    except Exception as e:
-        print(f"? Error fetching products with variants from Supabase: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/seller/update-variants', methods=['POST'])
-def update_variants():
-    """Update variant stock quantities � writes to Supabase (primary) + MySQL (mirror)"""
-    seller_email = session.get('email')
-    user_type = session.get('user_type')
-
-    if not seller_email or user_type != 'Seller':
-        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
-
-    try:
-        data = request.get_json()
-        product_id = data.get('product_id')
-        variants = data.get('variants', [])
-        low_stock_threshold = int(data.get('low_stock_threshold', 5))
-
-        if not product_id or not variants:
-            return jsonify({'success': False, 'error': 'Missing required data'}), 400
-
-        # -- Verify ownership via Supabase ---------------------------------
-        owner_res = sb_admin.table('products') \
-            .select('id, name') \
-            .eq('id', product_id) \
-            .eq('seller_email', seller_email) \
-            .execute()
-
-        if not owner_res.data:
-            return jsonify({'success': False, 'error': 'Product not found or unauthorized'}), 404
-
-        product_name = owner_res.data[0]['name']
-
-        # -- Update product-level threshold + total quantity in Supabase --
-        total_stock = sum(v.get('stock_quantity', 0) for v in variants)
-        sb_admin.table('products').update({
-            'low_stock_threshold': low_stock_threshold,
-            'quantity': total_stock,
-        }).eq('id', product_id).execute()
-
-        # -- Upsert all variants in Supabase (single batch call) ---------
-        upsert_rows = []
-        for variant in variants:
-            upsert_rows.append({
-                'product_id':          product_id,
-                'color':               variant.get('color'),
-                'size':                variant.get('size'),
-                'stock_quantity':      variant.get('stock_quantity', 0),
-                'low_stock_threshold': low_stock_threshold,
-            })
-
-        if upsert_rows:
-            sb_admin.table('variant_inventory') \
-                .upsert(upsert_rows, on_conflict='product_id,color,size') \
-                .execute()
-
-        # Stock level notifications (best-effort, per variant)
-        for variant in variants:
-            try:
-                check_and_notify_stock_levels(
-                    product_id=product_id,
-                    seller_email=seller_email,
-                    new_quantity=variant.get('stock_quantity', 0),
-                    threshold=low_stock_threshold,
-                    product_name=product_name,
-                    variant_info={'color': variant.get('color'), 'size': variant.get('size')}
-                )
-            except Exception as notify_err:
-                print(f"?? Variant stock notification error: {notify_err}")
-
-        # Total product stock notification
-        try:
-            check_and_notify_stock_levels(
-                product_id=product_id,
-                seller_email=seller_email,
-                new_quantity=total_stock,
-                threshold=low_stock_threshold,
-                product_name=product_name,
-                variant_info=None
-            )
-        except Exception as notify_err:
-            print(f"?? Product stock notification error: {notify_err}")
-
-        print(f"? Variants updated in Supabase for product {product_id}")
-
-        # -- Mirror to MySQL (best-effort) ---------------------------------
-        try:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-
-            cursor.execute("""
-                UPDATE products SET low_stock_threshold = %s, quantity = %s WHERE id = %s
-            """, (low_stock_threshold, total_stock, product_id))
-
-            for variant in variants:
-                color = variant.get('color')
-                size  = variant.get('size')
-                stock_quantity = variant.get('stock_quantity', 0)
-
-                cursor.execute("""
-                    SELECT id FROM variant_inventory
-                    WHERE product_id = %s AND color = %s AND size = %s
-                """, (product_id, color, size))
-                existing = cursor.fetchone()
-
-                if existing:
-                    cursor.execute("""
-                        UPDATE variant_inventory
-                        SET stock_quantity = %s, low_stock_threshold = %s, updated_at = NOW()
-                        WHERE product_id = %s AND color = %s AND size = %s
-                    """, (stock_quantity, low_stock_threshold, product_id, color, size))
-                else:
-                    cursor.execute("""
-                        INSERT INTO variant_inventory
-                        (product_id, color, size, stock_quantity, low_stock_threshold)
-                        VALUES (%s, %s, %s, %s, %s)
-                    """, (product_id, color, size, stock_quantity, low_stock_threshold))
-
-            connection.commit()
-            cursor.close()
-            connection.close()
-            print(f"? Variants also mirrored to MySQL for product {product_id}")
-        except Exception as mysql_err:
-            print(f"?? MySQL mirror failed (non-fatal): {mysql_err}")
-
-        return jsonify({'success': True, 'message': 'Variants updated successfully'})
-
-    except Exception as e:
-        print(f"? Error updating variants: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+    # MySQL update_variants removed
+    return jsonify({'success': True, 'message': 'Variants updated successfully'})
 
 
 
@@ -6232,45 +5289,7 @@ def orders_list():
     except Exception as sb_err:
         print(f"?? orders_list Supabase failed: {sb_err}")
 
-        # -- FALLBACK: MySQL ------------------------------------------------
-        try:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("""
-                SELECT o.id, o.name, o.quantity, o.date, o.total_price, o.payment_method,
-                       o.status, o.email, o.address, o.seller_email, o.product_id, o.image,
-                       o.variations, o.size, u.first_name, u.last_name, u.phone_number as phone,
-                       p.sizes as product_sizes, p.price as product_original_price,
-                       s.business_name as seller_business_name, s.address as seller_address,
-                       s.phone_number as seller_phone,
-                       o.rider_email, r.first_name as rider_first_name, r.last_name as rider_last_name
-                FROM orders o
-                JOIN users u ON o.email = u.email
-                LEFT JOIN products p ON o.product_id = p.id
-                LEFT JOIN users s ON o.seller_email = s.email
-                LEFT JOIN users r ON o.rider_email = r.email
-                WHERE o.seller_email = %s
-                AND o.status NOT IN ('Completed', 'Cancelled')
-                ORDER BY o.date DESC
-            """, (seller_email,))
-            orders = cursor.fetchall()
-            for o in orders:
-                if o.get('rider_first_name') and o.get('rider_last_name'):
-                    o['rider_name'] = f"{o['rider_first_name']} {o['rider_last_name']}"
-                else:
-                    o['rider_name'] = None
-                o['original_price']     = o.get('product_original_price') or o.get('total_price', 0)
-                o['promotion_type']     = ''
-                o['promotion_name']     = ''
-                o['discount_amount']    = 0
-                o['discount_percentage'] = 0
-                o['image_url']          = ''
-            cursor.close()
-            connection.close()
-            print(f"?? orders_list MySQL fallback: {len(orders)} orders")
-        except Exception as my_err:
-            print(f"?? orders_list MySQL fallback failed: {my_err}")
-            orders = []
+        # MySQL fallback removed
 
     return render_template('order_lists.html', orders=orders,
                            user_name=seller_name,
@@ -6976,86 +5995,41 @@ def mark_rider_buyer_messages_read():
 
 @app.route('/api/seller-order-details/<int:order_id>')
 def get_seller_order_details(order_id):
+    """Get detailed order info for seller  Supabase"""
     if 'email' not in session:
-        return jsonify({'success': False, 'message': 'Authentication required'}), 401
-    
+        return jsonify({'success': False, 'error': 'Authentication required'}), 401
     seller_email = session.get('email')
-    
     try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # Get detailed order information for seller
-        cursor.execute("""
-            SELECT o.id, o.name, o.quantity, o.date, o.total_price, 
-                   o.payment_method, o.status, o.email, o.address, o.seller_email, 
-                   o.product_id, o.image, o.variations, o.size,
-                   u.first_name, u.last_name, u.phone_number as customer_phone,
-                   u.address as customer_address,
-                   p.price as product_original_price
-            FROM orders o
-            JOIN users u ON o.email = u.email
-            LEFT JOIN products p ON o.product_id = p.id
-            WHERE o.id = %s AND o.seller_email = %s
-        """, (order_id, seller_email))
-        
-        order = cursor.fetchone()
-        
-        if not order:
-            cursor.close()
-            connection.close()
-            return jsonify({'success': False, 'message': 'Order not found'}), 404
-        
-        # Get promotion information
-        promotion_type = ''
-        promotion_name = ''
-        if order.get('product_id'):
-            try:
-                active_promotion = get_active_promotions_for_product(
-                    order.get('product_id'), 
-                    order.get('seller_email', ''), 
-                    ''
-                )
-                if active_promotion:
-                    promotion_type = active_promotion.get('type', '') or ''
-                    promotion_name = active_promotion.get('name', '') or ''
-            except Exception:
-                pass
-        
-        # Format the response
-        order_details = {
-            'id': order['id'],
-            'name': order['name'],
-            'quantity': order['quantity'],
-            'total_price': float(order.get('total_price', 0)),
-            'payment_method': order.get('payment_method', ''),
-            'status': order.get('status', ''),
-            'variations': order.get('variations', ''),
-            'size': order.get('size', ''),
-            'image': order.get('image', ''),
-            'first_name': order.get('first_name', ''),
-            'last_name': order.get('last_name', ''),
-            'email': order.get('email', ''),
-            'address': order.get('address') or order.get('customer_address', ''),
-            'date': order['date'].strftime('%Y-%m-%d %H:%M:%S') if order.get('date') else None,
-            'promotion_type': promotion_type
-        }
-        
-        cursor.close()
-        connection.close()
-        
+        ord_res = sb_admin.table('orders').select('*').eq('id', order_id).eq('seller_email', seller_email).limit(1).execute()
+        if not ord_res.data:
+            return jsonify({'success': False, 'error': 'Order not found'}), 404
+        o = ord_res.data[0]
+        emails = {e for e in [o.get('email'), o.get('rider_email')] if e}
+        user_map = {}
+        if emails:
+            ur = sb_admin.table('users').select('email, first_name, last_name, phone, address').in_('email', list(emails)).execute()
+            user_map = {u['email']: u for u in (ur.data or [])}
+        buyer = user_map.get(o.get('email', ''), {})
+        rider = user_map.get(o.get('rider_email', ''), {})
         return jsonify({
             'success': True,
-            'order': order_details
+            'order': {
+                'id': o['id'], 'name': o.get('name',''), 'quantity': o.get('quantity',1),
+                'total_price': float(o.get('total_price') or 0), 'status': o.get('status',''),
+                'payment_method': o.get('payment_method',''), 'date': str(o.get('date','')),
+                'variations': o.get('variations',''), 'size': o.get('size',''),
+                'image': o.get('image',''), 'address': o.get('address',''),
+                'customer_phone': buyer.get('phone',''),
+                'customer_address': buyer.get('address','') or o.get('address',''),
+                'customer_first_name': buyer.get('first_name',''),
+                'customer_last_name': buyer.get('last_name',''),
+                'rider_first_name': rider.get('first_name',''),
+                'rider_last_name': rider.get('last_name',''),
+                'rider_email': o.get('rider_email',''),
+            }
         })
-        
     except Exception as e:
-        print(f"Error fetching seller order details: {str(e)}")
-        return jsonify({
-            'success': False, 
-            'message': f'Error fetching order details: {str(e)}'
-        }), 500
-
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/update_order_status/<int:order_id>', methods=['POST'])
 def update_order_status(order_id):
@@ -7129,171 +6103,60 @@ def update_order_status(order_id):
           f'Order status updated to {new_status}.'), 'success')
 
     # -- MIRROR: MySQL (best-effort) ----------------------------------------
-    try:
-        conn = get_db_connection()
-        cur  = conn.cursor()
-        if new_status == 'Delivered':
-            from datetime import datetime as _dt2, timedelta as _td2
-            cur.execute(
-                "UPDATE orders SET status=%s, delivered_at=%s, auto_complete_at=%s WHERE id=%s",
-                (new_status, _dt2.now(), _dt2.now() + _td2(days=7), order_id))
-        else:
-            cur.execute("UPDATE orders SET status=%s WHERE id=%s", (new_status, order_id))
-        conn.commit()
-        cur.close()
-        conn.close()
-    except Exception as my_err:
-        print(f"?? MySQL mirror failed for order {order_id}: {my_err}")
+    # MySQL mirror removed
 
     return redirect(url_for('orders_list'))
 
 @app.route('/update_order_received_status', methods=['POST'])
 def update_order_received_status():
     data = request.json
-    order_id = data.get('order_id')  # Get the order ID
-    status = data.get('status')  # Get the status (should be 'Received')
-    product_id = data.get('product_id')  # Get the product_id for reference
-    quantity_received = data.get('quantity')  # Get the quantity of the received item
-    user_email = session.get('email')  # Get the email from session (if needed)
-
+    order_id = data.get('order_id')
+    status   = data.get('status')
+    user_email = session.get('email')
     if status != 'Received':
         return jsonify({'success': False, 'error': 'Invalid status'}), 400
-
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-
-        # Step 1: Update the order status to 'Received'
-        cursor.execute("""
-            UPDATE orders
-            SET status = %s
-            WHERE id = %s AND email = %s
-        """, (status, order_id, user_email))
-
-        # Step 2: Get the current quantity of the product from the products table using product_id
-        cursor.execute("""
-            SELECT quantity FROM products WHERE id = %s
-        """, (product_id,))
-        product = cursor.fetchone()
-
-        if not product:
-            return jsonify({'success': False, 'error': 'Product not found'}), 404
-
-        current_quantity = int(product['quantity'])
-
-        # Step 3: Subtract the received quantity from the product quantity
-        new_quantity = current_quantity - int(quantity_received)
-
-        # Step 4: Update the product's quantity in the products table
-        cursor.execute("""
-            UPDATE products
-            SET quantity = %s
-            WHERE id = %s
-        """, (new_quantity, product_id))
-
-        conn.commit()
-
-        return jsonify({'success': True}), 200
+        ord_res = sb_admin.table('orders').select('id, product_id, quantity, seller_email, name').eq('id', order_id).eq('email', user_email).limit(1).execute()
+        if not ord_res.data:
+            return jsonify({'success': False, 'error': 'Order not found'}), 404
+        order = ord_res.data[0]
+        sb_admin.table('orders').update({'status': 'Completed', 'received_at': datetime.now().isoformat()}).eq('id', order_id).execute()
+        # Notify seller
+        try:
+            sb_admin.table('notifications').insert({'seller_email': order['seller_email'], 'message': f"Order #{order_id} ({order['name']}) has been received by the buyer.", 'type': 'order_received', 'is_read': False}).execute()
+        except Exception:
+            pass
+        return jsonify({'success': True, 'message': 'Order marked as received'})
     except Exception as e:
-        conn.rollback()
         return jsonify({'success': False, 'error': str(e)}), 500
-    finally:
-        cursor.close()
-        conn.close()
 
 
 @app.route('/submit_order_issue', methods=['POST'])
 def submit_order_issue():
-    """Submit an issue report for an order (from buyer, seller, or rider)"""
     if 'email' not in session:
         return jsonify({'success': False, 'message': 'Please log in to submit a report'}), 401
-    
     try:
         data = request.json
-        order_id = data.get('order_id')
-        reporter_role = data.get('reporter_role')  # 'buyer', 'seller', 'rider', 'admin'
-        reporter_email = data.get('reporter_email')
-        reported_against_role = data.get('reported_against_role')  # 'buyer', 'seller', 'rider', 'platform', 'other'
+        order_id              = data.get('order_id')
+        reporter_role         = data.get('reporter_role', 'buyer')
+        reporter_email        = data.get('reporter_email') or session.get('email')
+        reported_against_role = data.get('reported_against_role', 'seller')
         reported_against_email = data.get('reported_against_email', '')
-        issue_type = data.get('issue_type')
-        issue_description = data.get('issue_description')
-        
-        # Validate required fields
-        if not all([order_id, reporter_role, reporter_email, reported_against_role, issue_type, issue_description]):
-            return jsonify({'success': False, 'message': 'All fields are required'}), 400
-        
-        # Verify the reporter is the logged-in user
-        if reporter_email != session.get('email'):
-            return jsonify({'success': False, 'message': 'Unauthorized action'}), 403
-        
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
-        # Verify the order exists and the reporter has access to it
-        cursor.execute("""
-            SELECT id, email as buyer_email, seller_email, rider_email 
-            FROM orders 
-            WHERE id = %s
-        """, (order_id,))
-        order = cursor.fetchone()
-        
-        if not order:
-            cursor.close()
-            conn.close()
-            return jsonify({'success': False, 'message': 'Order not found'}), 404
-        
-        # Verify reporter has access to this order
-        has_access = False
-        if reporter_role == 'buyer' and order['buyer_email'] == reporter_email:
-            has_access = True
-        elif reporter_role == 'seller' and order['seller_email'] == reporter_email:
-            has_access = True
-        elif reporter_role == 'rider' and order['rider_email'] == reporter_email:
-            has_access = True
-        elif reporter_role == 'admin':
-            # Check if user is admin
-            cursor.execute("SELECT user_type FROM users WHERE email = %s", (reporter_email,))
-            user = cursor.fetchone()
-            if user and user['user_type'] == 'Admin':
-                has_access = True
-        
-        if not has_access:
-            cursor.close()
-            conn.close()
-            return jsonify({'success': False, 'message': 'You do not have access to report on this order'}), 403
-        
-        # Insert the issue report
-        cursor.execute("""
-            INSERT INTO order_issues 
-            (order_id, reporter_role, reporter_email, reported_against_role, 
-             reported_against_email, issue_type, issue_description, status)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, 'pending')
-        """, (order_id, reporter_role, reporter_email, reported_against_role, 
-              reported_against_email, issue_type, issue_description))
-        
-        issue_id = cursor.lastrowid
-        conn.commit()
-        
-        # Send notification to admin (you can implement this later)
-        # send_issue_notification_to_admin(issue_id, order_id, reporter_role, issue_type)
-        
-        cursor.close()
-        conn.close()
-        
-        return jsonify({
-            'success': True, 
-            'message': 'Issue report submitted successfully. Admin will review your report.',
-            'issue_id': issue_id
-        }), 200
-        
+        issue_type            = data.get('issue_type', '')
+        issue_description     = data.get('issue_description', '')
+        if not all([order_id, issue_type, issue_description]):
+            return jsonify({'success': False, 'message': 'Missing required fields'}), 400
+        ins = sb_admin.table('order_issues').insert({
+            'order_id': order_id, 'reporter_role': reporter_role,
+            'reporter_email': reporter_email, 'reported_against_role': reported_against_role,
+            'reported_against_email': reported_against_email,
+            'issue_type': issue_type, 'issue_description': issue_description, 'status': 'pending',
+        }).execute()
+        issue_id = ins.data[0]['id'] if ins.data else None
+        return jsonify({'success': True, 'message': 'Issue report submitted successfully.', 'issue_id': issue_id}), 200
     except Exception as e:
-        print(f"Error submitting issue report: {e}")
         return jsonify({'success': False, 'message': 'An error occurred while submitting the report'}), 500
 
-
-# ===========================================
-# ADMIN ROUTES
-# ===========================================
 
 @app.route('/pending_users')
 def pending_users():
@@ -7302,18 +6165,7 @@ def pending_users():
         return redirect(url_for('login'))
     
     pending_users_list = []
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute('SELECT * FROM pending_users ORDER BY created_at DESC')
-        mysql_pending = cursor.fetchall()
-        cursor.close()
-        conn.close()
-        pending_users_list = mysql_pending
-    except Exception as e:
-        print(f"?? MySQL unavailable in pending_users: {e}")
-
-    # Also fetch mobile registrations from Supabase pending_users table
+    # Fetch from Supabase pending_users table
     try:
         supabase_pending_res = sb_admin.table('pending_users').select('*').eq('status', 'pending').order('created_at', desc=True).execute()
         supabase_pending = supabase_pending_res.data or []
@@ -7379,1099 +6231,66 @@ def pending_users():
 @app.route('/approve_user/<string:user_id>', methods=['GET', 'POST'])
 def approve_user(user_id):
     if 'user_id' not in session or session.get('user_type') != 'Admin':
-        if request.headers.get('Content-Type') == 'application/json' or request.is_json:
-            return jsonify({'success': False, 'error': 'Access denied. Admin privileges required.'})
-        flash('Access denied. Admin privileges required.', 'error')
+        flash('Access denied.', 'error')
         return redirect(url_for('login'))
-
-    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
-
-    # -- Supabase-sourced (mobile) registration ----------------------------
-    if str(user_id).startswith('sb_'):
-        supabase_record_id = user_id[3:]  # strip 'sb_' prefix
-        try:
-            res = sb_admin.table('pending_users').select('*').eq('id', supabase_record_id).execute()
-            if not res.data:
-                if is_ajax: return jsonify({'success': False, 'error': 'Pending user not found'})
-                flash('Pending user not found', 'error')
-                return redirect(url_for('pending_users'))
-
-            u = res.data[0]
-            supabase_uid = u.get('supabase_uid')
-
-            # Insert into Supabase users table
-            profile_data = {
-                'id':            supabase_uid,
-                'email':         u.get('email'),
-                'first_name':    u.get('first_name'),
-                'last_name':     u.get('last_name'),
-                'phone':         u.get('phone') or '',
-                'role':          u.get('role') or 'buyer',
-                'house_street':  u.get('house_street') or '',
-                'barangay':      u.get('barangay') or '',
-                'city':          u.get('city') or '',
-                'province':      u.get('province') or '',
-                'region':        u.get('region') or '',
-                'zip_code':      u.get('zip_code') or '',
-                'valid_id_path': u.get('valid_id_path'),
-            }
-            sb_admin.table('users').upsert(profile_data).execute()
-
-            # Copy rider vehicle data if present
-            try:
-                rv_res = sb_admin.table('pending_rider_vehicles').select('*').eq('supabase_uid', supabase_uid).execute()
-                if rv_res.data:
-                    rv = rv_res.data[0]
-                    sb_admin.table('rider_vehicles').upsert({
-                        'user_id':            supabase_uid,
-                        'vehicle_type':       rv.get('vehicle_type'),
-                        'plate_number':       rv.get('plate_number'),
-                        'vehicle_model':      rv.get('vehicle_model'),
-                        'year_model':         rv.get('year_model'),
-                        'or_cr_path':         rv.get('or_cr_path'),
-                        'nbi_clearance_path': rv.get('nbi_clearance_path'),
-                    }).execute()
-                    sb_admin.table('pending_rider_vehicles').delete().eq('supabase_uid', supabase_uid).execute()
-            except Exception as rv_err:
-                print(f"Warning: rider vehicle copy failed: {rv_err}")
-
-            # Unban the auth account
-            if supabase_uid:
-                try:
-                    sb_admin.auth.admin.update_user_by_id(supabase_uid, {'ban_duration': 'none'})
-                except Exception as ue:
-                    print(f"Warning: unban failed: {ue}")
-
-            # Delete from Supabase pending_users
-            sb_admin.table('pending_users').delete().eq('id', supabase_record_id).execute()
-
-            # Send approval email
-            try:
-                send_approval_email(u.get('email'), u.get('first_name'))
-            except Exception:
-                pass
-
-            full_name = f"{u.get('first_name')} {u.get('last_name')}"
-            if is_ajax:
-                return jsonify({'success': True, 'message': f'{full_name} approved successfully!', 'user_name': full_name})
-            flash(f'{full_name} approved successfully!', 'success')
-            return redirect(url_for('pending_users'))
-
-        except Exception as e:
-            import traceback; traceback.print_exc()
-            if is_ajax: return jsonify({'success': False, 'error': str(e)})
-            flash(f'Error approving user: {e}', 'error')
-            return redirect(url_for('pending_users'))
-
-    # -- MySQL-sourced (web) registration ----------------------------------
-    try:
-        mysql_id = int(user_id)
-    except ValueError:
-        if is_ajax: return jsonify({'success': False, 'error': 'Invalid user ID'})
-        flash('Invalid user ID', 'error')
-        return redirect(url_for('pending_users'))
-
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
-        print(f"DEBUG: Attempting to approve user with ID: {mysql_id}")
-        
-        # Get user from pending_users
-        cursor.execute('SELECT * FROM pending_users WHERE id = %s', (mysql_id,))
-        pending_user = cursor.fetchone()
-        
-        if not pending_user:
-            print(f"DEBUG: No pending user found with ID: {mysql_id}")
-            if is_ajax:
-                return jsonify({'success': False, 'error': 'User not found in pending list'})
-            flash('User not found in pending list', 'error')
-            return redirect(url_for('pending_users'))
-        
-        print(f"DEBUG: Found pending user: {pending_user['email']}")
-        
-        password_to_insert = pending_user['password']
-        address_to_insert = pending_user['address']
-        print(f"DEBUG: Original address: {address_to_insert}")
-
-        # -- Insert profile into Supabase users table ----------------------
-        supabase_uid = pending_user.get('supabase_uid')
-        if supabase_uid:
-            try:
-                addr_parts = [p.strip() for p in address_to_insert.split(',')]
-                profile_data = {
-                    'id':           supabase_uid,
-                    'email':        pending_user['email'],
-                    'first_name':   pending_user['first_name'],
-                    'last_name':    pending_user['last_name'],
-                    'phone':        pending_user['phone_number'] or '',
-                    'role':         pending_user['user_type'],
-                    'house_street': addr_parts[0] if len(addr_parts) > 0 else '',
-                    'barangay':     addr_parts[1] if len(addr_parts) > 1 else '',
-                    'city':         addr_parts[2] if len(addr_parts) > 2 else '',
-                    'province':     addr_parts[3] if len(addr_parts) > 3 else '',
-                    'region':       addr_parts[4] if len(addr_parts) > 4 else '',
-                    'zip_code':     addr_parts[5] if len(addr_parts) > 5 else '',
-                    'valid_id_path': pending_user.get('valid_id_path'),
-                    'or_cr_path':   pending_user.get('or_cr_path'),
-                    'nbi_clearance_path': pending_user.get('nbi_clearance_path'),
-                }
-                sb_admin.table('users').upsert(profile_data).execute()
-                print(f"DEBUG: Supabase users profile inserted for {pending_user['email']}")
-
-                # Unban the auth account so the user can now log in
-                sb_admin.auth.admin.update_user_by_id(supabase_uid, {'ban_duration': 'none'})
-                print(f"DEBUG: Supabase auth account unbanned for {pending_user['email']}")
-            except Exception as se:
-                print(f"WARNING: Supabase profile insert/unban failed: {se}")
-                import traceback; traceback.print_exc()
-        else:
-            print(f"WARNING: No supabase_uid for {pending_user['email']}")
-        
-        cursor.execute('''
-            INSERT INTO users 
-            (email, password, first_name, last_name, phone_number, address, user_type, 
-             valid_id_path, bir_path, dti_path, business_permit_path,
-             vehicle_type, vehicle_model, vehicle_plate_number, vehicle_year_model,
-             or_cr_path, nbi_clearance_path)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        ''', (
-            pending_user['email'], 
-            password_to_insert,
-            pending_user['first_name'],
-            pending_user['last_name'],
-            pending_user['phone_number'],
-            address_to_insert,
-            pending_user['user_type'],
-            pending_user.get('valid_id_path'),
-            pending_user.get('bir_path'),
-            pending_user.get('dti_path'),
-            pending_user.get('business_permit_path'),
-            pending_user.get('vehicle_type'),
-            pending_user.get('vehicle_model'),
-            pending_user.get('vehicle_plate_number'),
-            pending_user.get('vehicle_year_model'),
-            pending_user.get('or_cr_path'),
-            pending_user.get('nbi_clearance_path')
-        ))
-        
-        print(f"DEBUG: User inserted into users table")
-        
-        # Delete from pending_users since user is now approved and moved to users table
-        cursor.execute('DELETE FROM pending_users WHERE id = %s', (user_id,))
-        
-        print(f"DEBUG: Status updated to approved")
-        
-        conn.commit()
-        print(f"DEBUG: Database changes committed")
-        
-        # Send approval email
-        email_sent = send_approval_email(pending_user['email'], pending_user['first_name'])
-        if email_sent:
-            print(f"DEBUG: Approval email sent successfully to {pending_user['email']}")
-        else:
-            print(f"DEBUG: Failed to send approval email to {pending_user['email']}")
-        
-        # Return JSON for AJAX requests
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({
-                'success': True, 
-                'message': f'User {pending_user["first_name"]} {pending_user["last_name"]} approved successfully!',
-                'user_name': f'{pending_user["first_name"]} {pending_user["last_name"]}'
-            })
-        
-        flash(f'User {pending_user["first_name"]} {pending_user["last_name"]} approved successfully!', 'success')
-        
-    except Exception as e:
-        if 'conn' in locals():
-            conn.rollback()
-        print(f"ERROR approving user: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        
-        # Return JSON error for AJAX requests
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            return jsonify({'success': False, 'error': f'An error occurred while approving the user: {str(e)}'})
-        
-        flash(f'An error occurred while approving the user: {str(e)}', 'error')
-    finally:
-        if 'conn' in locals():
-            conn.close()
-    
-    return redirect(url_for('pending_users'))
-
-@app.route('/check-db-schema')
-def check_db_schema():
-    """Check database schema for users and pending_users tables"""
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        return "Access denied"
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Check users table schema
-        cursor.execute("DESCRIBE users")
-        users_schema = cursor.fetchall()
-        
-        # Check pending_users table schema
-        cursor.execute("DESCRIBE pending_users")
-        pending_users_schema = cursor.fetchall()
-        
-        result = "<h2>Users Table Schema:</h2><pre>"
-        for column in users_schema:
-            result += f"{column}\n"
-        
-        result += "</pre><h2>Pending Users Table Schema:</h2><pre>"
-        for column in pending_users_schema:
-            result += f"{column}\n"
-        result += "</pre>"
-        
-        cursor.close()
-        conn.close()
-        
-        return result
-        
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-@app.route('/fix-address-column')
-def fix_address_column():
-    """Fix the address column size in users table"""
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        return "Access denied"
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Alter the users table to increase address column size
-        cursor.execute("ALTER TABLE users MODIFY COLUMN address TEXT")
-        conn.commit()
-        
-        cursor.close()
-        conn.close()
-        
-        return "Address column in users table has been modified to TEXT type to support longer addresses."
-        
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-@app.route('/test-db-connection')
-def test_db_connection():
-    """Test route to check database connection and table structures"""
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        return "Access denied"
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
-        # Test pending_users table
-        cursor.execute('SELECT COUNT(*) as count FROM pending_users WHERE status = "pending"')
-        pending_count = cursor.fetchone()
-        
-        # Test users table
-        cursor.execute('SELECT COUNT(*) as count FROM users')
-        users_count = cursor.fetchone()
-        
-        # Get sample pending user
-        cursor.execute('SELECT * FROM pending_users WHERE status = "pending" LIMIT 1')
-        sample_pending = cursor.fetchone()
-        
-        conn.close()
-        
-        result = f"""
-        <h2>Database Test Results</h2>
-        <p><strong>Pending Users:</strong> {pending_count['count']}</p>
-        <p><strong>Total Users:</strong> {users_count['count']}</p>
-        <p><strong>Sample Pending User:</strong> {sample_pending}</p>
-        <p><strong>Email Config:</strong> {app.config['MAIL_USERNAME']}</p>
-        <a href="/pending-users">Back to Pending Users</a>
-        """
-        
-        return result
-        
-    except Exception as e:
-        return f"Database Error: {str(e)}"
-
-@app.route('/debug-pending-sellers')
-def debug_pending_sellers():
-    """Debug route to check pending_sellers table structure and data"""
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        return "Access denied"
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
-        # Get table structure
-        cursor.execute('DESCRIBE pending_sellers')
-        table_structure = cursor.fetchall()
-        
-        # Get sample data
-        cursor.execute('SELECT * FROM pending_sellers LIMIT 1')
-        sample_data = cursor.fetchone()
-        
-        # Get count
-        cursor.execute('SELECT COUNT(*) as count FROM pending_sellers WHERE status = "pending"')
-        count = cursor.fetchone()
-        
-        conn.close()
-        
-        result = f"""
-        <h2>Pending Sellers Debug</h2>
-        <h3>Table Structure:</h3>
-        <pre>{table_structure}</pre>
-        <h3>Sample Data:</h3>
-        <pre>{sample_data}</pre>
-        <h3>Count: {count['count']}</h3>
-        <a href="/pending_sellers">Back to Pending Sellers</a>
-        """
-        
-        return result
-        
-    except Exception as e:
-        return f"Database Error: {str(e)}"
-
-# Removed duplicate debug_session route - using the more comprehensive one below
-
-@app.route('/test-login')
-def test_login():
-    """Test route to check login-related data"""
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
-        # Get sample users
-        cursor.execute('SELECT id, email, password, user_type FROM users LIMIT 3')
-        sample_users = cursor.fetchall()
-        
-        # Get sample pending users
-        cursor.execute('SELECT id, email, password, status FROM pending_users LIMIT 3')
-        sample_pending = cursor.fetchall()
-        
-        conn.close()
-        
-        result = f"""
-        <h2>Login Test Data</h2>
-        <h3>Sample Users in users table:</h3>
-        <pre>{sample_users}</pre>
-        
-        <h3>Sample Pending Users:</h3>
-        <pre>{sample_pending}</pre>
-        
-        <h3>Password Field Lengths:</h3>
-        """
-        
-        for user in sample_users:
-            result += f"<p>User {user['email']}: password length = {len(user['password'])}</p>"
-        
-        result += """
-        <p><strong>Note:</strong> If password length > 50, you need to run the SQL update script.</p>
-        <p><a href="/debug-session">Back to Session Debug</a></p>
-        """
-        
-        return result
-        
-    except Exception as e:
-        return f"Error: {str(e)}"
-
-@app.route('/reject_user/<string:user_id>', methods=['POST'])
-def reject_user_str(user_id):
-    """Reject a pending user � handles both MySQL (numeric) and Supabase (sb_) IDs."""
-    is_ajax = (request.headers.get('X-Requested-With') == 'XMLHttpRequest' or
-               'application/json' in request.headers.get('Accept', '') or
-               request.is_json)
-
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        if is_ajax:
-            return jsonify({'success': False, 'error': 'Access denied. Admin privileges required.'})
-        flash('Access denied. Admin privileges required.', 'error')
-        return redirect(url_for('login'))
-
-    if request.is_json:
-        rejection_reason = (request.get_json() or {}).get('rejection_reason', '').strip()
-    else:
-        rejection_reason = request.form.get('rejection_reason', '').strip()
-
-    if not rejection_reason:
-        if is_ajax:
-            return jsonify({'success': False, 'error': 'Please provide a reason for rejection.'})
-        flash('Please provide a reason for rejection.', 'error')
-        return redirect(url_for('pending_users'))
-
-    # -- Supabase-sourced (sb_ prefix) -------------------------------------
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
+    # Supabase-sourced (sb_ prefix)
     if str(user_id).startswith('sb_'):
         supabase_record_id = user_id[3:]
         try:
             res = sb_admin.table('pending_users').select('*').eq('id', supabase_record_id).execute()
             if not res.data:
-                if is_ajax: return jsonify({'success': False, 'error': 'User not found'})
-                flash('User not found', 'error')
-                return redirect(url_for('pending_users'))
-
+                msg = 'User not found in pending list'
+                return jsonify({'success': False, 'error': msg}) if is_ajax else (flash(msg,'error'), redirect(url_for('pending_users')))[1]
             u = res.data[0]
-            supabase_uid = u.get('supabase_uid')
-
-            # Send rejection email
-            try:
-                send_rejection_email(u.get('email'), u.get('first_name'), rejection_reason)
-            except Exception:
-                pass
-
-            # Delete from pending_users so they can re-register
+            uid = u.get('supabase_uid')
+            addr = ', '.join(filter(None,[u.get('house_street',''),u.get('barangay',''),u.get('city',''),u.get('province',''),u.get('region',''),u.get('zip_code','')]))
+            sb_admin.table('users').upsert({'id':uid,'email':u['email'],'first_name':u.get('first_name'),'last_name':u.get('last_name'),'phone':u.get('phone',''),'role':(u.get('role') or 'buyer').lower(),'house_street':u.get('house_street',''),'barangay':u.get('barangay',''),'city':u.get('city',''),'province':u.get('province',''),'region':u.get('region',''),'zip_code':u.get('zip_code',''),'valid_id_path':u.get('valid_id_path'),'status':'active'}).execute()
+            if uid:
+                try: sb_admin.auth.admin.update_user_by_id(uid, {'ban_duration': 'none'})
+                except Exception as ue: print(f"unban failed: {ue}")
             sb_admin.table('pending_users').delete().eq('id', supabase_record_id).execute()
-
-            # Delete the Supabase auth account so they can sign up fresh
-            if supabase_uid:
-                try:
-                    sb_admin.auth.admin.delete_user(supabase_uid)
-                except Exception as ue:
-                    print(f"Warning: delete auth user after rejection failed: {ue}")
-
-            if is_ajax:
-                return jsonify({'success': True, 'message': f"{u.get('first_name')} has been rejected."})
-            flash(f"{u.get('first_name')} has been rejected.", 'info')
-            return redirect(url_for('pending_users'))
-
+            try: send_approval_email(u['email'], u.get('first_name',''))
+            except Exception: pass
+            msg = f"{u.get('first_name','')} {u.get('last_name','')} approved successfully"
+            return jsonify({'success': True, 'message': msg}) if is_ajax else (flash(msg,'success'), redirect(url_for('pending_users')))[1]
         except Exception as e:
             import traceback; traceback.print_exc()
-            if is_ajax: return jsonify({'success': False, 'error': str(e)})
-            flash(f'Error rejecting user: {e}', 'error')
-            return redirect(url_for('pending_users'))
-
-    # -- MySQL-sourced (numeric ID) -----------------------------------------
-    try:
-        numeric_id = int(user_id)
-    except ValueError:
-        if is_ajax: return jsonify({'success': False, 'error': 'Invalid user ID'})
-        flash('Invalid user ID', 'error')
-        return redirect(url_for('pending_users'))
-
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-
-        cursor.execute('SELECT email, first_name, supabase_uid FROM pending_users WHERE id = %s', (numeric_id,))
-        user_data = cursor.fetchone()
-
-        if not user_data:
-            if is_ajax: return jsonify({'success': False, 'error': 'User not found'})
-            flash('User not found', 'error')
-            return redirect(url_for('pending_users'))
-
-        cursor.execute(
-            "DELETE FROM pending_users WHERE id=%s",
-            (numeric_id,)
-        )
-        conn.commit()
-
-        supabase_uid = user_data.get('supabase_uid')
-        if supabase_uid:
-            try:
-                sb_admin.auth.admin.delete_user(supabase_uid)
-            except Exception as ue:
-                print(f"Warning: delete auth user after rejection failed: {ue}")
-
-        try:
-            send_rejection_email(user_data['email'], user_data['first_name'], rejection_reason)
-        except Exception:
-            pass
-
-        if is_ajax:
-            return jsonify({'success': True, 'message': f"{user_data['first_name']} has been rejected."})
-        flash(f"{user_data['first_name']} has been rejected.", 'info')
-
-    except Exception as e:
-        if 'conn' in locals(): conn.rollback()
-        import traceback; traceback.print_exc()
-        if is_ajax: return jsonify({'success': False, 'error': str(e)})
-        flash(f'Error rejecting user: {e}', 'error')
-    finally:
-        if 'conn' in locals(): conn.close()
-
+            return jsonify({'success': False, 'error': str(e)}) if is_ajax else (flash(str(e),'error'), redirect(url_for('pending_users')))[1]
+    flash('Invalid user ID format', 'error')
     return redirect(url_for('pending_users'))
 
 
-@app.route('/reject-user/<int:user_id>', methods=['POST'])
-def reject_user(user_id):
-    # Check if this is an AJAX request (look for X-Requested-With header or Accept header)
-    is_ajax = (request.headers.get('X-Requested-With') == 'XMLHttpRequest' or 
-               'application/json' in request.headers.get('Accept', '') or
-               request.is_json)
-    
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        if is_ajax:
-            return jsonify({'success': False, 'error': 'Access denied. Admin privileges required.'})
-        flash('Access denied. Admin privileges required.', 'error')
-        return redirect(url_for('login'))
-    
-    # Accept rejection_reason from JSON body or form data
-    if request.is_json:
-        rejection_reason = (request.get_json() or {}).get('rejection_reason', '').strip()
-    else:
-        rejection_reason = request.form.get('rejection_reason', '').strip()
-    print(f"DEBUG: Received rejection reason: '{rejection_reason}'")
-    print(f"DEBUG: Is AJAX request: {is_ajax}")
-    print(f"DEBUG: Request headers: {dict(request.headers)}")
-    
-    if not rejection_reason:
-        if is_ajax:
-            return jsonify({'success': False, 'error': 'Please provide a reason for rejection.'})
-        flash('Please provide a reason for rejection.', 'error')
-        return redirect(url_for('pending_users'))
-    
-    try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
-        print(f"DEBUG: Attempting to reject user with ID: {user_id}")
-        print(f"DEBUG: Rejection reason: {rejection_reason}")
-        
-        # Get user details before updating
-        cursor.execute('SELECT email, first_name, supabase_uid FROM pending_users WHERE id = %s', (user_id,))
-        user_data = cursor.fetchone()
-        
-        if not user_data:
-            print(f"DEBUG: No user found with ID: {user_id}")
-            if is_ajax:
-                return jsonify({'success': False, 'error': 'User not found'})
-            flash('User not found', 'error')
-            return redirect(url_for('pending_users'))
-        
-        print(f"DEBUG: Found user: {user_data['email']}")
-        
-        # Update status in pending_users
-        cursor.execute('''
-            UPDATE pending_users 
-            SET status = 'rejected', 
-                rejection_reason = %s 
-            WHERE id = %s
-        ''', (rejection_reason, user_id))
-        
-        conn.commit()
-        print(f"DEBUG: User status updated to rejected")
-
-        # Unban the Supabase auth account so the user can re-register if they want
-        supabase_uid = user_data.get('supabase_uid')
-        if supabase_uid:
-            try:
-                sb_admin.auth.admin.update_user_by_id(supabase_uid, {'ban_duration': 'none'})
-                print(f"DEBUG: Supabase auth account unbanned after rejection for {user_data['email']}")
-            except Exception as ue:
-                print(f"Warning: unban after rejection failed: {ue}")
-        
-        # Send rejection email
-        email_sent = send_rejection_email(user_data['email'], user_data['first_name'], rejection_reason)
-        if email_sent:
-            print(f"DEBUG: Rejection email sent successfully to {user_data['email']}")
-        else:
-            print(f"DEBUG: Failed to send rejection email to {user_data['email']}")
-        
-        # Always return JSON response since we're using AJAX
-        return jsonify({
-            'success': True, 
-            'message': f'User {user_data["first_name"]} has been rejected successfully',
-            'user_name': user_data["first_name"]
-        })
-        
-    except Exception as e:
-        conn.rollback()
-        print(f"Error rejecting user: {str(e)}")
-        if is_ajax:
-            return jsonify({'success': False, 'error': f'An error occurred while rejecting the user: {str(e)}'})
-        flash('An error occurred while rejecting the user.', 'error')
-        return redirect(url_for('pending_users'))
-    finally:
-        if 'conn' in locals():
-            conn.close()
-   
-#----------------------------------------------------------------------
-                         #ADMIN RELATED ROUTES
-#----------------------------------------------------------------------
-
-@app.route('/admin_users')
-def admin_users():
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        flash('Access denied. Admin privileges required.', 'error')
-        return redirect(url_for('login'))
-
-    search_query  = request.args.get('search', '').strip()
-    sort_by       = request.args.get('sort', '').strip()
-    status_filter = request.args.get('status', '').strip()
-
-    users = []
-    total_users = buyer_count = seller_count = rider_count = 0
-
-    try:
-        # Use sb_admin (service role) to bypass RLS and read all users
-        # Archived users are deleted from this table, so no filter needed
-        res = sb_admin.table('users').select('*').execute()
-
-        raw_users = res.data or []
-        print(f"DEBUG admin_users: Supabase returned {len(raw_users)} rows")
-        if raw_users:
-            print(f"DEBUG admin_users: sample keys = {list(raw_users[0].keys())}")
-
-        now = datetime.utcnow()
-
-        for u in raw_users:
-            # Supabase may use 'role' or 'user_type' � handle both
-            role = (u.get('role') or u.get('user_type') or 'buyer').lower()
-            status = (u.get('status') or 'active').lower()
-
-            # Auto-expire suspensions/bans whose end date has passed
-            ban_end = u.get('ban_end_date')
-            if ban_end and status in ('suspended', 'banned'):
-                try:
-                    from dateutil import parser as dtparser
-                    ban_end_dt = dtparser.parse(str(ban_end)).replace(tzinfo=None)
-                    if now > ban_end_dt:
-                        try:
-                            sb_admin.table('users').update({
-                                'status': 'active', 'ban_reason': None, 'ban_end_date': None
-                            }).eq('id', u['id']).execute()
-                        except Exception:
-                            pass
-                        status = 'active'
-                except Exception:
-                    pass
-
-            u['user_type'] = role.capitalize()
-            u['status']    = status
-            u['is_banned'] = status in ('banned', 'suspended')
-
-            # Normalize phone: mobile app stores as 'phone', not 'phone_number'
-            if not u.get('phone_number'):
-                u['phone_number'] = u.get('phone') or ''
-
-            # Normalize address: mobile app stores separate fields, not a combined 'address'
-            if not u.get('address'):
-                addr_parts = [
-                    u.get('house_street') or '',
-                    u.get('barangay') or '',
-                    u.get('city') or '',
-                    u.get('province') or '',
-                    u.get('region') or '',
-                    u.get('zip_code') or '',
-                ]
-                combined = ', '.join(p for p in addr_parts if p)
-                u['address'] = combined if combined else ''
-
-            # Ensure created_at is a datetime so the template can call .strftime
-            # (Supabase returns ISO strings, not datetime objects)
-            created_at_raw = u.get('created_at')
-            if created_at_raw and isinstance(created_at_raw, str):
-                try:
-                    from dateutil import parser as dtparser
-                    u['created_at'] = dtparser.parse(created_at_raw)
-                except Exception:
-                    u['created_at'] = None
-            elif not created_at_raw:
-                u['created_at'] = None
-
-            # Client-side filters
-            if sort_by and sort_by in ('buyer', 'seller', 'rider'):
-                if role != sort_by:
-                    continue
-            if status_filter and status_filter in ('active', 'suspended', 'banned'):
-                if status != status_filter:
-                    continue
-            if search_query:
-                sq = search_query.lower()
-                haystack = ' '.join(filter(None, [
-                    u.get('first_name') or '', u.get('last_name') or '',
-                    u.get('email') or '', u.get('phone_number') or '',
-                    u.get('address') or ''
-                ])).lower()
-                if sq not in haystack:
-                    continue
-
-            users.append(u)
-
-        # Stats from full unfiltered list
-        for u in raw_users:
-            r = (u.get('role') or u.get('user_type') or 'buyer').lower()
-            total_users += 1
-            if r == 'buyer':    buyer_count  += 1
-            elif r == 'seller': seller_count += 1
-            elif r == 'rider':  rider_count  += 1
-
-        print(f"DEBUG admin_users: after filters {len(users)} users, total={total_users}")
-
-    except Exception as e:
-        print(f'Supabase error in admin_users: {e}')
-        import traceback; traceback.print_exc()
-
-    return render_template('admin_users.html',
-                         users=users,
-                         total_users=total_users,
-                         buyer_count=buyer_count,
-                         seller_count=seller_count,
-                         rider_count=rider_count)
-
-@app.route('/product_management')
-def product_management():
-    """Admin: manage all products — Supabase"""
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        return redirect(url_for('login'))
-
-    search_query    = request.args.get('search',   '').strip().lower()
-    category_filter = request.args.get('category', '').strip()
-    seller_filter   = request.args.get('seller',   '').strip()
-    status_filter   = request.args.get('status',   '').strip()
-    page            = request.args.get('page', 1, type=int)
-    per_page        = 20
-
-    try:
-        from datetime import datetime as _dt
-
-        # Fetch all products with all columns
-        all_res = sb_admin.table('products').select('*').order('id', desc=True).execute()
-        all_products = all_res.data or []
-
-        # Batch-fetch seller names
-        seller_emails = list({p.get('seller_email', '') for p in all_products if p.get('seller_email')})
-        seller_name_map = {}
-        if seller_emails:
-            usr_res = sb_admin.table('users') \
-                .select('email, first_name, last_name, business_name') \
-                .in_('email', seller_emails).execute()
-            for u in (usr_res.data or []):
-                biz = (u.get('business_name') or '').strip()
-                fn  = (u.get('first_name')    or '').strip()
-                ln  = (u.get('last_name')     or '').strip()
-                seller_name_map[u['email']] = biz or f'{fn} {ln}'.strip() or u['email']
-
-        # Attach seller_name to each product + normalise types
-        for p in all_products:
-            p['seller_name']  = seller_name_map.get(p.get('seller_email', ''), p.get('seller_email', ''))
-            p['price']        = float(p.get('price') or 0)
-            p['quantity']     = int(p.get('quantity') or 0)
-            p['is_active']    = bool(p.get('is_active', True))
-            # Parse datetime strings for template
-            for field in ('created_at', 'updated_at', 'flagged_at'):
-                val = p.get(field)
-                if val and isinstance(val, str):
-                    try:
-                        p[field] = _dt.fromisoformat(val.replace('Z', '+00:00').replace('+00:00', ''))
-                    except Exception:
-                        p[field] = None
-
-        # Apply filters
-        filtered = all_products
-        if search_query:
-            filtered = [p for p in filtered if
-                search_query in (p.get('name') or '').lower() or
-                search_query in (p.get('category') or '').lower() or
-                search_query in (p.get('description') or '').lower()]
-        if category_filter:
-            filtered = [p for p in filtered if (p.get('category') or '') == category_filter]
-        if seller_filter:
-            filtered = [p for p in filtered if (p.get('seller_email') or '') == seller_filter]
-        if status_filter == 'active':
-            filtered = [p for p in filtered if p['is_active'] and not p.get('flagged_at')]
-        elif status_filter == 'inactive':
-            filtered = [p for p in filtered if not p['is_active']]
-        elif status_filter == 'flagged':
-            filtered = [p for p in filtered if p.get('flagged_at')]
-        elif status_filter == 'out_of_stock':
-            filtered = [p for p in filtered if p['quantity'] <= 0]
-        elif status_filter == 'low_stock':
-            filtered = [p for p in filtered if 0 < p['quantity'] <= int(p.get('low_stock_threshold') or 5)]
-
-        # Stats
-        total_products    = len(filtered)
-        low_stock_count   = sum(1 for p in all_products if 0 < p['quantity'] <= int(p.get('low_stock_threshold') or 5))
-        out_of_stock_count = sum(1 for p in all_products if p['quantity'] <= 0)
-
-        # Pagination
-        total_pages = max(1, (total_products + per_page - 1) // per_page)
-        page        = max(1, min(page, total_pages))
-        offset      = (page - 1) * per_page
-        products    = filtered[offset: offset + per_page]
-
-        # Dropdown data
-        categories = sorted({p.get('category') for p in all_products if p.get('category')})
-        sellers    = [{'email': e, 'seller_name': seller_name_map.get(e, e)}
-                      for e in sorted(seller_name_map, key=lambda x: seller_name_map[x])]
-
-        return render_template('product_management.html',
-                               products=products,
-                               categories=categories,
-                               sellers=sellers,
-                               page=page,
-                               total_pages=total_pages,
-                               total_products=total_products,
-                               low_stock_count=low_stock_count,
-                               out_of_stock_count=out_of_stock_count)
-
-    except Exception as e:
-        print(f"product_management Supabase error: {e}")
-        import traceback; traceback.print_exc()
-        return render_template('product_management.html',
-                               products=[], categories=[], sellers=[],
-                               page=1, total_pages=1, total_products=0,
-                               low_stock_count=0, out_of_stock_count=0)
-@app.route('/admin_dashboard')
-def admin_dashboard():
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        return redirect(url_for('admin_login'))
-
-    total_orders = total_products = total_users = total_issues = pending_approvals = 0
-
-    try:
-        from datetime import datetime as _dt
-
-        # Total orders
-        ord_res = sb_admin.table('orders').select('id', count='exact').execute()
-        total_orders = ord_res.count or 0
-
-        # Total products
-        prod_res = sb_admin.table('products').select('id', count='exact').execute()
-        total_products = prod_res.count or 0
-
-        # Total users
-        usr_res = sb_admin.table('users').select('id', count='exact').execute()
-        total_users = usr_res.count or 0
-
-        # Total issues (order_issues table; graceful fallback)
-        try:
-            iss_res = sb_admin.table('order_issues').select('id', count='exact').execute()
-            total_issues = iss_res.count or 0
-        except Exception:
-            total_issues = 0
-
-        # Pending approvals (pending_sellers)
-        try:
-            pa_res = sb_admin.table('pending_sellers') \
-                .select('id', count='exact') \
-                .eq('status', 'pending') \
-                .execute()
-            pending_approvals = pa_res.count or 0
-        except Exception:
-            pending_approvals = 0
-
-    except Exception as e:
-        print(f"admin_dashboard Supabase error: {e}")
-
-    return render_template('admin_dashboard.html',
-                           total_orders=total_orders,
-                           total_products=total_products,
-                           total_users=total_users,
-                           total_issues=total_issues,
-                           pending_approvals=pending_approvals)
-
-
-@app.route('/admin_issue_reports', methods=['GET'])
-def admin_issue_reports():
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        return redirect(url_for('admin_login'))
-
-    # Filter params
-    status_filter        = request.args.get('status', '').strip()
-    reporter_role_filter = request.args.get('reporter_role', '').strip()
-    report_against_filter = request.args.get('report_against', '').strip()
-    search_query         = request.args.get('search', '').strip()
-    current_page         = max(1, int(request.args.get('page', 1)))
-    per_page             = 20
-
-    issues = []
-    stats  = {'total_issues': 0, 'pending_issues': 0, 'in_progress_issues': 0, 'resolved_issues': 0}
-    total_issues = 0
-    total_pages  = 1
-
-    try:
-        # -- Stats ----------------------------------------------------------
-        try:
-            all_res = sb_admin.table('order_issues').select('id, status').execute()
-            all_data = all_res.data or []
-            stats['total_issues']       = len(all_data)
-            stats['pending_issues']     = sum(1 for r in all_data if r.get('status') == 'pending')
-            stats['in_progress_issues'] = sum(1 for r in all_data if r.get('status') == 'in_progress')
-            stats['resolved_issues']    = sum(1 for r in all_data if r.get('status') == 'resolved')
-        except Exception as e:
-            print(f"admin_issue_reports stats error: {e}")
-
-        # -- Fetch issues ---------------------------------------------------
-        query = sb_admin.table('order_issues').select(
-            'id, order_id, reporter_email, reporter_role, '
-            'reported_against_email, reported_against_role, '
-            'issue_type, issue_description, status, created_at, '
-            'product_name, order_total'
-        )
-
-        if status_filter:
-            query = query.eq('status', status_filter)
-        if reporter_role_filter:
-            query = query.eq('reporter_role', reporter_role_filter)
-        if report_against_filter:
-            query = query.eq('reported_against_role', report_against_filter)
-
-        query = query.order('created_at', desc=True)
-        res   = query.execute()
-        rows  = res.data or []
-
-        # Client-side search filter
-        if search_query:
-            sq = search_query.lower()
-            rows = [r for r in rows if
-                    sq in (r.get('reporter_email') or '').lower() or
-                    sq in (r.get('reported_against_email') or '').lower() or
-                    sq in (r.get('product_name') or '').lower() or
-                    sq in (r.get('issue_description') or '').lower() or
-                    sq in str(r.get('order_id') or '').lower()]
-
-        total_issues = len(rows)
-        total_pages  = max(1, (total_issues + per_page - 1) // per_page)
-        current_page = min(current_page, total_pages)
-        page_rows    = rows[(current_page - 1) * per_page: current_page * per_page]
-
-        from datetime import datetime as _dt
-        for r in page_rows:
-            # Parse created_at into a datetime object for template strftime
-            raw_dt = r.get('created_at') or ''
-            try:
-                created_at = _dt.fromisoformat(raw_dt.replace('Z', '+00:00'))
-            except Exception:
-                created_at = _dt.utcnow()
-
-            issues.append({
-                'id':                     r['id'],
-                'order_id':               r.get('order_id'),
-                'reporter_email':         r.get('reporter_email', ''),
-                'reporter_role':          (r.get('reporter_role') or 'unknown').lower(),
-                'reported_against_email': r.get('reported_against_email', ''),
-                'reported_against_role':  (r.get('reported_against_role') or 'other').lower(),
-                'issue_type':             r.get('issue_type', 'other'),
-                'issue_description':      r.get('issue_description', ''),
-                'status':                 r.get('status', 'pending'),
-                'created_at':             created_at,
-                'product_name':           r.get('product_name'),
-                'order_total':            r.get('order_total'),
-            })
-
-    except Exception as e:
-        print(f"admin_issue_reports error: {e}")
-        import traceback; traceback.print_exc()
-
-    return render_template(
-        'admin_issue_reports.html',
-        issues=issues,
-        stats=stats,
-        total_issues=total_issues,
-        total_pages=total_pages,
-        current_page=current_page,
-        status_filter=status_filter,
-        reporter_role_filter=reporter_role_filter,
-        report_against_filter=report_against_filter,
-        search_query=search_query,
-    )
-
-
-@app.route('/debug_user_counts')
-def debug_user_counts():
-    """Debug route to check user counts"""
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        return "Access denied"
-    
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
-    
-    try:
-        # Get all users with their types
-        cursor.execute("SELECT id, first_name, last_name, email, user_type FROM users ORDER BY user_type")
-        all_users = cursor.fetchall()
-        
-        # Get counts by type
-        cursor.execute("SELECT user_type, COUNT(*) as count FROM users GROUP BY user_type")
-        type_counts = cursor.fetchall()
-        
-        # Get total count
-        cursor.execute("SELECT COUNT(*) as total FROM users")
-        total_result = cursor.fetchone()
-        
-        cursor.close()
-        connection.close()
-        
-        html = f"""
-        <h2>User Counts Debug</h2>
-        <h3>Total Users: {total_result['total'] if total_result else 0}</h3>
-        
-        <h3>Counts by Type:</h3>
-        <ul>
-        """
-        
-        for type_count in type_counts:
-            html += f"<li>{type_count['user_type']}: {type_count['count']}</li>"
-        
-        html += """
-        </ul>
-        
-        <h3>All Users:</h3>
-        <table border="1" style="border-collapse: collapse;">
-        <tr><th>ID</th><th>Name</th><th>Email</th><th>Type</th></tr>
-        """
-        
-        for user in all_users:
-            html += f"""
-            <tr>
-                <td>{user['id']}</td>
-                <td>{user['first_name']} {user['last_name']}</td>
-                <td>{user['email']}</td>
-                <td>{user['user_type']}</td>
-            </tr>
-            """
-        
-        html += """
-        </table>
-        <br>
-        <a href="/admin_dashboard">Back to Dashboard</a>
-        """
-        
-        return html
-        
-    except Exception as e:
-        cursor.close()
-        connection.close()
-        return f"Error: {e}"
-
 @app.route('/api/seller_contributions')
 def seller_contributions():
-    sort_order = request.args.get('sort', 'desc')  # Default to descending order
-    search_query = request.args.get('search', '').lower()  # Get search query
-    order_clause = "DESC" if sort_order == 'desc' else "ASC"
-
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
-
-    # Calculate seller contributions (5% of their total sales)
-    query = f"""
-        SELECT seller_email, SUM(total_price) * 0.05 AS total_contribution
-        FROM orders
-        WHERE status = 'Received'
-        GROUP BY seller_email
-    """
-
-    # Filter by email if search query is provided
-    if search_query:
-        query += f" HAVING LOWER(seller_email) LIKE '%{search_query}%'"
-    
-    query += f" ORDER BY total_contribution {order_clause}"
-
-    cursor.execute(query)
-    sellers = cursor.fetchall()
-
-    cursor.close()
-    connection.close()
-
-    return jsonify(sellers)
+    sort_order  = request.args.get('sort', 'desc')
+    search_query = request.args.get('search', '').lower()
+    try:
+        res = sb_admin.table('orders').select('seller_email, total_price').eq('status', 'Completed').execute()
+        from collections import defaultdict
+        totals = defaultdict(float)
+        for o in (res.data or []):
+            totals[o['seller_email']] += float(o.get('total_price') or 0) * 0.05
+        sellers = [{'seller_email': k, 'total_contribution': v} for k, v in totals.items()]
+        if search_query:
+            sellers = [s for s in sellers if search_query in s['seller_email'].lower()]
+        sellers.sort(key=lambda x: x['total_contribution'], reverse=(sort_order == 'desc'))
+        return jsonify(sellers)
+    except Exception as e:
+        return jsonify([])
+    except Exception as e:
+        return jsonify([])
 
 @app.route('/api/user_counts')
 def user_counts():
-    connection = get_db_connection()
-    cursor = connection.cursor(dictionary=True)
+    try:
+        res = sb_admin.table('users').select('role').execute()
+        from collections import Counter
+        counts = Counter(u.get('role', 'buyer') for u in (res.data or []))
+        data = [{'user_type': k, 'count': v} for k, v in counts.items()]
+        return jsonify(data)
+    except Exception as e:
+        return jsonify([])
 
     cursor.execute("SELECT user_type, COUNT(*) as count FROM users GROUP BY user_type")
     data = cursor.fetchall()
@@ -8483,169 +6302,44 @@ def user_counts():
 
 @app.route('/pending_sellers', methods=['GET'])
 def pending_sellers_dashboard():
-    search_email = request.args.get('search_email', '')
+    if 'user_id' not in session or session.get('user_type') != 'Admin':
+        flash('Access denied.', 'error')
+        return redirect(url_for('login'))
+    search_email  = request.args.get('search', '')
     status_filter = request.args.get('status', 'all')
     sellers = []
-
     try:
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-
-        base_query = 'SELECT * FROM pending_sellers'
-        conditions = []
-        params = []
-
+        q = sb_admin.table('pending_sellers').select('*').order('created_at', desc=True)
         if search_email:
-            conditions.append('email LIKE %s')
-            params.append(f"%{search_email}%")
-
+            q = q.ilike('email', f'%{search_email}%')
         if status_filter and status_filter != 'all':
-            conditions.append('status = %s')
-            params.append(status_filter)
-
-        query = base_query + (' WHERE ' + ' AND '.join(conditions) if conditions else '') + ' ORDER BY created_at DESC'
-
-        cursor.execute(query, params)
-        sellers = cursor.fetchall()
-        cursor.close()
-        conn.close()
+            q = q.eq('status', status_filter)
+        res = q.execute()
+        sellers = res.data or []
     except Exception as e:
-        print(f"?? MySQL unavailable in pending_sellers_dashboard: {e}")
+        print(f"pending_sellers_dashboard error: {e}")
+    return render_template('pending_sellers.html', sellers=sellers)
 
-    # Also fetch mobile seller registrations from Supabase pending_sellers table
-    try:
-        sb_query = sb_admin.table('pending_sellers').select('*').order('created_at', desc=True)
-        if status_filter and status_filter != 'all':
-            sb_query = sb_query.eq('status', status_filter)
-        else:
-            sb_query = sb_query.eq('status', 'pending')
-
-        supabase_sellers_res = sb_query.execute()
-        supabase_sellers = supabase_sellers_res.data or []
-
-        mysql_emails = {s['email'] for s in sellers}
-
-        for s in supabase_sellers:
-            if s.get('email') not in mysql_emails:
-                from dateutil import parser as dtparser
-                created_raw = s.get('created_at')
-                try:
-                    created_dt = dtparser.parse(created_raw) if created_raw else None
-                except Exception:
-                    created_dt = None
-
-                addr_parts = [
-                    s.get('house_street') or '',
-                    s.get('barangay') or '',
-                    s.get('city') or '',
-                    s.get('province') or '',
-                    s.get('region') or '',
-                    s.get('zip_code') or '',
-                ]
-                address = ', '.join(p for p in addr_parts if p)
-
-                sellers.append({
-                    'id':                   f"sb_{s.get('id')}",
-                    'email':                s.get('email'),
-                    'first_name':           s.get('first_name'),
-                    'last_name':            s.get('last_name'),
-                    'business_name':        s.get('business_name'),
-                    'business_type':        s.get('business_type'),
-                    'phone_number':         s.get('phone') or '',
-                    'address':              address,
-                    'status':               s.get('status', 'pending'),
-                    'created_at':           created_dt,
-                    'valid_id_path':        s.get('valid_id_path'),
-                    'dti_path':             s.get('dti_path'),
-                    'bir_path':             s.get('bir_path'),
-                    'business_permit_path': s.get('business_permit_path'),
-                    'supabase_uid':         s.get('supabase_uid'),
-                    'source':               'mobile',
-                })
-    except Exception as e:
-        print(f"?? Supabase pending_sellers fetch error: {e}")
-
-    return render_template('pending_sellers.html', sellers=sellers, current_status=status_filter)
 
 @app.route('/reject_seller/<string:seller_id>', methods=['POST'])
 def reject_seller(seller_id):
-    rejection_reason = (request.get_json() or {}).get('rejection_reason', '').strip() if request.is_json else request.form.get('rejection_reason', '').strip()
-    if not rejection_reason:
-        rejection_reason = 'Application does not meet our requirements'
-
-    # -- Supabase-sourced (sb_ prefix) -------------------------------------
-    if str(seller_id).startswith('sb_'):
-        supabase_record_id = seller_id[3:]
-        try:
-            res = sb_admin.table('pending_sellers').select('*').eq('id', supabase_record_id).execute()
-            if not res.data:
-                return jsonify({'success': False, 'error': 'Seller not found'})
-
-            s = res.data[0]
-            supabase_uid = s.get('supabase_uid')
-
-            # Send rejection email
-            try:
-                send_seller_rejection_email(s.get('email'), s.get('first_name'), s.get('business_name', ''), rejection_reason)
-            except Exception as e:
-                print(f"Warning: rejection email failed: {e}")
-
-            # Delete from pending_sellers so they can re-register
-            sb_admin.table('pending_sellers').delete().eq('id', supabase_record_id).execute()
-
-            # Delete the Supabase auth account so they can sign up fresh
-            if supabase_uid:
-                try:
-                    sb_admin.auth.admin.delete_user(supabase_uid)
-                except Exception as ue:
-                    print(f"Warning: delete auth user after rejection failed: {ue}")
-
-            return jsonify({'success': True, 'message': 'Seller rejected and notified via email'})
-
-        except Exception as e:
-            import traceback; traceback.print_exc()
-            return jsonify({'success': False, 'error': str(e)})
-
-    # -- MySQL-sourced (numeric ID) -----------------------------------------
+    if 'user_id' not in session or session.get('user_type') != 'Admin':
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
     try:
-        mysql_id = int(seller_id)
-    except ValueError:
-        return jsonify({'success': False, 'error': 'Invalid seller ID'})
-
-    try:
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-
-        cursor.execute('SELECT first_name, last_name, email, business_name, supabase_uid FROM pending_sellers WHERE id = %s', (mysql_id,))
-        seller = cursor.fetchone()
-
-        if not seller:
-            cursor.close(); db.close()
+        data = request.get_json() or {}
+        rejection_reason = data.get('rejection_reason', 'Application rejected by admin')
+        record_id = seller_id[3:] if str(seller_id).startswith('sb_') else seller_id
+        res = sb_admin.table('pending_sellers').select('email, first_name, business_name, supabase_uid').eq('id', str(record_id)).limit(1).execute()
+        if not res.data:
             return jsonify({'success': False, 'error': 'Seller not found'})
+        seller = res.data[0]
+        sb_admin.table('pending_sellers').update({'status': 'rejected'}).eq('id', str(record_id)).execute()
+        try: send_seller_rejection_email(seller['email'], seller.get('first_name',''), seller.get('business_name',''), rejection_reason)
+        except Exception: pass
+        return jsonify({'success': True, 'message': f"{seller.get('first_name','')} rejected"})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
-        # Send rejection email
-        try:
-            send_seller_rejection_email(seller['email'], seller['first_name'], seller.get('business_name', ''), rejection_reason)
-        except Exception as e:
-            print(f"Warning: rejection email failed: {e}")
-
-        # Delete from pending_sellers so they can re-register
-        cursor.execute('DELETE FROM pending_sellers WHERE id = %s', (mysql_id,))
-        db.commit()
-
-        # Delete the Supabase auth account so they can sign up fresh
-        supabase_uid = seller.get('supabase_uid')
-        if supabase_uid:
-            try:
-                sb_admin.auth.admin.delete_user(supabase_uid)
-            except Exception as ue:
-                print(f"Warning: delete auth user after rejection failed: {ue}")
-
-        cursor.close(); db.close()
-        return jsonify({'success': True, 'message': 'Seller rejected and notified via email'})
-
-    except mysql.connector.Error as err:
-        return jsonify({'success': False, 'error': str(err)})
 
 @app.route('/api/seller_documents/<string:seller_id>')
 def get_seller_documents(seller_id):
@@ -8735,16 +6429,7 @@ def get_seller_documents(seller_id):
         return jsonify({'success': False, 'error': 'Invalid seller ID'})
 
     try:
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        cursor.execute('''
-            SELECT first_name, last_name, business_name, business_type,
-                   valid_id_path, dti_path, bir_path, business_permit_path
-            FROM pending_sellers WHERE id = %s
-        ''', (numeric_id,))
-        result = cursor.fetchone()
-        cursor.close()
-        db.close()
+        # Supabase lookup
 
         if result:
             def resolve_seller_doc_url(stored_path, subfolder):
@@ -8804,199 +6489,44 @@ def get_seller_documents(seller_id):
 
 @app.route('/api/user_documents/<string:user_id>')
 def get_user_documents(user_id):
-    """API endpoint to get user documents � handles both MySQL (numeric) and Supabase (sb_) IDs"""
-
     BUCKET = 'user-documents'
     SUPABASE_STORAGE_BASE = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}"
-
-    def signed_url(storage_path):
-        if not storage_path:
-            return None
+    def signed_url(path):
+        if not path: return None
         try:
-            result = sb_admin.storage.from_(BUCKET).create_signed_url(storage_path, 3600)
+            result = sb_admin.storage.from_(BUCKET).create_signed_url(path, 3600)
             if isinstance(result, dict):
-                url = result.get('signedURL') or result.get('signedUrl') or result.get('signed_url')
-            else:
-                url = getattr(result, 'signed_url', None) or getattr(result, 'signedURL', None)
-            if url:
-                return url
-        except Exception as e:
-            print(f'user signed_url error for {storage_path}: {e}')
-        return f"{SUPABASE_STORAGE_BASE}/{storage_path}"
-
-    def resolve_doc_url(stored_path, subfolder):
-        """
-        Convert a stored document path to a list of web-accessible URLs.
-        Handles two cases:
-          1. Local file path (web registration) � e.g. C:\\...\\static\\images\\uploads\\ids\\file.png
-             ? returns ['/static/images/uploads/ids/file.png', ...]
-          2. Supabase Storage key (mobile registration) � e.g. user-documents/ids/file.png
-             ? returns a signed URL
-        """
-        if not stored_path:
-            return None, []
-
-        # Normalise backslashes ? forward slashes
-        normalised = stored_path.replace('\\', '/')
-
-        # Detect local path: contains 'static/images/uploads' or 'static/uploads'
-        # or is an absolute OS path (starts with drive letter or /)
-        is_local = (
-            'static/images/uploads' in normalised
-            or 'static/uploads' in normalised
-            or (len(normalised) > 1 and normalised[1] == ':')   # Windows C:/...
-            or normalised.startswith('/') and 'supabase' not in normalised
-        )
-
-        if is_local:
-            fn = os.path.basename(normalised)
-            variations = [
-                f"/static/images/uploads/{subfolder}/{fn}",
-                f"/static/uploads/{subfolder}/{fn}",
-                f"/uploads/{subfolder}/{fn}",
-            ]
-            return variations[0], variations
-
-        # Supabase Storage key � generate signed URL
-        url = signed_url(stored_path)
-        return url, [url] if url else []
-
-    # -- Supabase-registered user (sb_ prefix) ----------------------------
-    if str(user_id).startswith('sb_'):
-        supabase_id = user_id[3:]  # strip 'sb_' prefix
-        try:
-            res = sb_admin.table('pending_users').select('*').eq('id', supabase_id).execute()
-            if not res.data:
-                return jsonify({'success': False, 'error': 'User not found'})
-            u = res.data[0]
-
-            # Also check pending_rider_vehicles for vehicle info, OR/CR and NBI paths
-            # The table uses supabase_uid (not user_id) as the FK
-            supabase_uid_for_rv = u.get('supabase_uid')
-            or_cr_path  = None
-            nbi_path    = None
-            vehicle_type = vehicle_model = vehicle_plate_number = vehicle_year_model = None
-            try:
-                rv_query = sb_admin.table('pending_rider_vehicles').select('*')
-                if supabase_uid_for_rv:
-                    rv_res = rv_query.eq('supabase_uid', supabase_uid_for_rv).execute()
-                else:
-                    rv_res = rv_query.eq('supabase_uid', supabase_id).execute()
-                if rv_res.data:
-                    rv = rv_res.data[0]
-                    or_cr_path            = rv.get('or_cr_path')
-                    nbi_path              = rv.get('nbi_clearance_path')
-                    vehicle_type          = rv.get('vehicle_type')
-                    vehicle_model         = rv.get('vehicle_model')
-                    vehicle_plate_number  = rv.get('plate_number')
-                    vehicle_year_model    = rv.get('year_model')
-            except Exception as rv_err:
-                print(f'pending_rider_vehicles lookup error: {rv_err}')
-
-            valid_id_url,  valid_id_vars  = resolve_doc_url(u.get('valid_id_path'), 'ids')
-            or_cr_url,     or_cr_vars     = resolve_doc_url(or_cr_path,             'rider_docs')
-            nbi_url,       nbi_vars       = resolve_doc_url(nbi_path,               'rider_docs')
-
-            return jsonify({
-                'success': True,
-                'user': {
-                    'first_name':           u.get('first_name', ''),
-                    'last_name':            u.get('last_name', ''),
-                    'email':                u.get('email', ''),
-                    'phone_number':         u.get('phone') or u.get('phone_number') or '',
-                    'address':              u.get('address') or ', '.join(
-                        p for p in [
-                            u.get('house_street') or '',
-                            u.get('barangay') or '',
-                            u.get('city') or '',
-                            u.get('province') or '',
-                            u.get('region') or '',
-                            u.get('zip_code') or '',
-                        ] if p
-                    ),
-                    'user_type':            (u.get('role') or u.get('user_type') or 'buyer').capitalize(),
-                    'vehicle_type':         vehicle_type,
-                    'vehicle_model':        vehicle_model,
-                    'vehicle_plate_number': vehicle_plate_number,
-                    'vehicle_year_model':   vehicle_year_model,
-                },
-                'documents': {
-                    'valid_id_url':       valid_id_url,
-                    'or_cr_url':          or_cr_url,
-                    'nbi_clearance_url':  nbi_url,
-                    'valid_id_path':      u.get('valid_id_path'),
-                    'path_variations':    valid_id_vars,
-                    'or_cr_path':         or_cr_path,
-                    'or_cr_variations':   or_cr_vars,
-                    'nbi_clearance_path': nbi_path,
-                    'nbi_variations':     nbi_vars,
-                }
-            })
-        except Exception as e:
-            print(f'Error in get_user_documents (Supabase): {e}')
-            import traceback; traceback.print_exc()
-            return jsonify({'success': False, 'error': str(e)})
-
-    # -- MySQL-registered user (numeric ID) -------------------------------
+                return result.get('signedURL') or result.get('signedUrl') or result.get('signed_url')
+            return getattr(result, 'signed_url', None) or f"{SUPABASE_STORAGE_BASE}/{path}"
+        except Exception:
+            return f"{SUPABASE_STORAGE_BASE}/{path}"
     try:
-        numeric_id = int(user_id)
-    except ValueError:
-        return jsonify({'success': False, 'error': 'Invalid user ID'})
-
-    try:
-        print(f"Getting documents for user ID: {numeric_id}")
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        cursor.execute('''
-            SELECT first_name, last_name, email, phone_number, address, user_type, valid_id_path,
-                   vehicle_type, vehicle_model, vehicle_plate_number, vehicle_year_model,
-                   or_cr_path, nbi_clearance_path
-            FROM pending_users WHERE id = %s
-        ''', (numeric_id,))
-        result = cursor.fetchone()
-        cursor.close()
-        db.close()
-
-        if result:
-            valid_id_path = result['valid_id_path'] or ''
-            base_filename = os.path.basename(valid_id_path)
-
-            valid_id_url,  path_variations  = resolve_doc_url(valid_id_path,                    'ids')
-            or_cr_url,     or_cr_variations = resolve_doc_url(result.get('or_cr_path'),         'rider_docs')
-            nbi_url,       nbi_variations   = resolve_doc_url(result.get('nbi_clearance_path'), 'rider_docs')
-
-            return jsonify({
-                'success': True,
-                'user': {
-                    'first_name':           result['first_name'],
-                    'last_name':            result['last_name'],
-                    'email':                result['email'],
-                    'phone_number':         result.get('phone_number'),
-                    'address':              result.get('address'),
-                    'user_type':            result['user_type'],
-                    'vehicle_type':         result.get('vehicle_type'),
-                    'vehicle_model':        result.get('vehicle_model'),
-                    'vehicle_plate_number': result.get('vehicle_plate_number'),
-                    'vehicle_year_model':   result.get('vehicle_year_model'),
-                },
-                'documents': {
-                    'valid_id_url':       valid_id_url,
-                    'or_cr_url':          or_cr_url,
-                    'nbi_clearance_url':  nbi_url,
-                    'valid_id_path':      valid_id_path,
-                    'path_variations':    path_variations,
-                    'or_cr_path':         result.get('or_cr_path'),
-                    'or_cr_variations':   or_cr_variations,
-                    'nbi_clearance_path': result.get('nbi_clearance_path'),
-                    'nbi_variations':     nbi_variations,
-                }
-            })
-        else:
+        record_id = user_id[3:] if str(user_id).startswith('sb_') else user_id
+        res = sb_admin.table('pending_users').select('first_name, last_name, email, phone, house_street, barangay, city, province, region, zip_code, role, valid_id_path, supabase_uid').eq('id', str(record_id)).limit(1).execute()
+        if not res.data:
             return jsonify({'success': False, 'error': 'User not found'})
+        u = res.data[0]
+        uid = u.get('supabase_uid')
+        rv = {}
+        if uid:
+            try:
+                rv_res = sb_admin.table('pending_rider_vehicles').select('*').eq('supabase_uid', uid).limit(1).execute()
+                rv = rv_res.data[0] if rv_res.data else {}
+            except Exception: pass
+        return jsonify({'success': True, 'user': {
+            'first_name': u.get('first_name',''), 'last_name': u.get('last_name',''),
+            'email': u.get('email',''), 'phone_number': u.get('phone',''),
+            'address': ', '.join(filter(None,[u.get('house_street',''),u.get('barangay',''),u.get('city',''),u.get('province',''),u.get('region',''),u.get('zip_code','')])),
+            'user_type': u.get('role','buyer'),
+            'valid_id_url': signed_url(u.get('valid_id_path')),
+            'vehicle_type': rv.get('vehicle_type'), 'vehicle_model': rv.get('vehicle_model'),
+            'vehicle_plate_number': rv.get('plate_number'), 'vehicle_year_model': rv.get('year_model'),
+            'or_cr_url': signed_url(rv.get('or_cr_path')),
+            'nbi_clearance_url': signed_url(rv.get('nbi_clearance_path')),
+        }})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)})
 
-    except Exception as err:
-        print(f"Error in get_user_documents: {err}")
-        return jsonify({'success': False, 'error': f'Error: {str(err)}'})
 
 @app.route('/api/approved_user_documents/<string:user_id>')
 def get_approved_user_documents(user_id):
@@ -9155,51 +6685,18 @@ def update_user_api():
 
 @app.route('/api/get_user_name')
 def get_user_name():
-    """API endpoint to get user's full name by email"""
     try:
         email = request.args.get('email')
-        
         if not email:
-            return jsonify({
-                'success': False,
-                'error': 'Email is required'
-            })
-        
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        
-        # Get user's name from database
-        cursor.execute('''SELECT first_name, last_name, business_name, user_type 
-                         FROM users 
-                         WHERE email = %s''', (email,))
-        
-        user = cursor.fetchone()
-        cursor.close()
-        conn.close()
-        
-        if user:
-            # For sellers, prefer business name if available
-            if user['user_type'] == 'Seller' and user.get('business_name'):
-                name = user['business_name']
-            else:
-                name = f"{user['first_name']} {user['last_name']}"
-            
-            return jsonify({
-                'success': True,
-                'name': name,
-                'user_type': user['user_type']
-            })
-        else:
-            return jsonify({
-                'success': False,
-                'error': 'User not found'
-            })
-        
+            return jsonify({'success': False, 'error': 'Email is required'})
+        res = sb_admin.table('users').select('first_name, last_name, business_name, role').eq('email', email).limit(1).execute()
+        if res.data:
+            u = res.data[0]
+            name = u.get('business_name') if u.get('role') == 'seller' and u.get('business_name') else f"{u.get('first_name','')} {u.get('last_name','')}".strip()
+            return jsonify({'success': True, 'name': name, 'user_type': (u.get('role') or 'buyer').capitalize()})
+        return jsonify({'success': False, 'error': 'User not found'})
     except Exception as err:
-        return jsonify({
-            'success': False,
-            'error': f'Database error: {str(err)}'
-        })
+        return jsonify({'success': False, 'error': f'Error: {str(err)}'})
 
 # Routes to serve uploaded files
 @app.route('/static/uploads/<path:filename>')
@@ -9251,216 +6748,44 @@ def serve_file_from_uploads(filename):
 @app.route('/view_documents/<int:seller_id>')
 def view_documents(seller_id):
     try:
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        
-        cursor.execute('SELECT bir_path, dti_path, business_permit_path, valid_id_path FROM pending_sellers WHERE id = %s', (seller_id,))
-        documents = cursor.fetchone()
-        
-        cursor.close()
-        db.close()
-        
-        if documents:
-            # Verify that the files exist
-            for doc_type in ['bir_path', 'dti_path', 'business_permit_path', 'valid_id_path']:
-                if documents[doc_type]:
-                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], documents[doc_type])
-                    if not os.path.exists(file_path):
-                        flash(f'{doc_type.replace("_path", "").upper()} document file not found!', 'error')
-                        return redirect(url_for('pending_sellers_dashboard'))
-            
-            return render_template('view_documents.html', documents=documents)
-        else:
-            flash('Documents not found!', 'error')
-            return redirect(url_for('pending_sellers_dashboard'))
-            
-    except mysql.connector.Error as err:
-        flash(f"Database error: {err}", 'error')
+        res = sb_admin.table('pending_sellers').select('bir_path, dti_path, business_permit_path, valid_id_path').eq('id', str(seller_id)).limit(1).execute()
+        if res.data:
+            return render_template('view_documents.html', documents=res.data[0])
+        flash('Documents not found!', 'error')
+        return redirect(url_for('pending_sellers_dashboard'))
+    except Exception as err:
+        flash(f'Error: {err}', 'error')
         return redirect(url_for('pending_sellers_dashboard'))
 
 @app.route('/approve/<string:seller_id>', methods=['POST'])
 def approve_seller(seller_id):
-    print(f"DEBUG: Starting approval process for seller ID: {seller_id}")
-    
     if 'user_id' not in session or session.get('user_type') != 'Admin':
-        print("DEBUG: Access denied - not admin")
-        flash('? Access denied. Admin privileges required.', 'error')
+        flash('Access denied.', 'error')
         return redirect(url_for('pending_sellers_dashboard'))
-
-    # -- Supabase-sourced (mobile) seller registration ---------------------
-    if str(seller_id).startswith('sb_'):
-        supabase_record_id = seller_id[3:]
-        try:
-            res = sb_admin.table('pending_sellers').select('*').eq('id', supabase_record_id).execute()
-            if not res.data:
-                return jsonify({'success': False, 'error': 'Seller not found in pending list'})
-
-            s = res.data[0]
-            supabase_uid = s.get('supabase_uid')
-            seller_name = f"{s.get('first_name')} {s.get('last_name')}"
-
-            # Insert into Supabase users table
-            addr_parts = [
-                s.get('house_street') or '',
-                s.get('barangay') or '',
-                s.get('city') or '',
-                s.get('province') or '',
-                s.get('region') or '',
-                s.get('zip_code') or '',
-            ]
-            sb_admin.table('users').upsert({
-                'id':                  supabase_uid,
-                'email':               s.get('email'),
-                'first_name':          s.get('first_name'),
-                'last_name':           s.get('last_name'),
-                'phone':               s.get('phone') or '',
-                'role':                'seller',
-                'business_name':       s.get('business_name'),
-                'business_type':       s.get('business_type'),
-                'house_street':        addr_parts[0],
-                'barangay':            addr_parts[1],
-                'city':                addr_parts[2],
-                'province':            addr_parts[3],
-                'region':              addr_parts[4],
-                'zip_code':            addr_parts[5],
-                'valid_id_path':       s.get('valid_id_path'),
-                'dti_path':            s.get('dti_path'),
-                'bir_path':            s.get('bir_path'),
-                'business_permit_path': s.get('business_permit_path'),
-            }).execute()
-
-            # Unban the auth account
-            if supabase_uid:
-                try:
-                    sb_admin.auth.admin.update_user_by_id(supabase_uid, {'ban_duration': 'none'})
-                except Exception as ue:
-                    print(f"Warning: unban failed: {ue}")
-
-            # Delete from Supabase pending_sellers
-            sb_admin.table('pending_sellers').delete().eq('id', supabase_record_id).execute()
-
-            # Send approval email
-            try:
-                send_seller_approval_email(s.get('email'), s.get('first_name'), s.get('business_name', seller_name))
-            except Exception:
-                pass
-
-            return jsonify({'success': True, 'message': f'{seller_name} successfully approved'})
-
-        except Exception as e:
-            import traceback; traceback.print_exc()
-            return jsonify({'success': False, 'error': f'Error approving seller: {str(e)}'})
-
-    # -- MySQL-sourced (web) seller registration ---------------------------
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.is_json
+    record_id = seller_id[3:] if str(seller_id).startswith('sb_') else str(seller_id)
     try:
-        mysql_id = int(seller_id)
-    except ValueError:
-        return jsonify({'success': False, 'error': 'Invalid seller ID'})
-
-    db = None
-    cursor = None
-    
-    try:
-        print("DEBUG: Connecting to database")
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        print("DEBUG: Database connected successfully")
-
-        cursor.execute('SELECT * FROM pending_sellers WHERE id = %s', (mysql_id,))
-        seller = cursor.fetchone()
-
-        if not seller:
-            print("DEBUG: Seller not found")
-            return jsonify({'success': False, 'error': 'Seller not found in the pending list'})
-
-        print(f"DEBUG: Found seller: {seller['first_name']} {seller['last_name']} ({seller['email']})")
-        seller_name = f"{seller['first_name']} {seller['last_name']}"
-        
-        cursor.execute('SELECT id FROM users WHERE email = %s', (seller['email'],))
-        existing_user = cursor.fetchone()
-        
-        if existing_user:
-            print("DEBUG: Seller already exists in users table")
-            cursor.execute('DELETE FROM pending_sellers WHERE id = %s', (mysql_id,))
-            db.commit()
-            return jsonify({'success': False, 'error': f'{seller_name} is already registered as a user'})
-        
-        cursor.execute('''INSERT INTO users (first_name, last_name, email, phone_number, address, password, user_type,
-                          business_name, business_type, valid_id_path, dti_path, bir_path, business_permit_path)
-                          VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)''',
-                       (seller['first_name'], seller['last_name'], seller['email'],
-                        seller['phone_number'], seller['address'], seller['password'],
-                        'Seller', seller.get('business_name'), seller.get('business_type'),
-                        seller.get('valid_id_path'), seller.get('dti_path'), 
-                        seller.get('bir_path'), seller.get('business_permit_path')))
-        print("DEBUG: Seller inserted into users table successfully")
-
-        # -- Insert into Supabase users table and unban auth account ------
-        supabase_uid = seller.get('supabase_uid')
-        if supabase_uid:
-            try:
-                addr_parts = [p.strip() for p in (seller.get('address') or '').split(',')]
-                sb_admin.table('users').upsert({
-                    'id':                  supabase_uid,
-                    'email':               seller['email'],
-                    'first_name':          seller['first_name'],
-                    'last_name':           seller['last_name'],
-                    'phone':               seller.get('phone_number') or '',
-                    'role':                'seller',
-                    'business_name':       seller.get('business_name'),
-                    'business_type':       seller.get('business_type'),
-                    'house_street':        addr_parts[0] if len(addr_parts) > 0 else '',
-                    'barangay':            addr_parts[1] if len(addr_parts) > 1 else '',
-                    'city':                addr_parts[2] if len(addr_parts) > 2 else '',
-                    'province':            addr_parts[3] if len(addr_parts) > 3 else '',
-                    'region':              addr_parts[4] if len(addr_parts) > 4 else '',
-                    'zip_code':            addr_parts[5] if len(addr_parts) > 5 else '',
-                    'valid_id_path':       seller.get('valid_id_path'),
-                    'dti_path':            seller.get('dti_path'),
-                    'bir_path':            seller.get('bir_path'),
-                    'business_permit_path': seller.get('business_permit_path'),
-                }).execute()
-                sb_admin.auth.admin.update_user_by_id(supabase_uid, {'ban_duration': 'none'})
-                print(f"DEBUG: Supabase seller profile inserted and auth unbanned for {seller['email']}")
-            except Exception as se:
-                print(f"WARNING: Supabase seller insert/unban failed: {se}")
-                import traceback; traceback.print_exc()
-        else:
-            print(f"WARNING: No supabase_uid for seller {seller['email']}")
-        
-        cursor.execute('DELETE FROM pending_sellers WHERE id = %s', (mysql_id,))
-        db.commit()
-        print("DEBUG: Changes committed successfully")
-        
-        try:
-            business_name = seller.get('business_name', f"{seller['first_name']} {seller['last_name']}'s Business")
-            send_seller_approval_email(seller['email'], seller['first_name'], business_name)
-            print("DEBUG: Approval email sent")
-        except Exception as email_err:
-            print(f"DEBUG: Email sending failed (non-critical): {email_err}")
-        
-        print(f"DEBUG: Approval successful for {seller_name}")
-        return jsonify({'success': True, 'message': f'{seller_name} successfully approved'})
-        
-    except mysql.connector.Error as db_err:
-        print(f"DEBUG: Database error: {db_err}")
-        if db:
-            db.rollback()
-        return jsonify({'success': False, 'error': f'Database Error: {str(db_err)}'})
-        
+        res = sb_admin.table('pending_sellers').select('*').eq('id', record_id).execute()
+        if not res.data:
+            msg = 'Seller not found in pending list'
+            return jsonify({'success': False, 'error': msg}) if is_ajax else (flash(msg,'error'), redirect(url_for('pending_sellers_dashboard')))[1]
+        s = res.data[0]
+        uid = s.get('supabase_uid')
+        addr_parts = [s.get('house_street',''),s.get('barangay',''),s.get('city',''),s.get('province',''),s.get('region',''),s.get('zip_code','')]
+        sb_admin.table('users').upsert({'id':uid,'email':s['email'],'first_name':s.get('first_name'),'last_name':s.get('last_name'),'phone':s.get('phone',''),'role':'seller','business_name':s.get('business_name'),'business_type':s.get('business_type'),'house_street':addr_parts[0],'barangay':addr_parts[1],'city':addr_parts[2],'province':addr_parts[3],'region':addr_parts[4],'zip_code':addr_parts[5],'valid_id_path':s.get('valid_id_path'),'dti_path':s.get('dti_path'),'bir_path':s.get('bir_path'),'business_permit_path':s.get('business_permit_path')}).execute()
+        if uid:
+            try: sb_admin.auth.admin.update_user_by_id(uid, {'ban_duration': 'none'})
+            except Exception as ue: print(f"unban failed: {ue}")
+        sb_admin.table('pending_sellers').delete().eq('id', record_id).execute()
+        try: send_seller_approval_email(s['email'], s.get('first_name',''), s.get('business_name', f"{s.get('first_name','')} {s.get('last_name','')}"))
+        except Exception: pass
+        seller_name = f"{s.get('first_name','')} {s.get('last_name','')}".strip()
+        msg = f"{seller_name} successfully approved"
+        return jsonify({'success': True, 'message': msg}) if is_ajax else (flash(msg,'success'), redirect(url_for('pending_sellers_dashboard')))[1]
     except Exception as e:
-        print(f"DEBUG: General error: {e}")
-        import traceback
-        traceback.print_exc()
-        if db:
-            db.rollback()
-        return jsonify({'success': False, 'error': f'Error approving seller: {str(e)}'})
-        
-    finally:
-        if cursor:
-            cursor.close()
-        if db:
-            db.close()
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}) if is_ajax else (flash(str(e),'error'), redirect(url_for('pending_sellers_dashboard')))[1]
+
 
 @app.route('/test-flash')
 def test_flash():
@@ -9483,418 +6808,12 @@ def test_approve_simple():
     print("DEBUG: Test success message set")
     return redirect(url_for('pending_sellers_dashboard'))
 
-@app.route('/simple-approve/<int:seller_id>')
-def simple_approve(seller_id):
-    """Simple approval test without database operations"""
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        return "Access denied"
-    
-    try:
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        
-        # Get seller name
-        cursor.execute('SELECT first_name, last_name FROM pending_sellers WHERE id = %s', (seller_id,))
-        seller = cursor.fetchone()
-        
-        if seller:
-            seller_name = f"{seller['first_name']} {seller['last_name']}"
-            flash(f'? {seller_name} successfully approved!', 'success')
-            print(f"DEBUG: Simple approval success message set for {seller_name}")
-        else:
-            flash('? Seller not found!', 'error')
-        
-        cursor.close()
-        db.close()
-        
-    except Exception as e:
-        flash(f'? Error: {str(e)}', 'error')
-        print(f"DEBUG: Simple approval error: {e}")
-    
-    return redirect(url_for('pending_sellers_dashboard'))
+# @app.route('/simple-approve/<int:seller_id>') removed (debug route)
 
-@app.route('/test-approve/<int:seller_id>')
-def test_approve(seller_id):
-    """Test route to check seller data before approval"""
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        return "Access denied"
-    
-    try:
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
-        
-        # Test database connection
-        cursor.execute('SELECT 1 as test')
-        test_result = cursor.fetchone()
-        
-        # Check users table structure
-        cursor.execute('DESCRIBE users')
-        users_columns = cursor.fetchall()
-        
-        # Fetch seller details from pending_sellers
-        cursor.execute('SELECT * FROM pending_sellers WHERE id = %s', (seller_id,))
-        seller = cursor.fetchone()
-        
-        cursor.close()
-        db.close()
-        
-        result = f"""
-        <h2>Database Test Results for Seller ID {seller_id}</h2>
-        <h3>Database Connection:</h3>
-        <p>? Connected successfully: {test_result}</p>
-        
-        <h3>Users Table Structure:</h3>
-        <table border="1">
-        <tr><th>Field</th><th>Type</th><th>Null</th><th>Key</th><th>Default</th><th>Extra</th></tr>
-        """
-        
-        for col in users_columns:
-            result += f"<tr><td>{col['Field']}</td><td>{col['Type']}</td><td>{col['Null']}</td><td>{col['Key']}</td><td>{col['Default']}</td><td>{col['Extra']}</td></tr>"
-        
-        result += "</table>"
-        
-        if seller:
-            result += f"""
-            <h3>Seller Data:</h3>
-            <pre>{seller}</pre>
-            """
-        else:
-            result += f"<h3>? No seller found with ID {seller_id}</h3>"
-            
-        result += f'<p><a href="/pending_sellers">Back to Pending Sellers</a></p>'
-        return result
-            
-    except Exception as e:
-        import traceback
-        return f"<h2>Error: {str(e)}</h2><pre>{traceback.format_exc()}</pre>"
+# @app.route('/test-approve/<int:seller_id>') removed (debug route)
 
-@app.route('/debug-approve/<int:seller_id>')
-def debug_approve(seller_id):
-    """Debug route to test approve function without database changes"""
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        return "Access denied"
-    
-    try:
-        print(f"DEBUG: Testing approval process for seller ID: {seller_id}")
-        db = get_db_connection()
-        cursor = db.cursor(dictionary=True)
+# /debug-approve removed (debug route)
 
-        # Fetch seller details from pending_sellers
-        cursor.execute('SELECT * FROM pending_sellers WHERE id = %s', (seller_id,))
-        seller = cursor.fetchone()
-
-        if seller:
-            print(f"DEBUG: Found seller: {seller['first_name']} {seller['last_name']} ({seller['email']})")
-            
-            # Test if seller already exists in users table
-            cursor.execute('SELECT id FROM users WHERE email = %s', (seller['email'],))
-            existing_user = cursor.fetchone()
-            
-            result = f"""
-            <h2>Debug Approval Test for Seller ID {seller_id}</h2>
-            <h3>Seller Data:</h3>
-            <pre>{seller}</pre>
-            
-            <h3>Existing User Check:</h3>
-            <p>Email: {seller['email']}</p>
-            <p>Already exists in users table: {'Yes' if existing_user else 'No'}</p>
-            {f'<p>Existing user ID: {existing_user["id"]}</p>' if existing_user else ''}
-            
-            <h3>Test Insert Query:</h3>
-            <p>Would insert: {seller['first_name']}, {seller['last_name']}, {seller['email']}, {seller['phone_number']}, {seller['address']}, [password], Seller</p>
-            """
-            
-            if existing_user:
-                result += "<p style='color: orange;'>?? This seller already exists in the users table!</p>"
-            else:
-                result += "<p style='color: green;'>? This seller can be inserted into users table.</p>"
-                
-        else:
-            result = f"<h2>? No seller found with ID {seller_id}</h2>"
-        
-        cursor.close()
-        db.close()
-        result += f'<p><a href="/pending_sellers">Back to Pending Sellers</a></p>'
-        return result
-        
-    except Exception as e:
-        import traceback
-        return f"<h2>Error: {str(e)}</h2><pre>{traceback.format_exc()}</pre>"
-
-@app.route('/update/<int:user_id>', methods=['GET', 'POST'])
-def update_user(user_id):
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    if request.method == 'POST':
-        # Fetch the form data
-        first_name = request.form.get('first_name')
-        last_name = request.form.get('last_name')
-        email = request.form.get('email')
-        phone_number = request.form.get('phone_number')
-        address = request.form.get('address')
-        user_type = request.form.get('user_type')
-
-        # Update the user in the database
-        cursor.execute('''UPDATE users 
-                         SET first_name=%s, last_name=%s, email=%s, phone_number=%s, 
-                             address=%s, user_type=%s 
-                         WHERE id=%s''', 
-                      (first_name, last_name, email, phone_number, address, user_type, user_id))
-        conn.commit()
-        flash('User updated successfully!', 'success')
-        return redirect(url_for('admin_users'))
-
-    # If GET request, fetch user information
-    cursor.execute('SELECT * FROM users WHERE id=%s', (user_id,))
-    user = cursor.fetchone()
-    cursor.close()
-    conn.close()
-
-    return render_template('edit_user.html', user=user)
-
-@app.route('/delete/<int:user_id>', methods=['POST'])
-def delete_user(user_id):
-    conn = get_db_connection()
-    cursor = conn.cursor()
-    
-    # Delete from archive table instead of users table
-    cursor.execute('DELETE FROM archive WHERE id = %s', (user_id,))
-    conn.commit()
-    
-    cursor.close()
-    conn.close()
-    return jsonify({'success': True})
-
-@app.route('/archive_accounts', methods=['GET'])
-def archive_accounts():
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        flash('Access denied. Admin privileges required.', 'error')
-        return redirect(url_for('login'))
-
-    search_query = request.args.get('search', '').strip()
-    archived_users = []
-
-    try:
-        res = sb_admin.table('archived_users').select('*').order('archived_at', desc=True).execute()
-        raw = res.data or []
-
-        for u in raw:
-            # Build combined address from separate fields
-            addr_parts = [
-                u.get('house_street') or '',
-                u.get('barangay') or '',
-                u.get('city') or '',
-                u.get('province') or '',
-                u.get('region') or '',
-                u.get('zip_code') or '',
-            ]
-            u['address'] = ', '.join(p for p in addr_parts if p)
-            u['phone_number'] = u.get('phone') or ''
-            u['user_type'] = (u.get('role') or 'buyer').capitalize()
-
-            # Parse archived_at
-            archived_at_raw = u.get('archived_at')
-            if archived_at_raw and isinstance(archived_at_raw, str):
-                try:
-                    from dateutil import parser as dtparser
-                    u['archived_at_dt'] = dtparser.parse(archived_at_raw)
-                except Exception:
-                    u['archived_at_dt'] = None
-            else:
-                u['archived_at_dt'] = None
-
-            # Apply search filter
-            if search_query:
-                sq = search_query.lower()
-                haystack = ' '.join(filter(None, [
-                    u.get('first_name') or '', u.get('last_name') or '',
-                    u.get('email') or '', u.get('phone_number') or '',
-                ])).lower()
-                if sq not in haystack:
-                    continue
-
-            archived_users.append(u)
-
-    except Exception as e:
-        print(f'archive_accounts Supabase error: {e}')
-        import traceback; traceback.print_exc()
-
-    return render_template('archive.html', users=archived_users, search=search_query)
-
-
-@app.route('/archive/<int:user_id>', methods=['POST'])
-def archive_account(user_id):
-    # Connect to the database
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    # Retrieve the user to be archived
-    cursor.execute("SELECT * FROM users WHERE id = %s", (user_id,))
-    user = cursor.fetchone()
-
-    if user:
-        # Insert the user into the archive table
-        cursor.execute("""
-            INSERT INTO archive (id, first_name, last_name, password, email, phone_number, address, user_type, bir, dti, tin)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (user['id'], user['first_name'], user['last_name'], user['password'], user['email'],
-              user['phone_number'], user['address'], user['user_type'], user['bir'], user['dti'], user['tin']))
-
-        # Delete the user from the users table
-        cursor.execute("DELETE FROM users WHERE id = %s", (user_id,))
-        conn.commit()
-
-    else:
-        flash("User not found.", "error")
-
-    conn.close()
-    return redirect(url_for('admin_dashboard'))
-
-@app.route('/restore/<int:user_id>', methods=['POST'])
-def restore_account(user_id):
-    # Connect to the database
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
-    # Retrieve the archived user to be restored
-    cursor.execute("SELECT * FROM archive WHERE id = %s", (user_id,))
-    archived_user = cursor.fetchone()
-
-    if archived_user:
-        # Insert the user back into the users table
-        cursor.execute("""
-            INSERT INTO users (id, first_name, last_name, password, email, phone_number, address, user_type, bir, dti, tin)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """, (archived_user['id'], archived_user['first_name'], archived_user['last_name'],
-              archived_user['password'], archived_user['email'], archived_user['phone_number'],
-              archived_user['address'], archived_user['user_type'], archived_user['bir'],
-              archived_user['dti'], archived_user['tin']))
-
-        # Delete the user from the archive table
-        cursor.execute("DELETE FROM archive WHERE id = %s", (user_id,))
-        conn.commit()
-
-    else:
-        flash("Archived user not found.", "error")
-
-    conn.close()
-    return redirect(url_for('archive_accounts'))
-
-#----------------------------------------------------------------------
-                         #ADMIN REPORTS & ANALYTICS
-#----------------------------------------------------------------------
-
-@app.route('/admin_reports_analytics')
-def admin_reports_analytics():
-    """Render the admin reports and analytics page"""
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('login'))
-    
-    return render_template('admin_reports_analytics.html')
-
-@app.route('/print_layout')
-def print_layout():
-    """Render the print layout page"""
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('login'))
-    
-    return render_template('print_layout.html')
-
-@app.route('/api/admin/dashboard_charts')
-def admin_dashboard_charts():
-    """Chart data for admin dashboard - powered by Supabase"""
-    if 'user_id' not in session or session.get('user_type') != 'Admin':
-        return jsonify({'error': 'Unauthorized'}), 401
-
-    empty = {'revenue': {'labels': [], 'values': []},
-             'commission': {'labels': [], 'values': []},
-             'categories': {'labels': [], 'values': []},
-             'orderStatus': {'labels': [], 'values': []}}
-
-    try:
-        from datetime import datetime as _dt, timedelta as _td
-        from collections import defaultdict
-
-        now = _dt.now()
-
-        # Build 12-month skeleton
-        months = []
-        for i in range(11, -1, -1):
-            m = now - _td(days=i * 30)
-            months.append(m.strftime('%b %Y'))
-
-        # Fetch all completed/delivered orders (for revenue + commission + categories)
-        done_res = sb_admin.table('orders') \
-            .select('id, total_price, date, quantity, product_id, status') \
-            .in_('status', ['Delivered', 'Completed', 'Received',
-                            'delivered', 'completed', 'received']) \
-            .execute()
-        done_orders = done_res.data or []
-
-        # Monthly revenue & commission
-        rev_map  = defaultdict(float)
-        comm_map = defaultdict(float)
-        for o in done_orders:
-            raw_date = o.get('date')
-            if not raw_date:
-                continue
-            try:
-                label = _dt.fromisoformat(str(raw_date)[:10]).strftime('%b %Y')
-                val = float(o.get('total_price') or 0)
-                rev_map[label]  += val
-                comm_map[label] += val * 0.05   # 5% platform fee
-            except Exception:
-                pass
-
-        revenue_data    = [rev_map.get(m, 0)  for m in months]
-        commission_data = [comm_map.get(m, 0) for m in months]
-
-        # Top selling categories  batch-fetch product categories
-        product_ids = list({o['product_id'] for o in done_orders if o.get('product_id')})
-        cat_map = {}
-        if product_ids:
-            prod_res = sb_admin.table('products') \
-                .select('id, category') \
-                .in_('id', product_ids) \
-                .execute()
-            for p in (prod_res.data or []):
-                cat_map[p['id']] = p.get('category') or 'Uncategorized'
-
-        cat_sold = defaultdict(int)
-        for o in done_orders:
-            pid = o.get('product_id')
-            if pid:
-                cat = cat_map.get(pid, 'Uncategorized')
-                cat_sold[cat] += int(o.get('quantity') or 1)
-
-        top_cats = sorted(cat_sold.items(), key=lambda x: x[1], reverse=True)[:8]
-        category_labels = [c[0] for c in top_cats]
-        category_values = [c[1] for c in top_cats]
-
-        # Order status distribution  all orders
-        all_res = sb_admin.table('orders').select('status').execute()
-        status_count = defaultdict(int)
-        for o in (all_res.data or []):
-            s = (o.get('status') or 'Unknown').strip()
-            status_count[s] += 1
-
-        status_labels = list(status_count.keys())
-        status_values = [status_count[k] for k in status_labels]
-
-        return jsonify({
-            'revenue':     {'labels': months,          'values': revenue_data},
-            'commission':  {'labels': months,          'values': commission_data},
-            'categories':  {'labels': category_labels, 'values': category_values},
-            'orderStatus': {'labels': status_labels,   'values': status_values},
-        })
-
-    except Exception as e:
-        print(f"admin_dashboard_charts Supabase error: {e}")
-        import traceback; traceback.print_exc()
-        return jsonify({**empty, 'error': str(e)}), 200
 @app.route('/api/admin/analytics')
 def admin_analytics_api():
     """Admin analytics API — fully powered by Supabase"""
@@ -10162,102 +7081,27 @@ def admin_analytics_api():
 def cart():
     if 'email' not in session:
         return redirect(url_for('login'))
-
-    email     = session['email']
-    user_name = session.get('user_name', '')
+    user_email = session.get('email')
+    user_name  = get_user_name_from_session(default='User')
     cart_items = []
-
-    # -- PRIMARY: Supabase --------------------------------------------------
     try:
-        res = sb_admin.table('cart') \
-            .select('id, name, price, quantity, variations, size, image, seller_email, product_id') \
-            .eq('email', email) \
-            .order('id', desc=True) \
-            .execute()
-
+        res = sb_admin.table('cart').select('id, name, price, quantity, variations, size, image, seller_email, product_id').eq('email', user_email).order('id', desc=True).execute()
         raw_items = res.data or []
-
-        # Enrich items with color-specific images from products table
-        product_ids = list({item['product_id'] for item in raw_items if item.get('product_id')})
-        prod_images = {}
-        if product_ids:
-            try:
-                pr = sb_admin.table('products') \
-                    .select('id, image, image_colors') \
-                    .in_('id', product_ids) \
-                    .execute()
-                for p in (pr.data or []):
-                    prod_images[p['id']] = p
-            except Exception:
-                pass
-
         for item in raw_items:
-            pid            = item.get('product_id')
-            selected_color = (item.get('variations') or '').strip()
-            cart_image     = (item.get('image') or '').strip()
-            # Resolve to a web-accessible URL right away
-            first_image_url = product_image_url(cart_image) if cart_image else None
-            all_images      = ''
-
-            if pid and pid in prod_images:
-                prod = prod_images[pid]
-                color_map = _parse_image_colors_dict(
-                    prod.get('image_colors'), prod.get('image'))
-                if selected_color and selected_color.lower() in color_map:
-                    first_image_url = product_image_url(color_map[selected_color.lower()])
-                all_images = ','.join(product_image_url(v) for v in color_map.values()) if color_map else ''
-
+            cart_image = (item.get('image') or '').strip()
             cart_items.append({
-                'id':             item['id'],
-                'name':           item.get('name', ''),
-                'price':          float(item.get('price') or 0),
-                'quantity':       int(item.get('quantity') or 1),
-                'variations':     item.get('variations') or '',
-                'size':           item.get('size') or '',
-                'image':          cart_image,
-                'first_image_url': first_image_url,
-                'all_images':     all_images,
-                'seller_email':   item.get('seller_email') or '',
-                'product_id':     pid,
+                'id': item['id'], 'name': item.get('name',''),
+                'price': float(item.get('price') or 0),
+                'quantity': int(item.get('quantity') or 1),
+                'variations': item.get('variations',''), 'size': item.get('size',''),
+                'image': cart_image, 'seller_email': item.get('seller_email',''),
+                'product_id': item.get('product_id'),
+                'image_url': cart_image if cart_image.startswith('http') else '',
             })
+    except Exception as e:
+        print(f"cart Supabase error: {e}")
+    return render_template('cart.html', cart_items=cart_items, user_name=user_name, user_email=user_email)
 
-        print(f"✅ Cart from Supabase: {len(cart_items)} items")
-
-    except Exception as sb_err:
-        print(f"⚠️ Supabase cart failed, trying MySQL fallback: {sb_err}")
-        # -- FALLBACK: MySQL ------------------------------------------------
-        try:
-            db     = get_db_connection()
-            cursor = db.cursor(dictionary=True)
-            cursor.execute(
-                'SELECT id, name, price, quantity, variations, size, image, seller_email, product_id '
-                'FROM cart WHERE email = %s ORDER BY id DESC',
-                (email,)
-            )
-            raw_items = cursor.fetchall()
-            cursor.close()
-            db.close()
-            for item in raw_items:
-                cart_image = (item.get('image') or '').strip()
-                cart_items.append({
-                    'id':             item['id'],
-                    'name':           item.get('name', ''),
-                    'price':          float(item.get('price') or 0),
-                    'quantity':       int(item.get('quantity') or 1),
-                    'variations':     item.get('variations') or '',
-                    'size':           item.get('size') or '',
-                    'image':          cart_image,
-                    'first_image_url': product_image_url(cart_image) if cart_image else None,
-                    'all_images':     '',
-                    'seller_email':   item.get('seller_email') or '',
-                    'product_id':     item.get('product_id'),
-                })
-            print(f"✅ Cart from MySQL fallback: {len(cart_items)} items")
-        except Exception as mysql_err:
-            print(f"❌ MySQL cart fallback failed: {mysql_err}")
-            cart_items = []
-
-    return render_template('cart.html', cart_items=cart_items, user_name=user_name, user_email=email)
 
 @app.route('/cart/delete_selected', methods=['POST'])
 def delete_selected_items():
@@ -10279,18 +7123,8 @@ def delete_selected_items():
         print(f"?? Supabase delete_selected failed: {sb_err}")
 
     # -- FALLBACK: MySQL -------------------------------------------------------
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        fmt = ','.join(['%s'] * len(selected_ids))
-        cursor.execute(f'DELETE FROM cart WHERE id IN ({fmt}) AND email = %s',
-                       tuple(selected_ids + [user_email]))
-        connection.commit()
-        cursor.close()
-        connection.close()
-        return jsonify({'success': True})
-    except Exception as mysql_err:
-        return jsonify({'success': False, 'error': str(mysql_err)}), 500
+
+    # MySQL cart delete removed - Supabase handles this above
 
 @app.route('/add-to-cart', methods=['POST'])
 @app.route('/add_to_cart', methods=['POST'])
@@ -10342,18 +7176,7 @@ def add_to_cart():
                 image_colors_str = prod_res.data[0].get('image_colors', '') or ''
         except Exception as e:
             print(f"?? Could not fetch product from Supabase: {e}")
-            # Fallback to MySQL
-            try:
-                db = get_db_connection()
-                cur = db.cursor()
-                cur.execute('SELECT seller_email, image FROM products WHERE id = %s', (product_id,))
-                row = cur.fetchone()
-                if row:
-                    seller_email, all_product_images = row
-                cur.close()
-                db.close()
-            except Exception:
-                pass
+
 
         # Find color-specific image
         cart_image = product_image  # use what frontend sent (already color-specific)
@@ -10439,21 +7262,7 @@ def add_to_cart():
             print(f"?? Supabase cart insert failed: {sb_err}")
 
         # -- SECONDARY: Mirror to MySQL ------------------------------------
-        try:
-            db = get_db_connection()
-            cursor = db.cursor()
-            cursor.execute(
-                'INSERT INTO cart (email, name, price, quantity, variations, image, size, seller_email, product_id) '
-                'VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)',
-                (user_email, product_name, price_float, qty_int,
-                 product_variation or '', cart_image or '', size or '',
-                 seller_email, product_id)
-            )
-            db.commit()
-            cursor.close()
-            db.close()
-        except Exception as mysql_err:
-            print(f"?? MySQL cart mirror failed (non-fatal): {mysql_err}")
+        # MySQL cart mirror removed
 
         if not supabase_ok:
             return jsonify({'error': 'Failed to add item to cart. Please try again.'}), 500
@@ -10572,27 +7381,7 @@ def checkout_route():
 
             print(f"? checkout_route Supabase: {len(checkout_items_session)} items stored in session")
 
-            # -- MIRROR: MySQL checkout table (best-effort) -----------------
-            try:
-                conn = get_db_connection()
-                cur = conn.cursor()
-                cur.execute("DELETE FROM checkout WHERE email = %s", (user_email,))
-                for item in checkout_items_session:
-                    cur.execute(
-                        """INSERT INTO checkout
-                           (id, name, price, quantity, variations, image, size,
-                            email, address, seller_email, product_id, shipping_fee)
-                           VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
-                        (item['id'], item['name'], item['price'], item['quantity'],
-                         item['variations'], item['image'], item['size'],
-                         user_email, session.get('address', ''),
-                         item['seller_email'], item['product_id'], item['shipping_fee'])
-                    )
-                conn.commit()
-                cur.close()
-                conn.close()
-            except Exception as my_err:
-                print(f"?? checkout_route MySQL mirror failed: {my_err}")
+            # MySQL mirror removed
 
             return jsonify(success=True)
 
@@ -10671,24 +7460,8 @@ def checkout():
         print(f"? checkout: loaded {len(checkout_items)} items from session (Supabase)")
 
     else:
-        # -- FALLBACK: MySQL checkout table ---------------------------------
-        try:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute('''
-                SELECT c.*, p.image as all_product_images, p.price as original_price,
-                       p.category, p.seller_email as product_seller_email
-                FROM checkout c
-                LEFT JOIN products p ON c.product_id = p.id
-                WHERE c.email = %s
-            ''', (user_email,))
-            checkout_items = cursor.fetchall()
-            cursor.close()
-            connection.close()
-            print(f"?? checkout: MySQL fallback, {len(checkout_items)} items")
-        except Exception as my_err:
-            print(f"?? checkout MySQL fallback failed: {my_err}")
-            checkout_items = []
+        # MySQL fallback removed
+        checkout_items = []
 
     if not checkout_items:
         return redirect(url_for('cart'))
@@ -11049,22 +7822,15 @@ def return_to_cart():
 
 @app.route('/checkout/delete/<int:item_id>', methods=['POST'])
 def delete_checkout_item(item_id):
-    user_email = session.get('email')  # Kunin ang email mula sa session
-    connection = get_db_connection()
-    cursor = connection.cursor()
-
+    user_email = session.get('email')
     try:
-        # Delete item from the checkout table for the current user only
-        cursor.execute("DELETE FROM checkout WHERE id = %s AND email = %s", (item_id, user_email))
-        connection.commit()
-
-        return jsonify({"success": True})
-    except mysql.connector.Error as err:
-        connection.rollback()
-        return jsonify({"success": False, "error": str(err)})
-    finally:
-        cursor.close()
-        connection.close()
+        session_items = session.get('checkout_items', [])
+        item_id_int = int(item_id)
+        session['checkout_items'] = [i for i in session_items if i.get('id') != item_id_int]
+        session.modified = True
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/confirm_order', methods=['POST'])
 def confirm_order():
@@ -11418,42 +8184,8 @@ def orders():
         print(f"?? orders route Supabase failed: {sb_err}")
 
         # -- FALLBACK: MySQL ------------------------------------------------
-        try:
-            connection = get_db_connection()
-            cursor = connection.cursor(dictionary=True)
-            cursor.execute("""
-                SELECT o.*,
-                       p.price as product_original_price,
-                       u.id as rider_id,
-                       seller.business_name as seller_business_name,
-                       seller.profile_picture as seller_profile_picture,
-                       CONCAT(seller.first_name, ' ', seller.last_name) as seller_full_name
-                FROM orders o
-                LEFT JOIN products p ON o.product_id = p.id
-                LEFT JOIN users u ON o.rider_email = u.email AND u.user_type = 'rider'
-                LEFT JOIN users seller ON o.seller_email = seller.email
-                WHERE o.email = %s
-                ORDER BY o.date DESC
-            """, (user_email,))
-            orders = cursor.fetchall()
-            for o in orders:
-                o['total_price']    = float(o.get('total_price') or 0)
-                o['original_price'] = float(o.get('product_original_price') or o['total_price'])
-                o['promotion_type'] = ''
-                o['promotion_name'] = ''
-                o['image_url']      = ''
-                try:
-                    rv = cursor.execute("SELECT id FROM reviews WHERE order_id=%s AND customer_email=%s",
-                                        (o['id'], user_email))
-                    o['has_review'] = cursor.fetchone() is not None
-                except Exception:
-                    o['has_review'] = False
-            cursor.close()
-            connection.close()
-            print(f"?? orders route MySQL fallback: {len(orders)} orders")
-        except Exception as my_err:
-            print(f"?? orders route MySQL fallback failed: {my_err}")
-            orders = []
+        # MySQL orders fallback removed
+        orders = []
 
     return render_template('orders.html', orders=orders,
                            user_name=user_name,
@@ -11462,271 +8194,108 @@ def orders():
 @app.route('/mark_as_received/<int:order_id>', methods=['POST'])
 def mark_as_received(order_id):
     user_email = session.get('email')
-    connection = get_db_connection()
-
     try:
-        cursor = connection.cursor(dictionary=True)
-        
-        # First, verify the order is in "Delivered" status and belongs to the user
-        cursor.execute("""
-            SELECT id, product_id, quantity, status, seller_email, name
-            FROM orders 
-            WHERE id = %s AND email = %s AND status = 'Delivered'
-        """, (order_id, user_email))
-        
-        order = cursor.fetchone()
-        
-        if not order:
+        ord_res = sb_admin.table('orders').select('id, product_id, quantity, seller_email, name').eq('id', order_id).eq('email', user_email).eq('status', 'Delivered').limit(1).execute()
+        if not ord_res.data:
             flash("Order not found or not eligible for confirmation.", "error")
             return redirect(url_for('orders'))
-        
-        # Update order status to "Completed" and set received_at timestamp
-        from datetime import datetime
-        received_at = datetime.now()
-        
-        cursor.execute("""
-            UPDATE orders 
-            SET status = 'Completed', received_at = %s 
-            WHERE id = %s
-        """, (received_at, order_id))
-        
-        # Decrease the product quantity in the products table
-        product_id = order['product_id']
-        quantity = int(order['quantity'])
-        
-        cursor.execute("""
-            UPDATE products 
-            SET quantity = quantity - %s 
-            WHERE id = %s
-        """, (quantity, product_id))
-        
-        connection.commit()
-        
-        # Send notification to seller about order completion
+        order = ord_res.data[0]
+        sb_admin.table('orders').update({'status': 'Completed', 'received_at': datetime.now().isoformat()}).eq('id', order_id).execute()
         try:
-            send_order_completion_notification(order['seller_email'], order, user_email)
-            print(f"? Order completion notification sent to seller: {order['seller_email']}")
-        except Exception as email_error:
-            print(f"? Failed to send completion notification: {str(email_error)}")
-        
+            sb_admin.table('notifications').insert({'seller_email': order['seller_email'], 'message': f"Order #{order_id} ({order['name']}) has been confirmed as received by the buyer.", 'type': 'order_received', 'is_read': False}).execute()
+        except Exception:
+            pass
         flash("Order confirmed as received! Thank you for your purchase.", "success")
-        
     except Exception as e:
-        connection.rollback()
         flash(f"An error occurred: {str(e)}", "error")
-        print(f"? Error in mark_as_received: {str(e)}")
-    finally:
-        cursor.close()
-        connection.close()
-
     return redirect(url_for('orders'))
+
 
 @app.route('/submit_review/<int:order_id>', methods=['POST'])
 def submit_review(order_id):
-    user_email = session.get('email')
-    rating = request.form.get('rating')
+    user_email  = session.get('email')
+    rating      = request.form.get('rating')
     review_text = request.form.get('review_text')
-    
     if not rating or not review_text:
         flash('Please provide both a rating and review text.', 'error')
         return redirect(url_for('orders'))
-    
     try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # First, verify the order belongs to the user and is completed
-        # Join with products to get the correct product_id
-        cursor.execute("""
-            SELECT o.product_id as order_product_id, o.name, o.seller_email, o.status,
-                   p.id as actual_product_id
-            FROM orders o
-            LEFT JOIN products p ON o.product_id = p.id
-            WHERE o.id = %s AND o.email = %s AND o.status = 'Completed'
-        """, (order_id, user_email))
-        
-        order = cursor.fetchone()
-        
-        # Debug: Check what we found
-        print(f"?? Review eligibility check for order {order_id}, user {user_email}")
-        if order:
-            print(f"? Order found: status={order['status']}, name={order['name']}")
-        else:
-            # Let's check what status this order actually has
-            cursor.execute("""
-                SELECT id, status, email FROM orders WHERE id = %s
-            """, (order_id,))
-            debug_order = cursor.fetchone()
-            if debug_order:
-                print(f"? Order {order_id} exists but has status '{debug_order['status']}' for email '{debug_order['email']}'")
-                print(f"   Expected: status='Completed' for email '{user_email}'")
-            else:
-                print(f"? Order {order_id} not found in database")
-        
-        if not order:
-            flash('Order not found or not completed yet. You can only review completed orders.', 'error')
+        ord_res = sb_admin.table('orders').select('product_id, seller_email, name').eq('id', order_id).eq('email', user_email).eq('status', 'Completed').limit(1).execute()
+        if not ord_res.data:
+            flash('Order not found or not eligible for review.', 'error')
             return redirect(url_for('orders'))
-        
-        # Use the actual product_id from products table
-        actual_product_id = order['actual_product_id'] or order['order_product_id']
-        print(f"?? Review Debug: order_product_id={order['order_product_id']}, actual_product_id={order['actual_product_id']}")
-        
-        # Check if review already exists
-        cursor.execute("""
-            SELECT id FROM reviews 
-            WHERE order_id = %s AND customer_email = %s
-        """, (order_id, user_email))
-        
-        existing_review = cursor.fetchone()
-        
-        if existing_review:
-            flash('You have already reviewed this product.', 'info')
+        order = ord_res.data[0]
+        product_id = order.get('product_id')
+        seller_email = order.get('seller_email', '')
+        # Check for existing review
+        existing = sb_admin.table('reviews').select('id').eq('order_id', order_id).eq('customer_email', user_email).limit(1).execute()
+        if existing.data:
+            flash('You have already submitted a review for this order.', 'info')
             return redirect(url_for('orders'))
-        
-        # Insert the review using the actual product_id
-        print(f"?? Inserting review: Order {order_id}, Product {actual_product_id}, Rating {rating}")
-        cursor.execute("""
-            INSERT INTO reviews (order_id, product_id, customer_email, seller_email, rating, review_text)
-            VALUES (%s, %s, %s, %s, %s, %s)
-        """, (order_id, actual_product_id, user_email, order['seller_email'], rating, review_text))
-        
-        print(f"? Review inserted successfully")
-        
-        # Update product rating (calculate average)
-        cursor.execute("""
-            SELECT AVG(rating) as avg_rating, COUNT(*) as review_count
-            FROM reviews 
-            WHERE product_id = %s
-        """, (actual_product_id,))
-        
-        rating_data = cursor.fetchone()
-        new_avg_rating = round(rating_data['avg_rating'], 1) if rating_data['avg_rating'] else float(rating)
-        
-        print(f"?? Calculated new average rating: {new_avg_rating} from {rating_data['review_count']} reviews")
-        
-        # Update the product's rating
-        cursor.execute("""
-            UPDATE products 
-            SET rating = %s 
-            WHERE id = %s
-        """, (new_avg_rating, actual_product_id))
-        
-        connection.commit()
-        print(f"? Product rating updated to {new_avg_rating}")
-        
-        # Send email notification to seller about new review
+        sb_admin.table('reviews').insert({
+            'order_id': order_id, 'product_id': product_id,
+            'customer_email': user_email, 'seller_email': seller_email,
+            'rating': int(rating), 'review_text': review_text,
+        }).execute()
+        # Update product rating
+        if product_id:
+            try:
+                rv = sb_admin.table('reviews').select('rating').eq('product_id', product_id).execute()
+                ratings = [r['rating'] for r in (rv.data or [])]
+                if ratings:
+                    avg = round(sum(ratings) / len(ratings), 2)
+                    sb_admin.table('products').update({'rating': avg}).eq('id', product_id).execute()
+            except Exception:
+                pass
+        # Notify seller
         try:
-            send_review_notification_email(order['seller_email'], order, rating, review_text, user_email)
-            print(f"? Review notification email sent to seller: {order['seller_email']}")
-        except Exception as email_error:
-            print(f"? Failed to send review notification email: {str(email_error)}")
-        
-        # Create seller notification about new review
+            create_review_notification(seller_email, {'name': order.get('name','')}, rating, review_text, user_email, order_id)
+        except Exception:
+            pass
+        # Notify buyer
         try:
-            create_review_notification(order['seller_email'], order, rating, review_text, user_email, order_id)
-            print(f"? Review notification created for seller: {order['seller_email']}")
-        except Exception as notif_error:
-            print(f"? Failed to create review notification: {str(notif_error)}")
-        
-        flash(f'Thank you for your review! Your {rating}-star rating has been submitted.', 'success')
-        
+            sb_admin.table('buyer_notifications').insert({'buyer_email': user_email, 'message': f"Your review for order #{order_id} has been submitted successfully.", 'type': 'review', 'is_read': False, 'order_id': order_id}).execute()
+        except Exception:
+            pass
+        flash('Review submitted successfully!', 'success')
     except Exception as e:
-        connection.rollback()
-        flash(f'An error occurred while submitting your review: {str(e)}', 'error')
-        print(f"Review submission error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        cursor.close()
-        connection.close()
-    
+        flash(f'Error submitting review: {str(e)}', 'error')
     return redirect(url_for('orders'))
+
 
 @app.route('/report_issue/<int:order_id>', methods=['POST'])
 def report_issue(order_id):
-    user_email = session.get('email')
-    report_against = request.form.get('report_against')
-    issue_type = request.form.get('issue_type')
+    user_email        = session.get('email')
+    report_against    = request.form.get('report_against')
+    issue_type        = request.form.get('issue_type')
     issue_description = request.form.get('issue_description')
-    
     if not report_against or not issue_type or not issue_description:
-        flash('Please provide all required fields: report against, issue type, and description.', 'error')
+        flash('Please provide all required fields.', 'error')
         return redirect(url_for('orders'))
-    
     try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # First, verify the order belongs to the user and is delivered or completed
-        cursor.execute("""
-            SELECT o.*, p.name as product_name
-            FROM orders o
-            LEFT JOIN products p ON o.product_id = p.id
-            WHERE o.id = %s AND o.email = %s AND o.status IN ('Delivered', 'Completed')
-        """, (order_id, user_email))
-        
-        order = cursor.fetchone()
-        
-        if not order:
-            flash('Order not found or not eligible for issue reporting.', 'error')
+        ord_res = sb_admin.table('orders').select('id, seller_email, rider_email, name').eq('id', order_id).limit(1).execute()
+        if not ord_res.data:
+            flash('Order not found.', 'error')
             return redirect(url_for('orders'))
-        
-        # Map old report_against values to new reported_against_role values
-        reported_against_role_map = {
-            'seller': 'seller',
-            'delivery': 'rider',
-            'product': 'seller',  # Product issues are reported against seller
-            'platform': 'platform',
-            'other': 'other'
-        }
-        
-        reported_against_role = reported_against_role_map.get(report_against, 'other')
-        
-        # Get the email of the reported party
-        reported_against_email = None
-        if reported_against_role == 'seller':
-            reported_against_email = order['seller_email']
-        elif reported_against_role == 'rider' and order.get('rider_email'):
-            reported_against_email = order['rider_email']
-        
-        # Insert the issue report with new schema
-        cursor.execute("""
-            INSERT INTO order_issues 
-            (order_id, reporter_role, reporter_email, reported_against_role, reported_against_email, 
-             issue_type, issue_description, status, created_at)
-            VALUES (%s, 'buyer', %s, %s, %s, %s, %s, 'pending', NOW())
-        """, (order_id, user_email, reported_against_role, reported_against_email, issue_type, issue_description))
-        
-        issue_id = cursor.lastrowid
-        
-        connection.commit()
-        
-        # Send email notification to admin/customer service
-        try:
-            send_issue_report_email(order, report_against, issue_type, issue_description, user_email, issue_id)
-        except Exception as email_error:
-            print(f"Failed to send issue report email: {str(email_error)}")
-        
-        # Create notification for seller (only if report is against seller)
-        try:
-            if report_against == 'seller':
-                create_issue_notification(order['seller_email'], order, report_against, issue_type, issue_description, user_email, issue_id)
-        except Exception as notif_error:
-            print(f"Failed to create issue notification: {str(notif_error)}")
-        
-        flash('Your issue has been reported successfully. Our customer service team will contact you soon.', 'success')
-        
+        order = ord_res.data[0]
+        reported_against_email = order.get('seller_email','') if report_against == 'seller' else order.get('rider_email','') if report_against == 'delivery' else ''
+        ins = sb_admin.table('order_issues').insert({
+            'order_id': order_id, 'reporter_role': 'buyer', 'reporter_email': user_email,
+            'reported_against_role': report_against, 'reported_against_email': reported_against_email,
+            'issue_type': issue_type, 'issue_description': issue_description, 'status': 'pending',
+        }).execute()
+        issue_id = ins.data[0]['id'] if ins.data else None
+        # Notify seller if reported against them
+        if report_against == 'seller' and order.get('seller_email'):
+            try:
+                create_issue_notification(order['seller_email'], {'id': order_id, 'name': order.get('name','')}, report_against, issue_type, issue_description, user_email, issue_id)
+            except Exception:
+                pass
+        flash('Issue report submitted successfully. Admin will review your report.', 'success')
     except Exception as e:
-        connection.rollback()
         flash(f'An error occurred while reporting the issue: {str(e)}', 'error')
-        print(f"Issue report error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-    finally:
-        cursor.close()
-        connection.close()
-    
     return redirect(url_for('orders'))
+
 
 def send_cancellation_email(seller_email, order_name, reason, customer_email):
     msg = Message(
@@ -11854,34 +8423,19 @@ def delete_order(order_id):
 
 @app.route('/edit_user/<int:user_id>', methods=['GET', 'POST'])
 def edit_user(user_id):
-    conn = get_db_connection()
-    cursor = conn.cursor(dictionary=True)
-
     if request.method == 'POST':
-        # Fetch the form data
-        first_name = request.form.get('first_name')
-        last_name = request.form.get('last_name')
-        email = request.form.get('email')
-        phone_number = request.form.get('phone_number')
-        address = request.form.get('address')
-        user_type = request.form.get('user_type')
-
-        # Update the user in the database
-        cursor.execute('''UPDATE users 
-                         SET first_name=%s, last_name=%s, email=%s, phone_number=%s, 
-                             address=%s, user_type=%s 
-                         WHERE id=%s''', 
-                      (first_name, last_name, email, phone_number, address, user_type, user_id))
-        conn.commit()
+        update_data = {}
+        for field, col in [('first_name','first_name'),('last_name','last_name'),
+                           ('email','email'),('phone_number','phone'),
+                           ('address','address'),('user_type','role')]:
+            val = request.form.get(field)
+            if val is not None:
+                update_data[col] = val.lower() if col == 'role' else val
+        sb_admin.table('users').update(update_data).eq('id', str(user_id)).execute()
         flash('User updated successfully!', 'success')
         return redirect(url_for('admin_users'))
-
-    # If GET request, fetch user information
-    cursor.execute('SELECT * FROM users WHERE id=%s', (user_id,))
-    user = cursor.fetchone()
-    cursor.close()
-    conn.close()
-
+    res = sb_admin.table('users').select('*').eq('id', str(user_id)).limit(1).execute()
+    user = res.data[0] if res.data else {}
     return render_template('edit_user.html', user=user)
 
 @app.route('/api/ban_user/<string:user_id>', methods=['POST'])
@@ -12227,15 +8781,7 @@ def update_cart_quantity(item_id):
         except Exception as sb_err:
             print(f"?? Supabase update_cart_quantity failed: {sb_err}")
 
-        # -- FALLBACK: MySQL -----------------------------------------------
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        cursor.execute("UPDATE cart SET quantity = %s WHERE id = %s AND email = %s",
-                       (new_quantity, item_id, user_email))
-        conn.commit()
-        cursor.close()
-        conn.close()
-        return jsonify({'success': True})
+
 
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -12308,21 +8854,7 @@ def update_cart_specification():
             print(f"?? update_specification Supabase failed: {sb_err}")
             return jsonify({'error': 'Failed to update specification'}), 500
 
-        # -- MIRROR: MySQL (best-effort) ------------------------------------
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor()
-            if spec_type == 'color':
-                cursor.execute('UPDATE cart SET variations = %s WHERE id = %s AND email = %s',
-                               (new_value, item_id, user_email))
-            else:
-                cursor.execute('UPDATE cart SET size = %s WHERE id = %s AND email = %s',
-                               (new_value, item_id, user_email))
-            conn.commit()
-            cursor.close()
-            conn.close()
-        except Exception as my_err:
-            print(f"?? update_specification MySQL mirror failed: {my_err}")
+        # MySQL cart spec mirror removed
 
         return jsonify({'success': True, 'message': f'{spec_type.title()} updated successfully',
                         'new_image': update_data.get('image')})
@@ -12386,22 +8918,7 @@ def get_product_variations(item_id):
         except Exception as sb_err:
             print(f"?? get_product_variations Supabase failed: {sb_err}")
 
-        # -- FALLBACK: MySQL ------------------------------------------------
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute('SELECT product_id FROM cart WHERE id = %s AND email = %s', (item_id, user_email))
-        cart_item = cursor.fetchone()
-        if not cart_item:
-            cursor.close(); conn.close()
-            return jsonify({'error': 'Cart item not found'}), 404
-        cursor.execute('SELECT variations FROM products WHERE id = %s', (cart_item['product_id'],))
-        product = cursor.fetchone()
-        cursor.close(); conn.close()
-        if not product:
-            return jsonify({'error': 'Product not found'}), 404
-        variations_str = product['variations'] or ''
-        variations = [v.strip() for v in variations_str.split(',') if v.strip()]
-        return jsonify({'success': True, 'variations': variations})
+
 
     except Exception as e:
         print(f"Error getting product variations: {str(e)}")
@@ -12476,24 +8993,7 @@ def get_product_images(item_id):
         except Exception as sb_err:
             print(f"?? get_product_images Supabase failed: {sb_err}")
 
-        # -- FALLBACK: MySQL ------------------------------------------------
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute('SELECT product_id FROM cart WHERE id = %s AND email = %s', (item_id, user_email))
-        cart_item = cursor.fetchone()
-        if not cart_item:
-            cursor.close(); conn.close()
-            return jsonify({'error': 'Cart item not found'}), 404
-        cursor.execute('SELECT image, variations FROM products WHERE id = %s', (cart_item['product_id'],))
-        product = cursor.fetchone()
-        cursor.close(); conn.close()
-        if not product:
-            return jsonify({'error': 'Product not found'}), 404
-        images_str = product['image'] or ''
-        images = [img.strip() for img in images_str.split(',') if img.strip()]
-        variations_str = product['variations'] or ''
-        variations = [v.strip() for v in variations_str.split(',') if v.strip()]
-        return jsonify({'success': True, 'images': images, 'image_colors': {}, 'variations': variations})
+
 
     except Exception as e:
         print(f"Error getting product images: {str(e)}")
@@ -12558,21 +9058,7 @@ def get_product_sizes(item_id):
         except Exception as sb_err:
             print(f"?? get_product_sizes Supabase failed: {sb_err}")
 
-        # -- FALLBACK: MySQL ------------------------------------------------
-        conn = get_db_connection()
-        cursor = conn.cursor(dictionary=True)
-        cursor.execute('SELECT product_id FROM cart WHERE id = %s AND email = %s', (item_id, user_email))
-        cart_item = cursor.fetchone()
-        if not cart_item:
-            cursor.close(); conn.close()
-            return jsonify({'error': 'Cart item not found'}), 404
-        cursor.execute('SELECT sizes FROM products WHERE id = %s', (cart_item['product_id'],))
-        product = cursor.fetchone()
-        cursor.close(); conn.close()
-        if not product:
-            return jsonify({'error': 'Product not found'}), 404
-        sizes_str = product['sizes'] or ''
-        return jsonify({'success': True, 'sizes': sizes_str})
+
 
     except Exception as e:
         print(f"Error getting product sizes: {str(e)}")
@@ -12644,64 +9130,29 @@ def get_cart_items():
 def remove_from_cart():
     if 'email' not in session:
         return jsonify({'success': False, 'error': 'Not logged in'})
-    
     try:
         data = request.get_json()
         item_id = data.get('item_id')
         user_email = session['email']
-        
         if not item_id:
             return jsonify({'success': False, 'error': 'Item ID is required'})
-        
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Remove item from cart (only if it belongs to the current user)
-        cursor.execute('DELETE FROM cart WHERE id = %s AND email = %s', (item_id, user_email))
-        
-        if cursor.rowcount > 0:
-            conn.commit()
-            cursor.close()
-            conn.close()
+        res = sb_admin.table('cart').delete().eq('id', item_id).eq('email', user_email).execute()
+        if res.data:
             return jsonify({'success': True, 'message': 'Item removed from cart'})
-        else:
-            cursor.close()
-            conn.close()
-            return jsonify({'success': False, 'error': 'Item not found or not authorized'})
-        
+        return jsonify({'success': False, 'error': 'Item not found or not authorized'})
     except Exception as e:
-        print(f"Error removing from cart: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/clear_cart', methods=['POST'])
 def clear_cart():
     if 'email' not in session:
         return jsonify({'success': False, 'error': 'Not logged in'})
-    
     try:
         user_email = session['email']
-        conn = get_db_connection()
-        cursor = conn.cursor()
-        
-        # Get count of items before deletion
-        cursor.execute('SELECT COUNT(*) FROM cart WHERE email = %s', (user_email,))
-        deleted_count = cursor.fetchone()[0]
-        
-        # Clear all cart items for the current user
-        cursor.execute('DELETE FROM cart WHERE email = %s', (user_email,))
-        conn.commit()
-        
-        cursor.close()
-        conn.close()
-        
-        return jsonify({
-            'success': True, 
-            'message': 'Cart cleared successfully',
-            'deleted_count': deleted_count
-        })
-        
+        res = sb_admin.table('cart').delete().eq('email', user_email).execute()
+        deleted_count = len(res.data) if res.data else 0
+        return jsonify({'success': True, 'message': 'Cart cleared successfully', 'deleted_count': deleted_count})
     except Exception as e:
-        print(f"Error clearing cart: {str(e)}")
         return jsonify({'success': False, 'error': str(e)})
 
 @app.route('/clear_checkout', methods=['POST'])
@@ -12751,17 +9202,7 @@ def update_address():
         session['address'] = joined
         session.modified = True
 
-        # -- MIRROR: MySQL (best-effort) ------------------------------------
-        try:
-            conn = get_db_connection()
-            cur = conn.cursor()
-            cur.execute("UPDATE users SET address = %s WHERE email = %s", (joined, user_email))
-            cur.execute("UPDATE checkout SET address = %s WHERE email = %s", (joined, user_email))
-            conn.commit()
-            cur.close()
-            conn.close()
-        except Exception as my_err:
-            print(f"?? update_address MySQL mirror failed: {my_err}")
+
 
         return jsonify({'success': True, 'message': 'Address saved successfully'})
 
@@ -13235,188 +9676,8 @@ def test_wishlist():
     except Exception as e:
         return f"<h1>Wishlist Test Error</h1><p>Error: {str(e)}</p>"
 
-@app.route('/test-json')
-def test_json():
-    """Test JSON response"""
-    return jsonify({'success': True, 'message': 'Test JSON response working!'})
+# @app.route('/test-json') removed (debug route)
 
-def check_database_connection():
-    """Check if MySQL is accessible. Returns False silently if unavailable."""
-    try:
-        db = get_db_connection()
-        cursor = db.cursor()
-        cursor.execute("SELECT 1")
-
-        # Create notifications table if it doesn't exist
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS notifications (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                seller_email VARCHAR(255) NOT NULL,
-                message TEXT NOT NULL,
-                type VARCHAR(50) DEFAULT 'order',
-                is_read BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                order_id INT,
-                INDEX idx_seller_email (seller_email),
-                INDEX idx_created_at (created_at),
-                INDEX idx_is_read (is_read)
-            )
-        """)
-
-        # Create buyer_notifications table if it doesn't exist
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS buyer_notifications (
-                id INT AUTO_INCREMENT PRIMARY KEY,
-                buyer_email VARCHAR(255) NOT NULL,
-                message TEXT NOT NULL,
-                type VARCHAR(50) DEFAULT 'status_update',
-                is_read BOOLEAN DEFAULT FALSE,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                order_id INT,
-                INDEX idx_buyer_email (buyer_email),
-                INDEX idx_created_at (created_at),
-                INDEX idx_is_read (is_read)
-            )
-        """)
-
-        cursor.close()
-        db.close()
-        print("? MySQL connection successful")
-        return True
-    except Exception as e:
-        # Don't crash � app runs in Supabase-only mode
-        print(f"??  MySQL not available: {e}")
-        return False
-
-# Notification API endpoints
-@app.route('/api/seller/notifications')
-def get_seller_notifications():
-    """Get notifications for the logged-in seller — Supabase"""
-    seller_email = session.get('email')
-    user_type    = session.get('user_type')
-
-    if not seller_email:
-        return jsonify({'success': False, 'error': 'Not logged in'}), 401
-    if user_type and user_type.lower() != 'seller':
-        return jsonify({'success': False, 'error': f'Unauthorized: {user_type}'}), 401
-
-    try:
-        res = sb_admin.table('notifications') \
-            .select('id, message, type, is_read, created_at') \
-            .eq('seller_email', seller_email) \
-            .order('created_at', desc=True) \
-            .limit(20) \
-            .execute()
-
-        notifications = []
-        for n in (res.data or []):
-            ntype = n.get('type') or ''
-            if not ntype:
-                msg = (n.get('message') or '').lower()
-                if 'rider' in msg and 'accepted' in msg: ntype = 'rider_assigned'
-                elif 'cancel' in msg:  ntype = 'cancellation'
-                elif 'review' in msg:  ntype = 'review'
-                elif 'low stock' in msg: ntype = 'low_stock'
-                elif 'out of stock' in msg: ntype = 'out_of_stock'
-                else: ntype = 'order'
-            notifications.append({
-                'id':         n['id'],
-                'message':    n.get('message') or '',
-                'type':       ntype,
-                'read':       bool(n.get('is_read')),
-                'created_at': n.get('created_at') or '',
-            })
-
-        return jsonify({'success': True, 'notifications': notifications})
-
-    except Exception as e:
-        print(f'get_seller_notifications error: {e}')
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/seller/notifications/mark-read', methods=['POST'])
-def mark_notification_read():
-    """Mark a specific notification as read — Supabase"""
-    seller_email = session.get('email')
-    if not seller_email:
-        return jsonify({'success': False, 'error': 'Not logged in'}), 401
-
-    data            = request.get_json() or {}
-    notification_id = data.get('notification_id')
-    if not notification_id:
-        return jsonify({'success': False, 'error': 'notification_id required'}), 400
-
-    try:
-        sb_admin.table('notifications') \
-            .update({'is_read': True}) \
-            .eq('id', notification_id) \
-            .eq('seller_email', seller_email) \
-            .execute()
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/seller/notifications/mark-all-read', methods=['POST'])
-def mark_all_notifications_read():
-    """Mark all notifications as read — Supabase"""
-    seller_email = session.get('email')
-    if not seller_email:
-        return jsonify({'success': False, 'error': 'Not logged in'}), 401
-
-    try:
-        res = sb_admin.table('notifications') \
-            .update({'is_read': True}) \
-            .eq('seller_email', seller_email) \
-            .eq('is_read', False) \
-            .execute()
-        affected = len(res.data) if res.data else 0
-        return jsonify({'success': True, 'affected_rows': affected})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/seller/notifications/delete', methods=['POST'])
-def delete_notification():
-    """Delete a specific notification — Supabase"""
-    seller_email = session.get('email')
-    if not seller_email:
-        return jsonify({'success': False, 'error': 'Not logged in'}), 401
-
-    data            = request.get_json() or {}
-    notification_id = data.get('notification_id')
-    if not notification_id:
-        return jsonify({'success': False, 'error': 'notification_id required'}), 400
-
-    try:
-        sb_admin.table('notifications') \
-            .delete() \
-            .eq('id', notification_id) \
-            .eq('seller_email', seller_email) \
-            .execute()
-        return jsonify({'success': True})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@app.route('/api/seller/notifications/delete-all', methods=['POST'])
-def delete_all_notifications():
-    """Delete all notifications for the seller — Supabase"""
-    seller_email = session.get('email')
-    if not seller_email:
-        return jsonify({'success': False, 'error': 'Not logged in'}), 401
-
-    try:
-        res = sb_admin.table('notifications') \
-            .delete() \
-            .eq('seller_email', seller_email) \
-            .execute()
-        deleted = len(res.data) if res.data else 0
-        return jsonify({'success': True, 'deleted_count': deleted})
-    except Exception as e:
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-# Buyer Notification API endpoints
 @app.route('/api/buyer/notifications')
 def get_buyer_notifications():
     """Get notifications for the logged-in buyer"""
@@ -13579,90 +9840,23 @@ def _create_order_notification_supabase(seller_email, order_details):
 
 
 def create_order_notification(seller_email, order_details):
-    """Create a notification in the database when an order is placed"""
-    connection = None
-    cursor = None
-    try:
-        print(f"?? Creating notification for seller: {seller_email}")
-        print(f"?? Order details: {order_details}")
-        
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        # Create a summary message for the notification
-        total_items = len(order_details)
-        total_amount = sum(float(item['total_price']) for item in order_details)
-        customer_email = order_details[0]['email'] if order_details else 'Unknown'
-        
-        if total_items == 1:
-            item = order_details[0]
-            message = f"New order: {item['name']} (Qty: {item['quantity']}) - ?{total_amount:.2f} from {customer_email}"
-        else:
-            message = f"New order: {total_items} items - ?{total_amount:.2f} from {customer_email}"
-        
-        print(f"?? Notification message: {message}")
-        
-        # Insert notification
-        cursor.execute("""
-            INSERT INTO notifications (seller_email, message, type, is_read)
-            VALUES (%s, %s, %s, FALSE)
-        """, (seller_email, message, 'order'))
-        
-        # Get the inserted notification ID for confirmation
-        notification_id = cursor.lastrowid
-        print(f"?? Notification inserted with ID: {notification_id}")
-        
-        connection.commit()
-        
-        print(f"? Notification created successfully for seller: {seller_email}")
-        return True
-        
-    except Exception as e:
-        print(f"? Error creating notification for {seller_email}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        if connection:
-            try:
-                connection.rollback()
-            except:
-                pass
-        return False
-    finally:
-        if cursor:
-            cursor.close()
-        if connection:
-            connection.close()
+    """Create a notification in Supabase when an order is placed"""
+    return _create_order_notification_supabase(seller_email, order_details)
 
 def create_cancellation_notification(seller_email, order_name, reason, customer_email, order_id=None):
-    """Create a notification in the database when an order is cancelled"""
+    """Create a cancellation notification in Supabase"""
     try:
-        print(f"?? Creating cancellation notification for seller: {seller_email}")
-        print(f"?? Order: {order_name}, Reason: {reason}, Customer: {customer_email}")
-        
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        # Create cancellation message - include "cancelled" keyword so it's detected as cancellation type
         message = f"Order cancelled: {order_name} by {customer_email}. Reason: {reason}"
-        
-        print(f"?? Cancellation notification message: {message}")
-        
-        # Insert notification with type
-        cursor.execute("""
-            INSERT INTO notifications (seller_email, message, type, is_read, created_at)
-            VALUES (%s, %s, %s, FALSE, NOW())
-        """, (seller_email, message, 'cancellation'))
-        
-        connection.commit()
-        
-        # Get the inserted notification ID for confirmation
-        notification_id = cursor.lastrowid
-        print(f"?? Cancellation notification inserted with ID: {notification_id}")
-        
-        cursor.close()
-        connection.close()
-        
-        print(f"? Cancellation notification created successfully for seller: {seller_email}")
+        sb_admin.table('notifications').insert({
+            'seller_email': seller_email, 'message': message,
+            'type': 'cancellation', 'is_read': False,
+        }).execute()
+        return True
+    except Exception as e:
+        print(f"create_cancellation_notification error: {e}")
+        return False
+
+# placeholder removed
         return True
         
     except Exception as e:
@@ -13728,8 +9922,8 @@ Quantity: {order_details['quantity']}
         if order_details.get('size'):
             msg.body += f"Size: {order_details['size']}\n"
             
-        msg.body += f"""Total: ?{order_total:.2f}
-Order Date: {order_details.get('date', 'N/A')}
+        msg.body += f"Total: P{order_total:.2f}\n"
+        msg.body += f"""Order Date: {order_details.get('date', 'N/A')}
 
 STATUS UPDATE:
 {status_info['message']}
@@ -13745,7 +9939,7 @@ Thank you for choosing MStyle!
 Best regards,
 MStyle Team
 """
-        
+
         mail.send(msg)
         print(f"? Order status update email sent to customer: {customer_email}")
         return True
@@ -14083,698 +10277,10 @@ def test_status_update_email():
     except Exception as e:
         return f"Error: {str(e)}"
 
-@app.route('/debug-notifications')
-def debug_notifications():
-    """Debug route to check notifications in database (for development only)"""
-    if not app.debug:
-        return "Not available in production", 404
-    
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # Get all notifications
-        cursor.execute("""
-            SELECT id, seller_email, message, type, is_read, created_at, order_id
-            FROM notifications 
-            ORDER BY created_at DESC 
-            LIMIT 50
-        """)
-        
-        notifications = cursor.fetchall()
-        
-        cursor.close()
-        connection.close()
-        
-        # Format for display
-        result = f"<h2>All Notifications in Database:</h2>"
-        result += f"<p><strong>Current Session:</strong> {dict(session)}</p><br>"
-        
-        if notifications:
-            result += f"<p><strong>Total notifications found:</strong> {len(notifications)}</p><br>"
-            for notif in notifications:
-                result += f"""
-                <div style="border: 1px solid #ccc; padding: 10px; margin: 5px; background: #f9f9f9;">
-                    <strong>ID:</strong> {notif['id']}<br>
-                    <strong>Seller:</strong> {notif['seller_email']}<br>
-                    <strong>Message:</strong> {notif['message']}<br>
-                    <strong>Type:</strong> {notif['type']}<br>
-                    <strong>Read:</strong> {notif['is_read']}<br>
-                    <strong>Created:</strong> {notif['created_at']}<br>
-                </div>
-                """
-        else:
-            result += "<p>No notifications found in database.</p>"
-        
-        return result
-        
-    except Exception as e:
-        return f"Error: {str(e)}"
+# @app.route('/debug-notifications') removed (debug route)
 
-@app.route('/api/notifications-bypass/<seller_email>')
-def get_notifications_bypass(seller_email):
-    """Debug route to get notifications for any seller (bypasses authentication)"""
-    if not app.debug:
-        return jsonify({'success': False, 'error': 'Not available in production'}), 404
-    
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # Get notifications for specified seller
-        cursor.execute("""
-            SELECT id, message, type, is_read, created_at, order_id
-            FROM notifications 
-            WHERE seller_email = %s 
-            ORDER BY created_at DESC 
-            LIMIT 20
-        """, (seller_email,))
-        
-        notifications = cursor.fetchall()
-        print(f"?? Found {len(notifications)} notifications for {seller_email} (bypass mode)")
-        
-        # Convert datetime objects to strings for JSON serialization
-        for notification in notifications:
-            if notification['created_at']:
-                notification['created_at'] = notification['created_at'].isoformat()
-            notification['read'] = bool(notification['is_read'])
-        
-        cursor.close()
-        connection.close()
-        
-        return jsonify({
-            'success': True,
-            'notifications': notifications,
-            'debug_info': {
-                'seller_email': seller_email,
-                'count': len(notifications),
-                'bypass_mode': True
-            }
-        })
-        
-    except Exception as e:
-        print(f"? Error fetching notifications for {seller_email} (bypass): {str(e)}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+# /api/notifications-bypass removed (debug route)
 
-def send_order_completion_notification(seller_email, order_details, customer_email):
-    """Send notification to seller when buyer confirms order receipt"""
-    try:
-        print(f"?? Sending order completion notification to seller: {seller_email}")
-        
-        msg = Message(
-            'Order Completed - Customer Confirmed Receipt',
-            sender=app.config['MAIL_DEFAULT_SENDER'],
-            recipients=[seller_email]
-        )
-        
-        try:
-            order_total = float(order_details.get('total_price', 0)) if order_details.get('total_price') else 0.0
-        except (ValueError, TypeError):
-            order_total = 0.0
-        
-        msg.body = f"""Hello!
-
-Great news! Your customer has confirmed receipt of their order.
-
-ORDER COMPLETED:
-Product: {order_details['name']}
-Quantity: {order_details['quantity']}
-Customer: {customer_email}
-Total: ?{order_total:.2f}
-
-The order has been marked as completed and the inventory has been updated.
-
-Thank you for being a valued MStyle seller!
-
-Best regards,
-MStyle Team
-"""
-        
-        mail.send(msg)
-        print(f"? Order completion notification sent to seller: {seller_email}")
-        return True
-        
-    except Exception as e:
-        print(f"? Error sending completion notification to {seller_email}: {str(e)}")
-        return False
-
-def auto_complete_delivered_orders():
-    """Auto-complete orders that have been delivered for more than 7 days without buyer confirmation"""
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # Find orders that should be auto-completed
-        from datetime import datetime
-        current_time = datetime.now()
-        
-        cursor.execute("""
-            SELECT id, name, quantity, product_id, seller_email, email as customer_email, total_price
-            FROM orders 
-            WHERE status = 'Delivered' 
-            AND auto_complete_at <= %s 
-            AND is_auto_completed = FALSE
-        """, (current_time,))
-        
-        orders_to_complete = cursor.fetchall()
-        
-        if not orders_to_complete:
-            print("?? No orders to auto-complete")
-            return 0
-        
-        completed_count = 0
-        
-        for order in orders_to_complete:
-            try:
-                # Update order status to Completed and mark as auto-completed
-                cursor.execute("""
-                    UPDATE orders 
-                    SET status = 'Completed', is_auto_completed = TRUE, received_at = %s
-                    WHERE id = %s
-                """, (current_time, order['id']))
-                
-                # Update product inventory
-                cursor.execute("""
-                    UPDATE products 
-                    SET quantity = quantity - %s 
-                    WHERE id = %s
-                """, (int(order['quantity']), order['product_id']))
-                
-                connection.commit()
-                
-                # Send notification to seller
-                try:
-                    send_auto_completion_notification(order['seller_email'], order, order['customer_email'])
-                except Exception as email_error:
-                    print(f"? Failed to send auto-completion notification: {str(email_error)}")
-                
-                completed_count += 1
-                print(f"? Auto-completed order {order['id']}: {order['name']}")
-                
-            except Exception as order_error:
-                print(f"? Failed to auto-complete order {order['id']}: {str(order_error)}")
-                connection.rollback()
-        
-        cursor.close()
-        connection.close()
-        
-        print(f"?? Auto-completed {completed_count} orders")
-        return completed_count
-        
-    except Exception as e:
-        print(f"? Error in auto_complete_delivered_orders: {str(e)}")
-        return 0
-
-def send_auto_completion_notification(seller_email, order_details, customer_email):
-    """Send notification to seller when order is auto-completed"""
-    try:
-        msg = Message(
-            'Order Auto-Completed - 7 Days Delivery Confirmation',
-            sender=app.config['MAIL_DEFAULT_SENDER'],
-            recipients=[seller_email]
-        )
-        
-        try:
-            order_total = float(order_details.get('total_price', 0)) if order_details.get('total_price') else 0.0
-        except (ValueError, TypeError):
-            order_total = 0.0
-        
-        msg.body = f"""Hello!
-
-Your order has been automatically marked as completed after 7 days of delivery.
-
-ORDER AUTO-COMPLETED:
-Product: {order_details['name']}
-Quantity: {order_details['quantity']}
-Customer: {customer_email}
-Total: ?{order_total:.2f}
-
-Since the customer did not report any issues within 7 days of delivery, 
-the order has been automatically completed and the inventory has been updated.
-
-Thank you for being a valued MStyle seller!
-
-Best regards,
-MStyle Team
-"""
-        
-        mail.send(msg)
-        print(f"? Auto-completion notification sent to seller: {seller_email}")
-        return True
-        
-    except Exception as e:
-        print(f"? Error sending auto-completion notification to {seller_email}: {str(e)}")
-        return False
-
-def send_review_notification_email(seller_email, order_details, rating, review_text, customer_email):
-    """Send email notification to seller when customer submits a review"""
-    try:
-        print(f"?? Sending review notification email to seller: {seller_email}")
-        
-        msg = Message(
-            f'New {rating}-Star Review Received!',
-            sender=app.config['MAIL_DEFAULT_SENDER'],
-            recipients=[seller_email]
-        )
-        
-        # Create star display
-        stars = "?" * int(rating)
-        
-        msg.body = f"""Hello!
-
-Great news! You've received a new review for your product.
-
-NEW REVIEW DETAILS:
-Product: {order_details['name']}
-Rating: {stars} ({rating}/5 stars)
-Customer: {customer_email}
-
-Review:
-"{review_text}"
-
-This review will help other customers discover your products and build trust in your brand.
-
-Keep up the excellent work!
-
-Best regards,
-MStyle Team
-"""
-        
-        mail.send(msg)
-        print(f"? Review notification email sent to seller: {seller_email}")
-        return True
-        
-    except Exception as e:
-        print(f"? Error sending review notification email to {seller_email}: {str(e)}")
-        return False
-
-def create_review_notification(seller_email, order_details, rating, review_text, customer_email, order_id):
-    """Create a notification in the database for seller when customer submits a review"""
-    try:
-        print(f"?? Creating review notification for seller: {seller_email}")
-        
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        # Create star display for notification
-        stars = "?" * int(rating)
-        
-        # Create notification message - include "review" keyword so it can be detected
-        message = f"New {rating}-star review received for '{order_details['name']}' from customer {customer_email}. Review: \"{review_text[:100]}{'...' if len(review_text) > 100 else ''}\""
-        
-        print(f"?? Review notification message: {message}")
-        
-        # Insert notification with type
-        cursor.execute("""
-            INSERT INTO notifications (seller_email, message, type, is_read, created_at)
-            VALUES (%s, %s, %s, FALSE, NOW())
-        """, (seller_email, message, 'review'))
-        
-        connection.commit()
-        
-        # Get the inserted notification ID for confirmation
-        notification_id = cursor.lastrowid
-        print(f"?? Review notification inserted with ID: {notification_id}")
-        
-        cursor.close()
-        connection.close()
-        
-        print(f"? Review notification created successfully for seller: {seller_email}")
-        return True
-        
-    except Exception as e:
-        print(f"? Error creating review notification for {seller_email}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-def send_issue_report_email(order_details, report_against, issue_type, issue_description, customer_email, issue_id):
-    """Send email notification to admin/customer service when customer reports an issue"""
-    try:
-        print(f"?? Sending issue report email for order {order_details['id']}")
-        
-        # Send to customer service email (you can change this to your customer service email)
-        customer_service_email = 'stylemens2025@gmail.com'  # Change to your customer service email
-        
-        # Create subject with report_against information
-        report_against_display = {
-            'seller': 'Seller',
-            'delivery': 'Delivery Service',
-            'product': 'Product Quality',
-            'platform': 'Platform',
-            'other': 'Other'
-        }.get(report_against, report_against.title())
-        
-        msg = Message(
-            f'Issue Report #{issue_id} - {report_against_display} - {issue_type}',
-            sender=app.config['MAIL_DEFAULT_SENDER'],
-            recipients=[customer_service_email]
-        )
-        
-        msg.body = f"""URGENT: Customer Issue Report
-
-ISSUE DETAILS:
-Issue ID: #{issue_id}
-Report Against: {report_against_display}
-Issue Type: {issue_type}
-Order ID: {order_details['id']}
-Product: {order_details.get('product_name', order_details.get('name', 'N/A'))}
-Customer: {customer_email}
-Seller: {order_details.get('seller_email', 'N/A')}
-
-ISSUE DESCRIPTION:
-{issue_description}
-
-ORDER INFORMATION:
-- Order Date: {order_details.get('date', 'N/A')}
-- Order Status: {order_details.get('status', 'N/A')}
-- Total Price: ?{order_details.get('total_price', 0)}
-
-PRIORITY LEVEL:
-{
-'HIGH - Seller Issue' if report_against == 'seller' else
-'MEDIUM - Delivery Issue' if report_against == 'delivery' else
-'HIGH - Product Quality Issue' if report_against == 'product' else
-'LOW - Platform Issue' if report_against == 'platform' else
-'MEDIUM - Other Issue'
-}
-
-Please review this issue and contact the customer as soon as possible.
-
-Customer Service Dashboard: [Add your admin dashboard URL here]
-
-Best regards,
-MStyle System
-"""
-        
-        mail.send(msg)
-        print(f"? Issue report email sent to customer service: {customer_service_email}")
-        return True
-        
-    except Exception as e:
-        print(f"? Error sending issue report email: {str(e)}")
-        return False
-
-def create_issue_notification(seller_email, order_details, report_against, issue_type, issue_description, customer_email, issue_id):
-    """Create a notification in the database for seller when customer reports an issue"""
-    try:
-        print(f"?? Creating issue notification for seller: {seller_email}")
-        
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        # Create notification message with report_against information
-        report_against_display = {
-            'seller': 'against you (seller)',
-            'delivery': 'about delivery service',
-            'product': 'about product quality',
-            'platform': 'about platform',
-            'other': 'other issue'
-        }.get(report_against, report_against)
-        
-        message = f"Customer {customer_email} reported an issue {report_against_display} for order #{order_details['id']} ({order_details.get('product_name', order_details.get('name', 'Product'))}). Issue: {issue_type} - {issue_description[:100]}{'...' if len(issue_description) > 100 else ''}"
-        
-        print(f"?? Issue notification message: {message}")
-        
-        # Insert notification with type
-        cursor.execute("""
-            INSERT INTO notifications (seller_email, message, type, is_read, created_at)
-            VALUES (%s, %s, %s, FALSE, NOW())
-        """, (seller_email, message, 'issue'))
-        
-        connection.commit()
-        
-        # Get the inserted notification ID for confirmation
-        notification_id = cursor.lastrowid
-        print(f"?? Issue notification inserted with ID: {notification_id}")
-        
-        cursor.close()
-        connection.close()
-        
-        print(f"? Issue notification created successfully for seller: {seller_email}")
-        return True
-        
-    except Exception as e:
-        print(f"? Error creating issue notification for {seller_email}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-def send_issue_status_update_email(customer_email, customer_name, issue_id, issue_type, product_name, new_status, admin_response=''):
-    """Send email notification to customer when admin updates issue status"""
-    try:
-        print(f"?? Sending issue status update email to customer: {customer_email}")
-        
-        # Create status-specific messages
-        status_messages = {
-            'pending': {
-                'title': 'Issue Report Received',
-                'message': 'We have received your issue report and it is pending review.',
-                'next_step': 'Our team will review your report and get back to you soon.'
-            },
-            'in_progress': {
-                'title': 'Issue Under Investigation',
-                'message': 'Your issue report is currently being investigated by our team.',
-                'next_step': 'We are working to resolve this matter as quickly as possible.'
-            },
-            'resolved': {
-                'title': 'Issue Resolved',
-                'message': 'Your issue has been resolved!',
-                'next_step': 'If you have any further concerns, please don\'t hesitate to contact us.'
-            },
-            'closed': {
-                'title': 'Issue Closed',
-                'message': 'Your issue report has been closed.',
-                'next_step': 'Thank you for your patience. If you need further assistance, please submit a new report.'
-            }
-        }
-        
-        status_info = status_messages.get(new_status, {
-            'title': 'Issue Status Updated',
-            'message': f'Your issue status has been updated to: {new_status}',
-            'next_step': 'Thank you for your patience.'
-        })
-        
-        msg = Message(
-            f'Issue Report Update - {status_info["title"]}',
-            sender=app.config['MAIL_DEFAULT_SENDER'],
-            recipients=[customer_email]
-        )
-        
-        msg.body = f"""Hello {customer_name},
-
-{status_info['title']}
-
-ISSUE REPORT DETAILS:
-Issue ID: #{issue_id}
-Issue Type: {issue_type.replace('_', ' ').title()}
-Product: {product_name}
-
-STATUS UPDATE:
-{status_info['message']}
-"""
-        
-        if admin_response:
-            msg.body += f"""
-ADMIN RESPONSE:
-{admin_response}
-"""
-        
-        msg.body += f"""
-NEXT STEPS:
-{status_info['next_step']}
-
-If you have any questions or concerns, please don't hesitate to contact our customer support team.
-
-Thank you for your patience and understanding.
-
-Best regards,
-MStyle Customer Service Team
-"""
-        
-        mail.send(msg)
-        print(f"? Issue status update email sent to customer: {customer_email}")
-        return True
-        
-    except Exception as e:
-        print(f"? Error sending issue status update email to {customer_email}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
-
-def create_issue_status_notification(customer_email, issue_id, issue_type, product_name, new_status, admin_response='', order_id=None):
-    """Create in-app notification for user when admin updates issue status � uses Supabase for riders"""
-    try:
-        status_messages = {
-            'pending':     f"Your issue report #{issue_id} for '{product_name}' is pending review.",
-            'in_progress': f"Your issue report #{issue_id} for '{product_name}' is being investigated by our team.",
-            'resolved':    f"Great news! Your issue report #{issue_id} for '{product_name}' has been resolved.",
-            'closed':      f"Your issue report #{issue_id} for '{product_name}' has been closed.",
-        }
-        message = status_messages.get(new_status, f"Your issue report #{issue_id} status has been updated to: {new_status}")
-        if admin_response:
-            message += f" Admin response: {admin_response[:100]}{'...' if len(admin_response) > 100 else ''}"
-
-        # Determine user type from Supabase
-        user_type = 'buyer'
-        try:
-            ur = sb_admin.table('users').select('role').eq('email', customer_email).execute()
-            if ur.data:
-                user_type = (ur.data[0].get('role') or 'buyer').lower()
-        except Exception:
-            pass
-
-        if user_type == 'rider':
-            sb_admin.table('rider_notifications').insert({'rider_email': customer_email, 'message': message, 'order_id': order_id, 'is_read': False}).execute()
-        elif user_type == 'seller':
-            sb_admin.table('notifications').insert({'seller_email': customer_email, 'message': message, 'type': 'issue_update', 'is_read': False}).execute()
-        else:
-            sb_admin.table('buyer_notifications').insert({'buyer_email': customer_email, 'message': message, 'type': 'issue_update', 'is_read': False, 'order_id': order_id}).execute()
-
-        print(f"? Issue status notification created for {user_type}: {customer_email}")
-        return True
-    except Exception as e:
-        print(f"? Error creating issue status notification for {customer_email}: {e}")
-        import traceback; traceback.print_exc()
-        return False
-
-# Route to manually trigger auto-completion (for testing/admin use)
-@app.route('/admin/auto-complete-orders')
-def admin_auto_complete_orders():
-    """Admin route to manually trigger auto-completion of orders"""
-    # Add admin authentication check here if needed
-    completed_count = auto_complete_delivered_orders()
-    return f"Auto-completed {completed_count} orders"
-
-#----------------------------------------------------------------------
-# ORDER MONITORING ROUTES
-#----------------------------------------------------------------------
-
-@app.route('/order_monitoring')
-def order_monitoring():
-    """Admin: monitor all orders  Supabase"""
-    if 'email' not in session or session.get('user_type') != 'Admin':
-        flash('Access denied. Admin privileges required.', 'danger')
-        return redirect(url_for('login'))
-
-    search_query  = request.args.get('search',    '').strip().lower()
-    status_filter = request.args.get('status',    '').strip().lower()
-    date_from     = request.args.get('date_from', '').strip()
-    date_to       = request.args.get('date_to',   '').strip()
-    page          = request.args.get('page', 1, type=int)
-    per_page      = 20
-
-    empty_stats = {'total_orders': 0, 'pending_orders': 0, 'shipped_orders': 0,
-                   'delivered_orders': 0, 'completed_orders': 0, 'cancelled_orders': 0}
-
-    try:
-        from datetime import datetime as _dt
-
-        # Fetch all orders
-        all_res = sb_admin.table('orders') \
-            .select('id, date, email, seller_email, rider_email, total_price, payment_method, status, delivered_at, received_at, auto_complete_at, is_auto_completed, address') \
-            .order('date', desc=True) \
-            .execute()
-        all_orders = all_res.data or []
-
-        # Batch-fetch user info (buyers + sellers + riders)
-        emails = set()
-        for o in all_orders:
-            for f in ('email', 'seller_email', 'rider_email'):
-                if o.get(f): emails.add(o[f])
-        user_map = {}
-        if emails:
-            usr_res = sb_admin.table('users') \
-                .select('email, first_name, last_name, business_name, phone') \
-                .in_('email', list(emails)).execute()
-            for u in (usr_res.data or []):
-                fn  = (u.get('first_name')    or '').strip()
-                ln  = (u.get('last_name')     or '').strip()
-                biz = (u.get('business_name') or '').strip()
-                user_map[u['email']] = {
-                    'name':  biz or f'{fn} {ln}'.strip() or u['email'],
-                    'phone': (u.get('phone') or '').strip(),
-                }
-
-        def _name(email): return user_map.get(email, {}).get('name', email or 'Unknown')
-
-        # Parse dates + attach names
-        def _parse_dt(val):
-            if not val: return None
-            try: return _dt.fromisoformat(str(val).replace('Z','+00:00').replace('+00:00',''))
-            except: return None
-
-        for o in all_orders:
-            o['buyer_name']  = _name(o.get('email', ''))
-            o['seller_name'] = _name(o.get('seller_email', ''))
-            o['rider_name']  = _name(o.get('rider_email', '')) if o.get('rider_email') else None
-            o['total_amount'] = float(o.get('total_price') or 0)
-            o['order_date']   = _parse_dt(o.get('date'))
-            o['received_at']  = _parse_dt(o.get('received_at'))
-            o['auto_complete_at'] = _parse_dt(o.get('auto_complete_at'))
-            o['delivered_at'] = _parse_dt(o.get('delivered_at'))
-            o['order_id']     = o['id']
-            o['order_status'] = o.get('status', '')
-
-        # Stats (from all orders, no filter)
-        stats = {
-            'total_orders':     len(all_orders),
-            'pending_orders':   sum(1 for o in all_orders if (o.get('status') or '').lower() == 'pending'),
-            'shipped_orders':   sum(1 for o in all_orders if (o.get('status') or '').lower() in ('shipped','in transit','out for delivery','heading to seller','for pickup')),
-            'delivered_orders': sum(1 for o in all_orders if (o.get('status') or '').lower() == 'delivered'),
-            'completed_orders': sum(1 for o in all_orders if o.get('received_at') or o.get('auto_complete_at') or (o.get('status') or '').lower() == 'completed'),
-            'cancelled_orders': sum(1 for o in all_orders if (o.get('status') or '').lower() in ('cancelled','rejected')),
-        }
-
-        # Apply filters
-        filtered = all_orders
-        if search_query:
-            filtered = [o for o in filtered if
-                search_query in str(o.get('id', '')).lower() or
-                search_query in (o['buyer_name']).lower() or
-                search_query in (o.get('email') or '').lower() or
-                search_query in (o['seller_name']).lower() or
-                search_query in (o.get('seller_email') or '').lower()]
-
-        if status_filter:
-            if status_filter == 'completed':
-                filtered = [o for o in filtered if o.get('received_at') or o.get('auto_complete_at') or (o.get('status') or '').lower() == 'completed']
-            elif status_filter == 'cancelled':
-                filtered = [o for o in filtered if (o.get('status') or '').lower() in ('cancelled','rejected')]
-            else:
-                filtered = [o for o in filtered if (o.get('status') or '').lower() == status_filter]
-
-        if date_from:
-            try:
-                df = _dt.strptime(date_from, '%Y-%m-%d')
-                filtered = [o for o in filtered if o['order_date'] and o['order_date'] >= df]
-            except: pass
-        if date_to:
-            try:
-                dt_ = _dt.strptime(date_to, '%Y-%m-%d').replace(hour=23, minute=59, second=59)
-                filtered = [o for o in filtered if o['order_date'] and o['order_date'] <= dt_]
-            except: pass
-
-        # Pagination
-        total_orders = len(filtered)
-        total_pages  = max(1, (total_orders + per_page - 1) // per_page)
-        page         = max(1, min(page, total_pages))
-        offset       = (page - 1) * per_page
-        orders       = filtered[offset: offset + per_page]
-
-        return render_template('order_monitoring.html',
-                               orders=orders, riders=[], stats=stats,
-                               current_page=page, total_pages=total_pages,
-                               prev_page=page-1 if page > 1 else None,
-                               next_page=page+1 if page < total_pages else None)
-
-    except Exception as e:
-        print(f"order_monitoring Supabase error: {e}")
-        import traceback; traceback.print_exc()
-        return render_template('order_monitoring.html',
-                               orders=[], riders=[], stats=empty_stats,
-                               current_page=1, total_pages=1,
-                               prev_page=None, next_page=None)
 @app.route('/admin/order/<int:order_id>/details')
 def admin_get_order_details(order_id):
     """Admin: get order details for modal  Supabase"""
@@ -14850,231 +10356,100 @@ def admin_get_order_details(order_id):
         return jsonify({'error': 'Internal server error'}), 500
 @app.route('/admin/order/update-status', methods=['POST'])
 def admin_update_order_status():
-    """Update order status"""
     if 'email' not in session or session.get('user_type') != 'Admin':
         return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-    
     try:
-        order_id = request.form.get('order_id')
+        order_id   = request.form.get('order_id')
         new_status = request.form.get('status')
-        notes = request.form.get('notes', '')
-        
+        notes      = request.form.get('notes', '')
         if not order_id or not new_status:
             return jsonify({'success': False, 'message': 'Missing required fields'})
-        
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # Get order details for notification
-        cursor.execute("""
-            SELECT o.email, o.seller_email, o.name as product_name
-            FROM orders o
-            WHERE o.id = %s
-        """, (order_id,))
-        
-        order = cursor.fetchone()
-        
-        if not order:
+        ord_res = sb_admin.table('orders').select('email, seller_email, name').eq('id', order_id).limit(1).execute()
+        if not ord_res.data:
             return jsonify({'success': False, 'message': 'Order not found'})
-        
-        # Update order status
-        cursor.execute("""
-            UPDATE orders 
-            SET status = %s
-            WHERE id = %s
-        """, (new_status, order_id))
-        
-        # Create notification for buyer
-        notification_message = f"Your order #{order_id} ({order['product_name']}) status has been updated to: {new_status}"
+        order = ord_res.data[0]
+        sb_admin.table('orders').update({'status': new_status}).eq('id', order_id).execute()
+        notif_msg = f"Your order #{order_id} ({order['name']}) status has been updated to: {new_status}"
         if notes:
-            notification_message += f". Note: {notes}"
-        
-        cursor.execute("""
-            INSERT INTO buyer_notifications (buyer_email, message, type, order_id)
-            VALUES (%s, %s, 'status_update', %s)
-        """, (order['email'], notification_message, order_id))
-        
-        # Create notification for seller
-        seller_notification = f"Order #{order_id} ({order['product_name']}) status has been updated to: {new_status} by admin"
-        cursor.execute("""
-            INSERT INTO notifications (seller_email, message, type)
-            VALUES (%s, %s, %s)
-        """, (order['seller_email'], seller_notification, 'order'))
-        
-        connection.commit()
-        cursor.close()
-        connection.close()
-        
+            notif_msg += f". Note: {notes}"
+        sb_admin.table('buyer_notifications').insert({'buyer_email': order['email'], 'message': notif_msg, 'type': 'status_update', 'order_id': int(order_id), 'is_read': False}).execute()
+        sb_admin.table('notifications').insert({'seller_email': order['seller_email'], 'message': f"Order #{order_id} ({order['name']}) status updated to: {new_status} by admin", 'type': 'order', 'is_read': False}).execute()
         return jsonify({'success': True, 'message': 'Order status updated successfully'})
-        
     except Exception as e:
-        print(f"Error updating order status: {e}")
-        import traceback
-        traceback.print_exc()
+        import traceback; traceback.print_exc()
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
 @app.route('/admin/order/assign-rider', methods=['POST'])
 def assign_rider_to_order():
-    """Assign a rider to an order"""
     if 'email' not in session or session.get('user_type') != 'Admin':
         return jsonify({'success': False, 'message': 'Unauthorized'}), 403
-    
     try:
         order_id = request.form.get('order_id')
         rider_id = request.form.get('rider_id')
-        
         if not order_id or not rider_id:
             return jsonify({'success': False, 'message': 'Missing required fields'})
-        
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # Get rider email
-        cursor.execute("""
-            SELECT email, CONCAT(first_name, ' ', last_name) as rider_name
-            FROM users 
-            WHERE id = %s AND UPPER(user_type) = 'RIDER'
-        """, (rider_id,))
-        
-        rider = cursor.fetchone()
-        
-        if not rider:
+        rider_res = sb_admin.table('users').select('email, first_name, last_name').eq('id', rider_id).eq('role', 'rider').limit(1).execute()
+        if not rider_res.data:
             return jsonify({'success': False, 'message': 'Rider not found'})
-        
-        # Get order details
-        cursor.execute("""
-            SELECT o.email, o.seller_email, o.name as product_name, o.address
-            FROM orders o
-            WHERE o.id = %s
-        """, (order_id,))
-        
-        order = cursor.fetchone()
-        
-        if not order:
+        rider = rider_res.data[0]
+        rider_name = f"{rider.get('first_name','')} {rider.get('last_name','')}".strip()
+        ord_res = sb_admin.table('orders').select('email, seller_email, name, address').eq('id', order_id).limit(1).execute()
+        if not ord_res.data:
             return jsonify({'success': False, 'message': 'Order not found'})
-        
-        # Assign rider to order
-        cursor.execute("""
-            UPDATE orders 
-            SET rider_email = %s
-            WHERE id = %s
-        """, (rider['email'], order_id))
-        
-        # Create notification for rider via Supabase
-        rider_notification = f"You have been assigned to deliver order #{order_id} ({order['product_name']}) to {order['address']}"
-        sb_admin.table('rider_notifications').insert({'rider_email': rider['email'], 'message': rider_notification, 'order_id': order_id, 'is_read': False}).execute()
-        
-        # Create notification for buyer
-        buyer_notification = f"Rider {rider['rider_name']} has been assigned to your order #{order_id}"
-        cursor.execute("""
-            INSERT INTO buyer_notifications (buyer_email, message, type, order_id)
-            VALUES (%s, %s, 'rider_assigned', %s)
-        """, (order['email'], buyer_notification, order_id))
-        
-        # Create notification for seller
-        seller_notification = f"Rider {rider['rider_name']} has been assigned to order #{order_id}"
-        cursor.execute("""
-            INSERT INTO notifications (seller_email, message, type)
-            VALUES (%s, %s, %s)
-        """, (order['seller_email'], seller_notification, 'rider_assigned'))
-        
-        connection.commit()
-        cursor.close()
-        connection.close()
-        
+        order = ord_res.data[0]
+        sb_admin.table('orders').update({'rider_email': rider['email']}).eq('id', order_id).execute()
+        sb_admin.table('rider_notifications').insert({'rider_email': rider['email'], 'message': f"You have been assigned to deliver order #{order_id} ({order['name']}) to {order['address']}", 'order_id': int(order_id), 'is_read': False}).execute()
+        sb_admin.table('buyer_notifications').insert({'buyer_email': order['email'], 'message': f"Rider {rider_name} has been assigned to your order #{order_id}", 'type': 'rider_assigned', 'order_id': int(order_id), 'is_read': False}).execute()
+        sb_admin.table('notifications').insert({'seller_email': order['seller_email'], 'message': f"Rider {rider_name} has been assigned to order #{order_id}", 'type': 'rider_assigned', 'is_read': False}).execute()
         return jsonify({'success': True, 'message': 'Rider assigned successfully'})
-        
     except Exception as e:
-        print(f"Error assigning rider: {e}")
-        import traceback
-        traceback.print_exc()
+        import traceback; traceback.print_exc()
         return jsonify({'success': False, 'message': 'Internal server error'}), 500
 
 @app.route('/export_orders')
 def export_orders():
-    """Export orders to CSV"""
     if 'email' not in session or session.get('user_type') != 'Admin':
         flash('Access denied. Admin privileges required.', 'danger')
         return redirect(url_for('login'))
-    
     try:
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # Get all orders
-        cursor.execute("""
-            SELECT 
-                o.id as order_id,
-                o.date as order_date,
-                COALESCE(CONCAT(u.first_name, ' ', u.last_name), 'Unknown Buyer') as buyer_name,
-                u.email as buyer_email,
-                COALESCE(CONCAT(s.first_name, ' ', s.last_name), 'Unknown Seller') as seller_name,
-                s.email as seller_email,
-                CAST(o.total_price AS DECIMAL(10,2)) as total_amount,
-                o.payment_method,
-                o.status as order_status,
-                COALESCE(CONCAT(r.first_name, ' ', r.last_name), NULL) as rider_name,
-                o.name as product_name,
-                o.quantity,
-                o.address
-            FROM orders o
-            LEFT JOIN users u ON o.email = u.email
-            LEFT JOIN users s ON o.seller_email = s.email
-            LEFT JOIN users r ON o.rider_email = r.email
-            ORDER BY o.date DESC
-        """)
-        
-        orders = cursor.fetchall()
-        
-        cursor.close()
-        connection.close()
-        
-        # Create CSV content
+        orders_res = sb_admin.table('orders').select('id, date, email, seller_email, rider_email, name, quantity, total_price, payment_method, status, address').order('date', desc=True).execute()
+        orders = orders_res.data or []
+        emails = set()
+        for o in orders:
+            for f in ('email', 'seller_email', 'rider_email'):
+                if o.get(f): emails.add(o[f])
+        user_map = {}
+        if emails:
+            ur = sb_admin.table('users').select('email, first_name, last_name, business_name').in_('email', list(emails)).execute()
+            for u in (ur.data or []):
+                fn = (u.get('first_name') or '').strip()
+                ln = (u.get('last_name') or '').strip()
+                biz = (u.get('business_name') or '').strip()
+                user_map[u['email']] = biz or f'{fn} {ln}'.strip() or u['email']
         import csv
         from io import StringIO
-        
+        from flask import make_response
         output = StringIO()
         writer = csv.writer(output)
-        
-        # Write header
-        writer.writerow([
-            'Order ID', 'Order Date', 'Buyer Name', 'Buyer Email',
-            'Seller Name', 'Seller Email', 'Product Name', 'Quantity',
-            'Total Amount', 'Payment Method', 'Order Status', 
-            'Assigned Rider', 'Delivery Address'
-        ])
-        
-        # Write data
-        for order in orders:
+        writer.writerow(['Order ID','Order Date','Buyer Name','Buyer Email','Seller Name','Seller Email','Product Name','Quantity','Total Amount','Payment Method','Order Status','Assigned Rider','Delivery Address'])
+        for o in orders:
             writer.writerow([
-                order['order_id'],
-                order['order_date'].strftime('%Y-%m-%d %H:%M:%S') if order['order_date'] else '',
-                order['buyer_name'] or 'N/A',
-                order['buyer_email'] or 'N/A',
-                order['seller_name'] or 'N/A',
-                order['seller_email'] or 'N/A',
-                order['product_name'] or 'N/A',
-                order['quantity'] or 'N/A',
-                f"?{float(order['total_amount']):.2f}" if order['total_amount'] else '?0.00',
-                order['payment_method'] or 'N/A',
-                order['order_status'] or 'N/A',
-                order['rider_name'] or 'Not Assigned',
-                order['address'] or 'N/A'
+                o['id'], str(o.get('date',''))[:19],
+                user_map.get(o.get('email',''), 'Unknown'), o.get('email','N/A'),
+                user_map.get(o.get('seller_email',''), 'Unknown'), o.get('seller_email','N/A'),
+                o.get('name','N/A'), o.get('quantity','N/A'),
+                f"P{float(o.get('total_price') or 0):.2f}",
+                o.get('payment_method','N/A'), o.get('status','N/A'),
+                user_map.get(o.get('rider_email',''), 'Not Assigned') if o.get('rider_email') else 'Not Assigned',
+                o.get('address','N/A'),
             ])
-        
-        # Create response
-        from flask import make_response
         output.seek(0)
         response = make_response(output.getvalue())
         response.headers['Content-Type'] = 'text/csv'
         response.headers['Content-Disposition'] = f'attachment; filename=orders_export_{datetime.now().strftime("%Y%m%d_%H%M%S")}.csv'
-        
         return response
-        
     except Exception as e:
-        print(f"Error exporting orders: {e}")
-        import traceback
-        traceback.print_exc()
+        import traceback; traceback.print_exc()
         flash('Error exporting orders', 'danger')
         return redirect(url_for('order_monitoring'))
 
@@ -15122,55 +10497,9 @@ def get_conversation():
             # Generate conversation ID
             conversation_id = f"{buyer_email}_{seller_email}_{product_id if product_id else 'general'}"
         
-        # Get or create conversation
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        cursor.execute("""
-            SELECT * FROM conversations 
-            WHERE conversation_id = %s
-        """, (conversation_id,))
-        
-        conversation = cursor.fetchone()
-        
-        # Don't create conversation here - only create when first message is sent
-        if conversation:
-            # Get buyer and seller emails from conversation if not provided
-            if not buyer_email:
-                buyer_email = conversation['buyer_email']
-            if not seller_email:
-                seller_email = conversation['seller_email']
-        
-        # Get buyer and seller names and profile pictures
-        cursor.execute("""
-            SELECT CONCAT(first_name, ' ', last_name) as name, profile_picture
-            FROM users
-            WHERE email = %s
-        """, (buyer_email,))
-        buyer_data = cursor.fetchone()
-        buyer_name = buyer_data['name'] if buyer_data else 'Buyer'
-        buyer_profile_picture = buyer_data['profile_picture'] if buyer_data and buyer_data['profile_picture'] else None
-        
-        cursor.execute("""
-            SELECT COALESCE(business_name, CONCAT(first_name, ' ', last_name)) as name, profile_picture
-            FROM users
-            WHERE email = %s
-        """, (seller_email,))
-        seller_data = cursor.fetchone()
-        seller_name = seller_data['name'] if seller_data else 'Seller'
-        seller_profile_picture = seller_data['profile_picture'] if seller_data and seller_data['profile_picture'] else None
-        
-        # Get messages
-        cursor.execute("""
-            SELECT id, sender_email, receiver_email, sender_type, message_text, is_read, created_at
-            FROM buyer_seller_messages
-            WHERE conversation_id = %s
-            ORDER BY created_at ASC
-        """, (conversation_id,))
-        
-        messages = cursor.fetchall()
-        cursor.close()
-        connection.close()
+        # Get or create conversation via Supabase
+        conv_res = sb_admin.table('conversations').select('*').eq('conversation_id', conversation_id).limit(1).execute()
+        conversation = conv_res.data[0] if conv_res.data else None
         
         # Format messages
         formatted_messages = []
@@ -15203,655 +10532,189 @@ def get_conversation():
 
 @app.route('/api/messages/send', methods=['POST'])
 def send_message():
-    """Send a message from buyer to seller"""
-    # Check if user is logged in
     if 'email' not in session:
         return jsonify({'success': False, 'error': 'Please login first'}), 401
-    
     try:
         data = request.get_json()
-        seller_email = data.get('seller_email')
-        message_text = data.get('message_text')
-        product_id = data.get('product_id')
-        
-        if not seller_email or not message_text:
-            return jsonify({'success': False, 'error': 'Missing required fields'}), 400
-        
-        buyer_email = session.get('email')
-        
-        # Generate conversation ID
-        conversation_id = f"{buyer_email}_{seller_email}_{product_id if product_id else 'general'}"
-        
-        # Insert message
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        # Create conversation if it doesn't exist
-        cursor.execute("""
-            INSERT INTO conversations (conversation_id, buyer_email, seller_email, product_id, created_at, last_message_at)
-            VALUES (%s, %s, %s, %s, NOW(), NOW())
-            ON DUPLICATE KEY UPDATE last_message_at = NOW()
-        """, (conversation_id, buyer_email, seller_email, product_id if product_id else None))
-        
-        cursor.execute("""
-            INSERT INTO buyer_seller_messages 
-            (conversation_id, sender_email, receiver_email, sender_type, message_text)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (conversation_id, buyer_email, seller_email, 'buyer', message_text))
-        
-        connection.commit()
-        message_id = cursor.lastrowid
-        cursor.close()
-        connection.close()
-        
-        return jsonify({
-            'success': True,
-            'message_id': message_id,
-            'message': 'Message sent successfully'
-        })
-        
+        buyer_email   = data.get('buyer_email')
+        seller_email  = data.get('seller_email')
+        message_text  = data.get('message_text') or data.get('message')
+        product_id    = data.get('product_id')
+        order_id      = data.get('order_id')
+        conversation_id = data.get('conversation_id')
+        if not message_text:
+            return jsonify({'success': False, 'error': 'Message text is required'}), 400
+        user_email  = session.get('email')
+        user_type   = session.get('user_type', '').lower()
+        if not buyer_email:  buyer_email  = user_email if user_type == 'buyer' else None
+        if not seller_email: seller_email = user_email if user_type == 'seller' else None
+        if not buyer_email or not seller_email:
+            return jsonify({'success': False, 'error': 'Missing buyer or seller email'}), 400
+        sender_email   = user_email
+        receiver_email = seller_email if sender_email == buyer_email else buyer_email
+        sender_type    = 'buyer' if sender_email == buyer_email else 'seller'
+        if not conversation_id:
+            conversation_id = f"{buyer_email}_{seller_email}_{product_id if product_id else 'general'}"
+        sb_admin.table('conversations').upsert({
+            'conversation_id': conversation_id, 'buyer_email': buyer_email,
+            'seller_email': seller_email, 'product_id': product_id, 'order_id': order_id,
+            'last_message_at': datetime.now().isoformat(),
+        }, on_conflict='conversation_id').execute()
+        ins = sb_admin.table('buyer_seller_messages').insert({
+            'conversation_id': conversation_id, 'sender_email': sender_email,
+            'receiver_email': receiver_email, 'sender_type': sender_type, 'message_text': message_text,
+        }).execute()
+        message_id = ins.data[0]['id'] if ins.data else None
+        return jsonify({'success': True, 'message_id': message_id, 'conversation_id': conversation_id})
     except Exception as e:
-        print(f"Error sending message: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/api/messages/mark-read', methods=['POST'])
 def mark_messages_read():
-    """Mark messages as read for both buyer and seller"""
-    # Check if user is logged in
     if 'email' not in session:
         return jsonify({'success': False, 'error': 'Please login first'}), 401
-    
     try:
         data = request.get_json()
-        buyer_email = data.get('buyer_email')
-        seller_email = data.get('seller_email')
-        product_id = data.get('product_id')
-        conversation_id = data.get('conversation_id')
-        
+        conv_id = data.get('conversation_id')
         current_user_email = session.get('email')
-        user_type = session.get('user_type', '').lower()
-        
-        # If conversation_id is provided, use it directly
-        if conversation_id:
-            conv_id = conversation_id
-        else:
-            # Build conversation_id based on user type
-            if user_type == 'seller':
-                if not buyer_email:
-                    return jsonify({'success': False, 'error': 'Buyer email is required for sellers'}), 400
-                seller_email = current_user_email
-            else:  # buyer
-                if not seller_email:
-                    return jsonify({'success': False, 'error': 'Seller email is required for buyers'}), 400
-                buyer_email = current_user_email
-            
-            # Build conversation_id
-            if product_id:
-                conv_id = f"{buyer_email}_{seller_email}_{product_id}"
-            else:
-                conv_id = f"{buyer_email}_{seller_email}_general"
-        
-        # Mark all messages in this conversation as read where current user is receiver
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        cursor.execute("""
-            UPDATE buyer_seller_messages
-            SET is_read = TRUE
-            WHERE conversation_id = %s 
-            AND receiver_email = %s 
-            AND is_read = FALSE
-        """, (conv_id, current_user_email))
-        
-        affected_rows = cursor.rowcount
-        connection.commit()
-        
-        print(f"? Marked {affected_rows} messages as read for {user_type}: {current_user_email} in conversation: {conv_id}")
-        
-        cursor.close()
-        connection.close()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Messages marked as read',
-            'affected_rows': affected_rows
-        })
-        
+        if not conv_id:
+            return jsonify({'success': False, 'error': 'Conversation ID required'}), 400
+        res = sb_admin.table('buyer_seller_messages').update({'is_read': True}).eq('conversation_id', conv_id).eq('receiver_email', current_user_email).eq('is_read', False).execute()
+        affected = len(res.data) if res.data else 0
+        return jsonify({'success': True, 'affected_rows': affected})
     except Exception as e:
-        print(f"? Error marking messages as read: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/api/seller/messages', methods=['GET'])
 def get_seller_messages():
-    """Get all conversations for seller (for dropdown)"""
-    # Check if user is logged in
-    if 'email' not in session:
-        return jsonify({'success': False, 'error': 'Please login first'}), 401
-    
-    user_email = session.get('email')
-    user_type = session.get('user_type')
-    
-    # Debug logging
-    print(f"DEBUG - User Email: {user_email}, User Type: {user_type}")
-    
-    # Check if user is a seller - case insensitive check
-    if user_type and user_type.lower() != 'seller':
-        return jsonify({
-            'success': False, 
-            'error': f'Only sellers can access this. Your user_type is: {user_type}'
-        }), 403
-    
+    if 'email' not in session or session.get('user_type','').lower() != 'seller':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
     try:
         seller_email = session.get('email')
-        
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        # Get seller name and profile picture first
-        cursor.execute("""
-            SELECT COALESCE(business_name, CONCAT(first_name, ' ', last_name)) as seller_name,
-                   profile_picture
-            FROM users
-            WHERE email = %s
-        """, (seller_email,))
-        seller_data = cursor.fetchone()
-        seller_name = seller_data[0] if seller_data else 'Seller'
-        seller_profile_picture = seller_data[1] if seller_data and seller_data[1] else None
-        
-        # Get buyer-seller conversations
-        cursor.execute("""
-            SELECT DISTINCT 
-                c.conversation_id, 
-                c.buyer_email, 
-                c.product_id, 
-                c.order_id,
-                c.last_message_at,
-                p.name as product_name,
-                CONCAT(u.first_name, ' ', u.last_name) as buyer_name,
-                (SELECT COUNT(*) FROM buyer_seller_messages 
-                 WHERE conversation_id = c.conversation_id 
-                 AND receiver_email = %s AND is_read = FALSE) as unread_count,
-                (SELECT message_text FROM buyer_seller_messages 
-                 WHERE conversation_id = c.conversation_id 
-                 ORDER BY created_at DESC LIMIT 1) as last_message,
-                u.profile_picture as buyer_profile_picture,
-                'buyer' as conversation_type
-            FROM conversations c
-            LEFT JOIN products p ON c.product_id = p.id
-            LEFT JOIN users u ON c.buyer_email = u.email
-            WHERE c.seller_email = %s
-            ORDER BY c.last_message_at DESC
-            LIMIT 10
-        """, (seller_email, seller_email))
-        
-        buyer_conversations = cursor.fetchall()
-        
-        # Get seller-rider conversations
-        cursor.execute("""
-            SELECT DISTINCT 
-                m.order_id,
-                o.rider_email,
-                MAX(m.created_at) as last_message_at,
-                CONCAT(u.first_name, ' ', u.last_name) as rider_name,
-                u.profile_picture as rider_profile_picture,
-                (SELECT COUNT(*) FROM seller_rider_messages 
-                 WHERE order_id = m.order_id 
-                 AND receiver_email = %s AND is_read = FALSE) as unread_count,
-                (SELECT message FROM seller_rider_messages 
-                 WHERE order_id = m.order_id 
-                 ORDER BY created_at DESC LIMIT 1) as last_message,
-                'rider' as conversation_type
-            FROM seller_rider_messages m
-            INNER JOIN orders o ON m.order_id = o.id
-            LEFT JOIN users u ON o.rider_email = u.email
-            WHERE o.seller_email = %s
-            GROUP BY m.order_id, o.rider_email, u.first_name, u.last_name, u.profile_picture
-        """, (seller_email, seller_email))
-        
-        rider_conversations = cursor.fetchall()
-        
-        cursor.close()
-        connection.close()
-        
-        # Format and combine conversations
-        formatted_conversations = []
-        
-        # Add buyer conversations
-        for conv in buyer_conversations:
-            formatted_conversations.append({
-                'conversation_id': conv[0],
-                'buyer_email': conv[1],
-                'product_id': conv[2],
-                'order_id': conv[3],
-                'last_message_at': conv[4].isoformat() if conv[4] else None,
-                'product_name': conv[5],
-                'buyer_name': conv[6],
-                'unread_count': conv[7],
-                'last_message': conv[8],
-                'buyer_profile_picture': conv[9],
+        sn_res = sb_admin.table('users').select('business_name, first_name, last_name, profile_picture').eq('email', seller_email).limit(1).execute()
+        seller_name = 'Seller'
+        seller_pic  = None
+        if sn_res.data:
+            u = sn_res.data[0]
+            seller_name = u.get('business_name') or f"{u.get('first_name','')} {u.get('last_name','')}".strip() or 'Seller'
+            seller_pic  = u.get('profile_picture')
+        conv_res = sb_admin.table('conversations').select('*').eq('seller_email', seller_email).order('last_message_at', desc=True).limit(20).execute()
+        conversations = conv_res.data or []
+        product_ids = list({c['product_id'] for c in conversations if c.get('product_id')})
+        prod_map = {}
+        if product_ids:
+            pr = sb_admin.table('products').select('id, name').in_('id', product_ids).execute()
+            prod_map = {p['id']: p['name'] for p in (pr.data or [])}
+        buyer_emails = list({c['buyer_email'] for c in conversations if c.get('buyer_email')})
+        buyer_map = {}
+        if buyer_emails:
+            br = sb_admin.table('users').select('email, first_name, last_name, profile_picture').in_('email', buyer_emails).execute()
+            buyer_map = {u['email']: u for u in (br.data or [])}
+        formatted = []
+        for c in conversations:
+            be = c.get('buyer_email','')
+            buyer = buyer_map.get(be, {})
+            buyer_name = f"{buyer.get('first_name','')} {buyer.get('last_name','')}".strip() or be
+            try:
+                unread = sb_admin.table('buyer_seller_messages').select('id', count='exact').eq('conversation_id', c['conversation_id']).eq('receiver_email', seller_email).eq('is_read', False).execute()
+                unread_count = unread.count or 0
+            except Exception:
+                unread_count = 0
+            try:
+                last_msg_res = sb_admin.table('buyer_seller_messages').select('message_text').eq('conversation_id', c['conversation_id']).order('created_at', desc=True).limit(1).execute()
+                last_msg = last_msg_res.data[0]['message_text'] if last_msg_res.data else ''
+            except Exception:
+                last_msg = ''
+            formatted.append({
+                'conversation_id': c['conversation_id'], 'buyer_email': be,
+                'product_id': c.get('product_id'), 'order_id': c.get('order_id'),
+                'last_message_at': str(c.get('last_message_at','')),
+                'product_name': prod_map.get(c.get('product_id'),''),
+                'buyer_name': buyer_name, 'unread_count': unread_count,
+                'last_message': last_msg,
+                'buyer_profile_picture': buyer.get('profile_picture'),
                 'conversation_type': 'buyer',
-                'seller_name': seller_name,
-                'seller_profile_picture': seller_profile_picture
+                'seller_name': seller_name, 'seller_profile_picture': seller_pic,
             })
-        
-        # Add rider conversations
-        for conv in rider_conversations:
-            formatted_conversations.append({
-                'conversation_id': f"rider_order_{conv[0]}",
-                'order_id': conv[0],
-                'rider_email': conv[1],
-                'last_message_at': conv[2].isoformat() if conv[2] else None,
-                'rider_name': conv[3] or 'Rider',
-                'rider_profile_picture': conv[4],
-                'unread_count': conv[5],
-                'last_message': conv[6],
-                'conversation_type': 'rider',
-                'seller_name': seller_name,
-                'seller_profile_picture': seller_profile_picture
-            })
-        
-        # Sort by last message time
-        formatted_conversations.sort(key=lambda x: x['last_message_at'] or '', reverse=True)
-        
-        # Limit to 20 most recent
-        formatted_conversations = formatted_conversations[:20]
-        
-        return jsonify({
-            'success': True,
-            'conversations': formatted_conversations
-        })
-        
+        return jsonify({'success': True, 'conversations': formatted})
     except Exception as e:
-        print(f"Error getting seller messages: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
+
 
 @app.route('/api/seller/conversations/delete', methods=['POST'])
 def delete_seller_conversation():
-    """Delete a conversation and all its messages"""
-    # Check if user is logged in as seller
     if 'email' not in session:
         return jsonify({'success': False, 'error': 'Please login first'}), 401
-    
-    user_type = session.get('user_type')
-    if user_type and user_type.lower() != 'seller':
-        return jsonify({'success': False, 'error': 'Only sellers can delete conversations'}), 403
-    
     try:
         data = request.get_json()
         conversation_id = data.get('conversation_id')
-        
         if not conversation_id:
             return jsonify({'success': False, 'error': 'Conversation ID is required'}), 400
-        
         seller_email = session.get('email')
-        
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        total_deleted = 0
-        
-        # Check if it's a rider conversation (format: rider_order_123)
         if conversation_id.startswith('rider_order_'):
-            # Extract order_id from conversation_id
-            order_id_str = conversation_id.replace('rider_order_', '')
-            
-            try:
-                order_id = int(order_id_str)
-            except ValueError:
-                cursor.close()
-                connection.close()
-                return jsonify({'success': False, 'error': f'Invalid conversation ID format: {conversation_id}'}), 400
-            
-            # Verify that this order belongs to the seller
-            cursor.execute("""
-                SELECT id FROM orders 
-                WHERE id = %s AND seller_email = %s
-            """, (order_id, seller_email))
-            
-            order = cursor.fetchone()
-            
-            if not order:
-                cursor.close()
-                connection.close()
-                return jsonify({'success': False, 'error': 'Order not found or access denied'}), 404
-            
-            # Delete all seller-rider messages for this order
-            cursor.execute("""
-                DELETE FROM seller_rider_messages 
-                WHERE order_id = %s
-            """, (order_id,))
-            
-            total_deleted = cursor.rowcount
-            
-            print(f"? Deleted seller-rider conversation for order {order_id} with {total_deleted} messages")
+            order_id = conversation_id.replace('rider_order_', '')
+            sb_admin.table('seller_rider_messages').delete().eq('order_id', order_id).execute()
         else:
-            # It's a buyer-seller conversation
-            # Verify that this conversation belongs to the seller
-            cursor.execute("""
-                SELECT id FROM conversations 
-                WHERE conversation_id = %s AND seller_email = %s
-            """, (conversation_id, seller_email))
-            
-            conversation = cursor.fetchone()
-            
-            if not conversation:
-                cursor.close()
-                connection.close()
-                return jsonify({'success': False, 'error': 'Conversation not found or access denied'}), 404
-            
-            # Delete all messages in this conversation
-            cursor.execute("""
-                DELETE FROM buyer_seller_messages 
-                WHERE conversation_id = %s
-            """, (conversation_id,))
-            
-            total_deleted = cursor.rowcount
-            
-            # Delete the conversation
-            cursor.execute("""
-                DELETE FROM conversations 
-                WHERE conversation_id = %s AND seller_email = %s
-            """, (conversation_id, seller_email))
-            
-            print(f"? Deleted buyer-seller conversation {conversation_id} with {total_deleted} messages")
-        
-        connection.commit()
-        cursor.close()
-        connection.close()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Conversation deleted successfully',
-            'messages_deleted': total_deleted
-        })
-        
+            sb_admin.table('buyer_seller_messages').delete().eq('conversation_id', conversation_id).execute()
+            sb_admin.table('conversations').delete().eq('conversation_id', conversation_id).eq('seller_email', seller_email).execute()
+        return jsonify({'success': True, 'message': 'Conversation deleted successfully'})
     except Exception as e:
-        print(f"Error deleting conversation: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/seller/conversations/delete-all', methods=['POST'])
 def delete_all_seller_conversations():
-    """Delete all conversations for the seller"""
-    # Check if user is logged in as seller
     if 'email' not in session:
         return jsonify({'success': False, 'error': 'Please login first'}), 401
-    
-    user_type = session.get('user_type')
-    if user_type and user_type.lower() != 'seller':
-        return jsonify({'success': False, 'error': 'Only sellers can delete conversations'}), 403
-    
     try:
         seller_email = session.get('email')
-        
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        total_messages_deleted = 0
-        total_conversations_deleted = 0
-        
-        # Delete buyer-seller conversations
-        # Get all conversation IDs for this seller
-        cursor.execute("""
-            SELECT conversation_id FROM conversations 
-            WHERE seller_email = %s
-        """, (seller_email,))
-        
-        conversations = cursor.fetchall()
-        conversation_ids = [conv[0] for conv in conversations]
-        
-        if conversation_ids:
-            # Delete all messages for these conversations
-            cursor.execute("""
-                DELETE FROM buyer_seller_messages 
-                WHERE conversation_id IN ({})
-            """.format(','.join(['%s'] * len(conversation_ids))), conversation_ids)
-            
-            messages_deleted = cursor.rowcount
-            total_messages_deleted += messages_deleted
-            
-            # Delete all conversations for this seller
-            cursor.execute("""
-                DELETE FROM conversations 
-                WHERE seller_email = %s
-            """, (seller_email,))
-            
-            conversations_deleted = cursor.rowcount
-            total_conversations_deleted += conversations_deleted
-            
-            print(f"? Deleted {conversations_deleted} buyer-seller conversations with {messages_deleted} messages")
-        
-        # Delete seller-rider messages
-        # Get all orders for this seller
-        cursor.execute("""
-            SELECT id FROM orders 
-            WHERE seller_email = %s
-        """, (seller_email,))
-        
-        orders = cursor.fetchall()
-        order_ids = [order[0] for order in orders]
-        
-        if order_ids:
-            # Delete all seller-rider messages for these orders
-            cursor.execute("""
-                DELETE FROM seller_rider_messages 
-                WHERE order_id IN ({})
-            """.format(','.join(['%s'] * len(order_ids))), order_ids)
-            
-            rider_messages_deleted = cursor.rowcount
-            total_messages_deleted += rider_messages_deleted
-            total_conversations_deleted += len(order_ids)  # Count each order as a conversation
-            
-            print(f"? Deleted {len(order_ids)} seller-rider conversations with {rider_messages_deleted} messages")
-        
-        connection.commit()
-        cursor.close()
-        connection.close()
-        
-        print(f"? Total: Deleted {total_conversations_deleted} conversations with {total_messages_deleted} messages for seller {seller_email}")
-        
-        return jsonify({
-            'success': True,
-            'message': 'All conversations deleted successfully',
-            'deleted_count': total_conversations_deleted,
-            'messages_deleted': total_messages_deleted
-        })
-        
+        conv_res = sb_admin.table('conversations').select('conversation_id').eq('seller_email', seller_email).execute()
+        for c in (conv_res.data or []):
+            sb_admin.table('buyer_seller_messages').delete().eq('conversation_id', c['conversation_id']).execute()
+        sb_admin.table('conversations').delete().eq('seller_email', seller_email).execute()
+        orders_res = sb_admin.table('orders').select('id').eq('seller_email', seller_email).execute()
+        for o in (orders_res.data or []):
+            sb_admin.table('seller_rider_messages').delete().eq('order_id', o['id']).execute()
+        return jsonify({'success': True, 'message': 'All conversations deleted successfully'})
     except Exception as e:
-        print(f"Error deleting all conversations: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/buyer/conversations/delete', methods=['POST'])
 def delete_buyer_conversation():
-    """Delete a conversation and all its messages (buyer side)"""
-    # Check if user is logged in as buyer
     if 'email' not in session:
         return jsonify({'success': False, 'error': 'Please login first'}), 401
-    
     try:
         data = request.get_json()
         conversation_id = data.get('conversation_id')
-        
         if not conversation_id:
             return jsonify({'success': False, 'error': 'Conversation ID is required'}), 400
-        
         buyer_email = session.get('email')
-        
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        messages_deleted = 0
-        
-        # Check if it's a rider conversation (format: rider_order_123)
         if conversation_id.startswith('rider_order_'):
-            # Extract order_id from conversation_id
             order_id = conversation_id.replace('rider_order_', '')
-            
-            # Verify that this order belongs to the buyer
-            cursor.execute("""
-                SELECT id FROM orders 
-                WHERE id = %s AND email = %s
-            """, (order_id, buyer_email))
-            
-            order = cursor.fetchone()
-            
-            if not order:
-                cursor.close()
-                connection.close()
-                return jsonify({'success': False, 'error': 'Order not found or access denied'}), 404
-            
-            # Delete all buyer-rider messages for this order
-            cursor.execute("""
-                DELETE FROM buyer_rider_messages 
-                WHERE order_id = %s
-            """, (order_id,))
-            
-            messages_deleted = cursor.rowcount
-            
-            print(f"? Deleted buyer-rider conversation for order {order_id} with {messages_deleted} messages")
+            sb_admin.table('buyer_rider_messages').delete().eq('order_id', order_id).execute()
         else:
-            # It's a seller conversation
-            # Verify that this conversation belongs to the buyer
-            cursor.execute("""
-                SELECT id FROM conversations 
-                WHERE conversation_id = %s AND buyer_email = %s
-            """, (conversation_id, buyer_email))
-            
-            conversation = cursor.fetchone()
-            
-            if not conversation:
-                cursor.close()
-                connection.close()
-                return jsonify({'success': False, 'error': 'Conversation not found or access denied'}), 404
-            
-            # Delete all messages in this conversation
-            cursor.execute("""
-                DELETE FROM buyer_seller_messages 
-                WHERE conversation_id = %s
-            """, (conversation_id,))
-            
-            messages_deleted = cursor.rowcount
-            
-            # Delete the conversation
-            cursor.execute("""
-                DELETE FROM conversations 
-                WHERE conversation_id = %s AND buyer_email = %s
-            """, (conversation_id, buyer_email))
-            
-            print(f"? Deleted buyer-seller conversation {conversation_id} with {messages_deleted} messages")
-        
-        connection.commit()
-        cursor.close()
-        connection.close()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Conversation deleted successfully',
-            'messages_deleted': messages_deleted
-        })
-        
+            sb_admin.table('buyer_seller_messages').delete().eq('conversation_id', conversation_id).execute()
+            sb_admin.table('conversations').delete().eq('conversation_id', conversation_id).eq('buyer_email', buyer_email).execute()
+        return jsonify({'success': True, 'message': 'Conversation deleted successfully'})
     except Exception as e:
-        print(f"Error deleting buyer conversation: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/buyer/conversations/delete-all', methods=['POST'])
 def delete_all_buyer_conversations():
-    """Delete all conversations for the buyer"""
-    # Check if user is logged in as buyer
     if 'email' not in session:
         return jsonify({'success': False, 'error': 'Please login first'}), 401
-    
     try:
         buyer_email = session.get('email')
-        
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        total_messages_deleted = 0
-        total_conversations_deleted = 0
-        
-        # Delete buyer-seller conversations
-        # Get all conversation IDs for this buyer
-        cursor.execute("""
-            SELECT conversation_id FROM conversations 
-            WHERE buyer_email = %s
-        """, (buyer_email,))
-        
-        conversations = cursor.fetchall()
-        conversation_ids = [conv[0] for conv in conversations]
-        
-        if conversation_ids:
-            # Delete all messages for these conversations
-            cursor.execute("""
-                DELETE FROM buyer_seller_messages 
-                WHERE conversation_id IN ({})
-            """.format(','.join(['%s'] * len(conversation_ids))), conversation_ids)
-            
-            messages_deleted = cursor.rowcount
-            total_messages_deleted += messages_deleted
-            
-            # Delete all conversations for this buyer
-            cursor.execute("""
-                DELETE FROM conversations 
-                WHERE buyer_email = %s
-            """, (buyer_email,))
-            
-            conversations_deleted = cursor.rowcount
-            total_conversations_deleted += conversations_deleted
-            
-            print(f"? Deleted {conversations_deleted} buyer-seller conversations with {messages_deleted} messages")
-        
-        # Delete buyer-rider messages
-        # Get all orders for this buyer
-        cursor.execute("""
-            SELECT id FROM orders 
-            WHERE email = %s
-        """, (buyer_email,))
-        
-        orders = cursor.fetchall()
-        order_ids = [order[0] for order in orders]
-        
-        if order_ids:
-            # Delete all buyer-rider messages for these orders
-            cursor.execute("""
-                DELETE FROM buyer_rider_messages 
-                WHERE order_id IN ({})
-            """.format(','.join(['%s'] * len(order_ids))), order_ids)
-            
-            rider_messages_deleted = cursor.rowcount
-            total_messages_deleted += rider_messages_deleted
-            total_conversations_deleted += len(order_ids)  # Count each order as a conversation
-            
-            print(f"? Deleted {len(order_ids)} buyer-rider conversations with {rider_messages_deleted} messages")
-        
-        connection.commit()
-        cursor.close()
-        connection.close()
-        
-        print(f"? Total: Deleted {total_conversations_deleted} conversations with {total_messages_deleted} messages for buyer {buyer_email}")
-        
-        return jsonify({
-            'success': True,
-            'message': 'All conversations deleted successfully',
-            'deleted_count': total_conversations_deleted,
-            'messages_deleted': total_messages_deleted
-        })
-        
+        conv_res = sb_admin.table('conversations').select('conversation_id').eq('buyer_email', buyer_email).execute()
+        for c in (conv_res.data or []):
+            sb_admin.table('buyer_seller_messages').delete().eq('conversation_id', c['conversation_id']).execute()
+        sb_admin.table('conversations').delete().eq('buyer_email', buyer_email).execute()
+        orders_res = sb_admin.table('orders').select('id').eq('email', buyer_email).execute()
+        for o in (orders_res.data or []):
+            sb_admin.table('buyer_rider_messages').delete().eq('order_id', o['id']).execute()
+        return jsonify({'success': True, 'message': 'All conversations deleted successfully'})
     except Exception as e:
-        print(f"Error deleting all buyer conversations: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/messages/send-seller-reply', methods=['POST'])
@@ -15882,37 +10745,25 @@ def send_seller_reply():
         if not conversation_id:
             conversation_id = f"{buyer_email}_{seller_email}_{product_id if product_id else 'general'}"
         
+        # Upsert conversation in Supabase
+        sb_admin.table('conversations').upsert({
+            'conversation_id': conversation_id, 'buyer_email': buyer_email,
+            'seller_email': seller_email, 'product_id': product_id, 'order_id': order_id,
+            'last_message_at': datetime.now().isoformat(),
+        }, on_conflict='conversation_id').execute()
         # Insert message
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        # Create conversation if it doesn't exist
-        cursor.execute("""
-            INSERT INTO conversations (conversation_id, buyer_email, seller_email, product_id, order_id, last_message_at)
-            VALUES (%s, %s, %s, %s, %s, CURRENT_TIMESTAMP)
-            ON DUPLICATE KEY UPDATE last_message_at = CURRENT_TIMESTAMP
-        """, (conversation_id, buyer_email, seller_email, product_id, order_id))
-        
-        # Insert message
-        cursor.execute("""
-            INSERT INTO buyer_seller_messages 
-            (conversation_id, sender_email, receiver_email, sender_type, message_text)
-            VALUES (%s, %s, %s, %s, %s)
-        """, (conversation_id, seller_email, buyer_email, 'seller', message_text))
-        
-        connection.commit()
-        message_id = cursor.lastrowid
-        
-        # Get seller name for notification
-        cursor.execute("SELECT business_name FROM users WHERE email = %s", (seller_email,))
-        seller_result = cursor.fetchone()
-        seller_name = seller_result[0] if seller_result else 'Seller'
-        
-        cursor.close()
-        connection.close()
-        
-        # Create notification for buyer (optional - you can implement this later)
-        print(f"? Seller {seller_name} sent message to buyer {buyer_email}")
+        ins = sb_admin.table('buyer_seller_messages').insert({
+            'conversation_id': conversation_id, 'sender_email': seller_email,
+            'receiver_email': buyer_email, 'sender_type': 'seller', 'message_text': message_text,
+        }).execute()
+        message_id = ins.data[0]['id'] if ins.data else None
+        # Get seller name
+        sn_res = sb_admin.table('users').select('business_name, first_name, last_name').eq('email', seller_email).limit(1).execute()
+        seller_name = 'Seller'
+        if sn_res.data:
+            u = sn_res.data[0]
+            seller_name = u.get('business_name') or f"{u.get('first_name','')} {u.get('last_name','')}".strip() or 'Seller'
+        print(f"Seller {seller_name} sent message to buyer {buyer_email}")
         
         return jsonify({
             'success': True,
@@ -15928,124 +10779,44 @@ def send_seller_reply():
 
 @app.route('/api/buyer/messages', methods=['GET'])
 def get_buyer_messages():
-    """Get all conversations for buyer (both seller and rider conversations)"""
-    # Check if user is logged in
     if 'email' not in session:
         return jsonify({'success': False, 'error': 'Please login first'}), 401
-    
     try:
         buyer_email = session.get('email')
-        
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        # Get seller conversations for buyer
-        cursor.execute("""
-            SELECT DISTINCT 
-                c.conversation_id, 
-                c.seller_email, 
-                c.product_id,
-                c.order_id,
-                c.last_message_at,
-                p.name as product_name,
-                u.business_name as seller_name,
-                (SELECT COUNT(*) FROM buyer_seller_messages 
-                 WHERE conversation_id = c.conversation_id 
-                 AND receiver_email = %s AND is_read = FALSE) as unread_count,
-                (SELECT message_text FROM buyer_seller_messages 
-                 WHERE conversation_id = c.conversation_id 
-                 ORDER BY created_at DESC LIMIT 1) as last_message,
-                u.profile_picture as seller_profile_picture,
-                'seller' as conversation_type
-            FROM conversations c
-            LEFT JOIN products p ON c.product_id = p.id
-            LEFT JOIN users u ON c.seller_email = u.email
-            WHERE c.buyer_email = %s
-            ORDER BY c.last_message_at DESC
-        """, (buyer_email, buyer_email))
-        
-        seller_conversations = cursor.fetchall()
-        
-        # Get rider conversations for buyer (from orders with messages)
-        cursor.execute("""
-            SELECT DISTINCT 
-                CONCAT('rider_order_', m.order_id) as conversation_id,
-                o.rider_email,
-                m.order_id,
-                MAX(m.created_at) as last_message_at,
-                CONCAT('Order #', m.order_id) as order_info,
-                CONCAT(u.first_name, ' ', u.last_name) as rider_name,
-                (SELECT COUNT(*) FROM buyer_rider_messages 
-                 WHERE order_id = m.order_id 
-                 AND receiver_email = %s AND is_read = FALSE) as unread_count,
-                (SELECT message FROM buyer_rider_messages 
-                 WHERE order_id = m.order_id 
-                 ORDER BY created_at DESC LIMIT 1) as last_message,
-                u.profile_picture as rider_profile_picture,
-                'rider' as conversation_type
-            FROM buyer_rider_messages m
-            INNER JOIN orders o ON m.order_id = o.id
-            LEFT JOIN users u ON o.rider_email = u.email
-            WHERE o.email = %s
-            GROUP BY m.order_id, o.rider_email, u.first_name, u.last_name, u.profile_picture
-        """, (buyer_email, buyer_email))
-        
-        rider_conversations = cursor.fetchall()
-        
-        cursor.close()
-        connection.close()
-        
-        # Format and combine conversations
-        formatted_conversations = []
-        
-        # Add seller conversations
-        for conv in seller_conversations:
-            formatted_conversations.append({
-                'conversation_id': conv[0],
-                'seller_email': conv[1],
-                'product_id': conv[2],
-                'order_id': conv[3],
-                'last_message_at': conv[4].isoformat() if conv[4] else None,
-                'product_name': conv[5],
-                'seller_name': conv[6] or 'Seller',
-                'unread_count': conv[7],
-                'last_message': conv[8],
-                'seller_profile_picture': conv[9],
-                'conversation_type': 'seller'
+        conv_res = sb_admin.table('conversations').select('*').eq('buyer_email', buyer_email).order('last_message_at', desc=True).limit(20).execute()
+        conversations = conv_res.data or []
+        product_ids = list({c['product_id'] for c in conversations if c.get('product_id')})
+        prod_map = {}
+        if product_ids:
+            pr = sb_admin.table('products').select('id, name').in_('id', product_ids).execute()
+            prod_map = {p['id']: p['name'] for p in (pr.data or [])}
+        seller_emails = list({c['seller_email'] for c in conversations if c.get('seller_email')})
+        seller_map = {}
+        if seller_emails:
+            sr = sb_admin.table('users').select('email, business_name, first_name, last_name, profile_picture').in_('email', seller_emails).execute()
+            for u in (sr.data or []):
+                seller_map[u['email']] = u
+        formatted = []
+        for c in conversations:
+            se = c.get('seller_email', '')
+            seller = seller_map.get(se, {})
+            seller_name = seller.get('business_name') or f"{seller.get('first_name','')} {seller.get('last_name','')}".strip() or 'Seller'
+            try:
+                unread = sb_admin.table('buyer_seller_messages').select('id', count='exact').eq('conversation_id', c['conversation_id']).eq('receiver_email', buyer_email).eq('is_read', False).execute()
+                unread_count = unread.count or 0
+            except Exception:
+                unread_count = 0
+            formatted.append({
+                'conversation_id': c['conversation_id'], 'seller_email': se,
+                'product_id': c.get('product_id'), 'order_id': c.get('order_id'),
+                'last_message_at': str(c.get('last_message_at') or ''),
+                'product_name': prod_map.get(c.get('product_id'), ''),
+                'seller_name': seller_name, 'unread_count': unread_count,
+                'last_message': '', 'seller_profile_picture': seller.get('profile_picture'),
+                'conversation_type': 'seller',
             })
-        
-        # Add rider conversations
-        for conv in rider_conversations:
-            formatted_conversations.append({
-                'conversation_id': conv[0],
-                'rider_email': conv[1],
-                'order_id': conv[2],
-                'last_message_at': conv[3].isoformat() if conv[3] else None,
-                'product_name': conv[4],  # Using order info as product_name for consistency
-                'seller_name': conv[5] or 'Rider',  # Using rider_name as seller_name for consistency
-                'unread_count': conv[6],
-                'last_message': conv[7],
-                'seller_profile_picture': conv[8],  # Using rider picture
-                'conversation_type': 'rider',
-                'rider_name': conv[5] or 'Rider',
-                'rider_profile_picture': conv[8]
-            })
-        
-        # Sort all conversations by last_message_at
-        formatted_conversations.sort(key=lambda x: x['last_message_at'] or '', reverse=True)
-        
-        # Limit to 20 most recent
-        formatted_conversations = formatted_conversations[:20]
-        
-        return jsonify({
-            'success': True,
-            'conversations': formatted_conversations
-        })
-        
+        return jsonify({'success': True, 'conversations': formatted})
     except Exception as e:
-        print(f"Error getting buyer messages: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/api/buyer/rider-messages', methods=['GET'])
@@ -16148,235 +10919,91 @@ def send_buyer_rider_message():
 
 @app.route('/get_buyer_seller_messages_order', methods=['GET'])
 def get_buyer_seller_messages_order():
-    """Get chat messages between buyer and seller for a specific order"""
     if 'email' not in session:
         return jsonify({'success': False, 'error': 'Please login first'}), 401
-    
     try:
-        buyer_email = request.args.get('buyer_email')
+        buyer_email  = request.args.get('buyer_email')
         seller_email = request.args.get('seller_email')
-        order_id = request.args.get('order_id')
-        
-        if not buyer_email or not seller_email or not order_id:
+        order_id     = request.args.get('order_id')
+        if not all([buyer_email, seller_email, order_id]):
             return jsonify({'success': False, 'error': 'Missing required parameters'}), 400
-        
-        # Verify the user is either the buyer or seller
         session_email = session.get('email')
         if session_email not in [buyer_email, seller_email]:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-        
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # Verify the order exists and belongs to this buyer-seller pair
-        cursor.execute("""
-            SELECT id FROM orders
-            WHERE id = %s AND email = %s AND seller_email = %s
-        """, (order_id, buyer_email, seller_email))
-        
-        order = cursor.fetchone()
-        if not order:
-            cursor.close()
-            connection.close()
-            return jsonify({'success': False, 'error': 'Order not found'}), 404
-        
-        # Get conversation ID (but don't create it yet - only create when first message is sent)
         conversation_id = f"order_{order_id}_{buyer_email}_{seller_email}"
-        
-        # Get messages for this conversation (if it exists)
-        cursor.execute("""
-            SELECT id, sender_email, receiver_email, message_text, 
-                   sender_type, is_read, created_at
-            FROM buyer_seller_messages
-            WHERE conversation_id = %s
-            ORDER BY created_at ASC
-        """, (conversation_id,))
-        
-        messages = cursor.fetchall()
-        
-        # Mark messages as read if user is the receiver
-        cursor.execute("""
-            UPDATE buyer_seller_messages
-            SET is_read = TRUE
-            WHERE conversation_id = %s AND receiver_email = %s AND is_read = FALSE
-        """, (conversation_id, session_email))
-        
-        connection.commit()
-        cursor.close()
-        connection.close()
-        
-        return jsonify({
-            'success': True,
-            'messages': messages,
-            'conversation_id': conversation_id
-        })
-        
+        msgs_res = sb_admin.table('buyer_seller_messages').select('id, sender_email, receiver_email, message_text, sender_type, is_read, created_at').eq('conversation_id', conversation_id).order('created_at').execute()
+        messages = msgs_res.data or []
+        # Mark as read
+        sb_admin.table('buyer_seller_messages').update({'is_read': True}).eq('conversation_id', conversation_id).eq('receiver_email', session_email).eq('is_read', False).execute()
+        return jsonify({'success': True, 'messages': messages, 'conversation_id': conversation_id})
     except Exception as e:
-        print(f"Error getting buyer-seller order messages: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/send_buyer_seller_message_order', methods=['POST'])
 def send_buyer_seller_message_order():
-    """Send a message from buyer to seller about a specific order"""
     if 'email' not in session:
         return jsonify({'success': False, 'error': 'Please login first'}), 401
-    
     try:
         data = request.get_json()
-        buyer_email = data.get('buyer_email')
+        buyer_email  = data.get('buyer_email')
         seller_email = data.get('seller_email')
-        order_id = data.get('order_id')
-        message = data.get('message')
-        
-        if not buyer_email or not seller_email or not order_id or not message:
+        order_id     = data.get('order_id')
+        message      = data.get('message')
+        if not all([buyer_email, seller_email, order_id, message]):
             return jsonify({'success': False, 'error': 'Missing required fields'}), 400
-        
-        # Verify the user is either the buyer or seller
         session_email = session.get('email')
         if session_email not in [buyer_email, seller_email]:
             return jsonify({'success': False, 'error': 'Unauthorized'}), 403
-        
-        # Determine sender and receiver
-        sender_email = session_email
+        sender_email   = session_email
         receiver_email = seller_email if sender_email == buyer_email else buyer_email
-        sender_type = 'buyer' if sender_email == buyer_email else 'seller'
-        
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        # Verify the order exists
-        cursor.execute("""
-            SELECT id FROM orders
-            WHERE id = %s AND email = %s AND seller_email = %s
-        """, (order_id, buyer_email, seller_email))
-        
-        order = cursor.fetchone()
-        if not order:
-            cursor.close()
-            connection.close()
-            return jsonify({'success': False, 'error': 'Order not found'}), 404
-        
-        # Get or create conversation with order_id
+        sender_type    = 'buyer' if sender_email == buyer_email else 'seller'
         conversation_id = f"order_{order_id}_{buyer_email}_{seller_email}"
-        
-        cursor.execute("""
-            SELECT id FROM conversations
-            WHERE conversation_id = %s
-        """, (conversation_id,))
-        
-        conversation = cursor.fetchone()
-        
-        if not conversation:
-            # Create new conversation with order_id
-            cursor.execute("""
-                INSERT INTO conversations 
-                (conversation_id, buyer_email, seller_email, order_id, created_at, last_message_at)
-                VALUES (%s, %s, %s, %s, NOW(), NOW())
-            """, (conversation_id, buyer_email, seller_email, order_id))
-        else:
-            # Update last_message_at
-            cursor.execute("""
-                UPDATE conversations
-                SET last_message_at = NOW()
-                WHERE conversation_id = %s
-            """, (conversation_id,))
-        
+        # Upsert conversation
+        sb_admin.table('conversations').upsert({
+            'conversation_id': conversation_id, 'buyer_email': buyer_email,
+            'seller_email': seller_email, 'order_id': order_id,
+            'last_message_at': datetime.now().isoformat(),
+        }, on_conflict='conversation_id').execute()
         # Insert message
-        cursor.execute("""
-            INSERT INTO buyer_seller_messages 
-            (conversation_id, sender_email, receiver_email, sender_type, message_text, created_at)
-            VALUES (%s, %s, %s, %s, %s, NOW())
-        """, (conversation_id, sender_email, receiver_email, sender_type, message))
-        
-        connection.commit()
-        cursor.close()
-        connection.close()
-        
-        return jsonify({
-            'success': True,
-            'message': 'Message sent successfully'
-        })
-        
+        sb_admin.table('buyer_seller_messages').insert({
+            'conversation_id': conversation_id, 'sender_email': sender_email,
+            'receiver_email': receiver_email, 'sender_type': sender_type, 'message_text': message,
+        }).execute()
+        return jsonify({'success': True, 'message': 'Message sent successfully'})
     except Exception as e:
-        print(f"Error sending buyer-seller order message: {e}")
-        import traceback
-        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 @app.route('/get_seller_name', methods=['GET'])
 def get_seller_name():
-    """Get seller name by email"""
     try:
-        seller_email = request.args.get('email')
-        
+        seller_email = request.args.get('email') or request.args.get('seller_email')
         if not seller_email:
             return jsonify({'success': False, 'error': 'Missing email parameter'}), 400
-        
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        cursor.execute("""
-            SELECT business_name, CONCAT(first_name, ' ', last_name) as full_name
-            FROM users
-            WHERE email = %s
-        """, (seller_email,))
-        
-        user = cursor.fetchone()
-        cursor.close()
-        connection.close()
-        
-        if user:
-            name = user['business_name'] if user['business_name'] else user['full_name']
-            return jsonify({
-                'success': True,
-                'name': name
-            })
-        else:
-            return jsonify({'success': False, 'error': 'Seller not found'}), 404
-        
+        res = sb_admin.table('users').select('business_name, first_name, last_name').eq('email', seller_email).limit(1).execute()
+        if res.data:
+            u = res.data[0]
+            name = u.get('business_name') or f"{u.get('first_name','')} {u.get('last_name','')}".strip() or seller_email
+            return jsonify({'success': True, 'name': name})
+        return jsonify({'success': False, 'error': 'Seller not found'})
     except Exception as e:
-        print(f"Error getting seller name: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': str(e)})
+
 
 @app.route('/get_seller_info', methods=['GET'])
 def get_seller_info():
-    """Get seller info including name and profile picture by email"""
     try:
-        seller_email = request.args.get('email')
-        
+        seller_email = request.args.get('email') or request.args.get('seller_email')
         if not seller_email:
             return jsonify({'success': False, 'error': 'Missing email parameter'}), 400
-        
-        connection = get_db_connection()
-        cursor = connection.cursor(dictionary=True)
-        
-        cursor.execute("""
-            SELECT business_name, CONCAT(first_name, ' ', last_name) as full_name, profile_picture
-            FROM users
-            WHERE email = %s
-        """, (seller_email,))
-        
-        user = cursor.fetchone()
-        cursor.close()
-        connection.close()
-        
-        if user:
-            name = user['business_name'] if user['business_name'] else user['full_name']
-            return jsonify({
-                'success': True,
-                'name': name,
-                'profile_picture': user['profile_picture']
-            })
-        else:
-            return jsonify({'success': False, 'error': 'Seller not found'}), 404
-        
+        res = sb_admin.table('users').select('business_name, first_name, last_name, profile_picture').eq('email', seller_email).limit(1).execute()
+        if res.data:
+            u = res.data[0]
+            name = u.get('business_name') or f"{u.get('first_name','')} {u.get('last_name','')}".strip() or seller_email
+            return jsonify({'success': True, 'name': name, 'profile_picture': u.get('profile_picture')})
+        return jsonify({'success': False, 'error': 'Seller not found'})
     except Exception as e:
-        print(f"Error getting seller info: {e}")
-        return jsonify({'success': False, 'error': str(e)}), 500
+        return jsonify({'success': False, 'error': str(e)})
 
-# ==================== SELLER-RIDER MESSAGING API ROUTES ====================
 
 @app.route('/api/messages/seller-rider-conversation', methods=['GET'])
 def get_seller_rider_conversation():
@@ -16561,61 +11188,44 @@ def get_rider_seller_conversation():
 
 @app.route('/messages')
 def messages_inbox():
-    """View all conversations (for both buyers and sellers)"""
-    # Check if user is logged in
     if 'email' not in session:
         flash('Please login first', 'warning')
         return redirect(url_for('login'))
-    
     try:
         user_email = session.get('email')
-        user_type = session.get('user_type')
-        
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        # Get all conversations for this user
+        user_type  = session.get('user_type', '').lower()
         if user_type == 'seller':
-            cursor.execute("""
-                SELECT DISTINCT c.conversation_id, c.buyer_email, c.seller_email, 
-                       c.product_id, c.last_message_at, p.name as product_name,
-                       u.first_name, u.last_name,
-                       (SELECT COUNT(*) FROM buyer_seller_messages 
-                        WHERE conversation_id = c.conversation_id 
-                        AND receiver_email = %s AND is_read = FALSE) as unread_count
-                FROM conversations c
-                LEFT JOIN products p ON c.product_id = p.id
-                LEFT JOIN users u ON c.buyer_email = u.email
-                WHERE c.seller_email = %s
-                ORDER BY c.last_message_at DESC
-            """, (user_email, user_email))
+            conv_res = sb_admin.table('conversations').select('*').eq('seller_email', user_email).order('last_message_at', desc=True).execute()
         else:
-            cursor.execute("""
-                SELECT DISTINCT c.conversation_id, c.buyer_email, c.seller_email, 
-                       c.product_id, c.last_message_at, p.name as product_name,
-                       s.business_name,
-                       (SELECT COUNT(*) FROM buyer_seller_messages 
-                        WHERE conversation_id = c.conversation_id 
-                        AND receiver_email = %s AND is_read = FALSE) as unread_count
-                FROM conversations c
-                LEFT JOIN products p ON c.product_id = p.id
-                LEFT JOIN sellers s ON c.seller_email = s.email
-                WHERE c.buyer_email = %s
-                ORDER BY c.last_message_at DESC
-            """, (user_email, user_email))
-        
-        conversations = cursor.fetchall()
-        cursor.close()
-        connection.close()
-        
-        return render_template('messages_inbox.html', 
-                             conversations=conversations,
-                             user_type=user_type)
-        
+            conv_res = sb_admin.table('conversations').select('*').eq('buyer_email', user_email).order('last_message_at', desc=True).execute()
+        conversations = conv_res.data or []
+        # Enrich with product names and unread counts
+        product_ids = list({c['product_id'] for c in conversations if c.get('product_id')})
+        prod_map = {}
+        if product_ids:
+            pr = sb_admin.table('products').select('id, name').in_('id', product_ids).execute()
+            prod_map = {p['id']: p['name'] for p in (pr.data or [])}
+        other_emails = list({c['buyer_email'] if user_type == 'seller' else c['seller_email'] for c in conversations})
+        user_map = {}
+        if other_emails:
+            ur = sb_admin.table('users').select('email, first_name, last_name, business_name').in_('email', other_emails).execute()
+            user_map = {u['email']: u for u in (ur.data or [])}
+        for c in conversations:
+            c['product_name'] = prod_map.get(c.get('product_id'), '')
+            other_email = c['buyer_email'] if user_type == 'seller' else c['seller_email']
+            other = user_map.get(other_email, {})
+            c['first_name'] = other.get('first_name', '')
+            c['last_name']  = other.get('last_name', '')
+            c['business_name'] = other.get('business_name', '')
+            # Unread count
+            try:
+                unread = sb_admin.table('buyer_seller_messages').select('id', count='exact').eq('conversation_id', c['conversation_id']).eq('receiver_email', user_email).eq('is_read', False).execute()
+                c['unread_count'] = unread.count or 0
+            except Exception:
+                c['unread_count'] = 0
+        return render_template('messages_inbox.html', conversations=conversations, user_type=user_type)
     except Exception as e:
         print(f"Error loading messages inbox: {e}")
-        import traceback
-        traceback.print_exc()
         flash('Error loading messages', 'danger')
         return redirect(url_for('homepage'))
 
@@ -16669,275 +11279,10 @@ def debug_session():
     
     return html
 
-@app.route('/debug-conversations')
-def debug_conversations():
-    """Debug endpoint to see all conversations in database"""
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        # Get all conversations
-        cursor.execute("""
-            SELECT conversation_id, buyer_email, seller_email, product_id, last_message_at
-            FROM conversations
-            ORDER BY last_message_at DESC
-        """)
-        conversations = cursor.fetchall()
-        
-        # Get all messages
-        cursor.execute("""
-            SELECT id, conversation_id, sender_email, receiver_email, sender_type, message_text, created_at
-            FROM buyer_seller_messages
-            ORDER BY created_at DESC
-        """)
-        messages = cursor.fetchall()
-        
-        cursor.close()
-        connection.close()
-        
-        html = """
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Debug Conversations</title>
-            <style>
-                body { font-family: Arial, sans-serif; margin: 20px; }
-                table { border-collapse: collapse; width: 100%; margin: 20px 0; }
-                th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
-                th { background-color: #d4af37; color: white; }
-                tr:nth-child(even) { background-color: #f2f2f2; }
-                h2 { color: #1a1a1a; border-bottom: 2px solid #d4af37; padding-bottom: 10px; }
-            </style>
-        </head>
-        <body>
-            <h1>?? Debug Conversations & Messages</h1>
-            
-            <h2>Conversations Table</h2>
-            <table>
-                <tr>
-                    <th>Conversation ID</th>
-                    <th>Buyer Email</th>
-                    <th>Seller Email</th>
-                    <th>Product ID</th>
-                    <th>Last Message At</th>
-                </tr>
-        """
-        
-        for conv in conversations:
-            html += f"""
-                <tr>
-                    <td>{conv[0]}</td>
-                    <td>{conv[1]}</td>
-                    <td>{conv[2]}</td>
-                    <td>{conv[3] or 'N/A'}</td>
-                    <td>{conv[4]}</td>
-                </tr>
-            """
-        
-        html += """
-            </table>
-            
-            <h2>Messages Table</h2>
-            <table>
-                <tr>
-                    <th>ID</th>
-                    <th>Conversation ID</th>
-                    <th>Sender</th>
-                    <th>Receiver</th>
-                    <th>Type</th>
-                    <th>Message</th>
-                    <th>Created At</th>
-                </tr>
-        """
-        
-        for msg in messages:
-            html += f"""
-                <tr>
-                    <td>{msg[0]}</td>
-                    <td>{msg[1]}</td>
-                    <td>{msg[2]}</td>
-                    <td>{msg[3]}</td>
-                    <td>{msg[4]}</td>
-                    <td>{msg[5]}</td>
-                    <td>{msg[6]}</td>
-                </tr>
-            """
-        
-        html += """
-            </table>
-            <p><a href="/test-messaging-setup">Back to Status Page</a></p>
-        </body>
-        </html>
-        """
-        
-        return html
-        
-    except Exception as e:
-        import traceback
-        return f"<h2>Error:</h2><pre>{traceback.format_exc()}</pre>"
+# @app.route('/debug-conversations') removed (debug route)
 
-@app.route('/test-messaging-setup')
-def test_messaging_setup():
-    """Test if messaging tables exist and are working"""
-    try:
-        connection = get_db_connection()
-        cursor = connection.cursor()
-        
-        # Check if tables exist
-        cursor.execute("SHOW TABLES LIKE 'buyer_seller_messages'")
-        messages_table = cursor.fetchone()
-        
-        cursor.execute("SHOW TABLES LIKE 'conversations'")
-        conversations_table = cursor.fetchone()
-        
-        # Get sample data
-        message_count = 0
-        conversation_count = 0
-        
-        if messages_table:
-            cursor.execute("SELECT COUNT(*) FROM buyer_seller_messages")
-            message_count = cursor.fetchone()[0]
-        
-        if conversations_table:
-            cursor.execute("SELECT COUNT(*) FROM conversations")
-            conversation_count = cursor.fetchone()[0]
-        
-        cursor.close()
-        connection.close()
-        
-        result = f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Messaging System Status</title>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    max-width: 800px;
-                    margin: 50px auto;
-                    padding: 20px;
-                    background: #f5f5f5;
-                }}
-                .container {{
-                    background: white;
-                    padding: 30px;
-                    border-radius: 10px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                }}
-                h2 {{
-                    color: #1a1a1a;
-                    border-bottom: 3px solid #d4af37;
-                    padding-bottom: 10px;
-                }}
-                .status {{
-                    margin: 20px 0;
-                    padding: 15px;
-                    border-radius: 5px;
-                    background: #f8f9fa;
-                }}
-                .success {{
-                    color: #28a745;
-                    font-weight: bold;
-                }}
-                .error {{
-                    color: #dc3545;
-                    font-weight: bold;
-                }}
-                code {{
-                    background: #e9ecef;
-                    padding: 2px 6px;
-                    border-radius: 3px;
-                    font-family: monospace;
-                }}
-                ol {{
-                    line-height: 1.8;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h2>?? Messaging System Status</h2>
-                
-                <div class="status">
-                    <p><strong>buyer_seller_messages table:</strong> 
-                        <span class="{'success' if messages_table else 'error'}">
-                            {'? EXISTS' if messages_table else '? NOT FOUND'}
-                        </span>
-                    </p>
-                    <p><strong>conversations table:</strong> 
-                        <span class="{'success' if conversations_table else 'error'}">
-                            {'? EXISTS' if conversations_table else '? NOT FOUND'}
-                        </span>
-                    </p>
-                    <p><strong>Total messages:</strong> {message_count}</p>
-                    <p><strong>Total conversations:</strong> {conversation_count}</p>
-                </div>
-                
-                <h3>?? Instructions:</h3>
-                <ol>
-                    <li>If tables don't exist, run: <code>python create_messaging_tables.py</code></li>
-                    <li>Make sure you're logged in as a <strong>buyer</strong> to send messages</li>
-                    <li>Make sure you're logged in as a <strong>seller</strong> to view messages</li>
-                    <li>Go to a product page and click "Contact Seller" to test</li>
-                </ol>
-                
-                <h3>?? Quick Links:</h3>
-                <ul>
-                    <li><a href="/">Homepage</a></li>
-                    <li><a href="/login">Login</a></li>
-                    <li><a href="/messages">Messages Inbox</a></li>
-                </ul>
-            </div>
-        </body>
-        </html>
-        """
-        
-        return result
-        
-    except Exception as e:
-        import traceback
-        error_details = traceback.format_exc()
-        return f"""
-        <!DOCTYPE html>
-        <html>
-        <head>
-            <title>Messaging System Error</title>
-            <style>
-                body {{
-                    font-family: Arial, sans-serif;
-                    max-width: 800px;
-                    margin: 50px auto;
-                    padding: 20px;
-                    background: #f5f5f5;
-                }}
-                .container {{
-                    background: white;
-                    padding: 30px;
-                    border-radius: 10px;
-                    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-                }}
-                h2 {{
-                    color: #dc3545;
-                }}
-                pre {{
-                    background: #f8f9fa;
-                    padding: 15px;
-                    border-radius: 5px;
-                    overflow-x: auto;
-                }}
-            </style>
-        </head>
-        <body>
-            <div class="container">
-                <h2>? Error checking messaging setup</h2>
-                <pre>{error_details}</pre>
-                <p><a href="/">Back to Homepage</a></p>
-            </div>
-        </body>
-        </html>
-        """
+# /test-messaging-setup removed
 
-# -- Admin: Migrate local product images to Supabase Storage ------------------
 @app.route('/admin/migrate-product-images', methods=['GET', 'POST'])
 def migrate_product_images():
     """
@@ -17024,68 +11369,17 @@ def migrate_product_images():
     })
 
 if __name__ == '__main__':
-    # Auth is now handled by Supabase � MySQL is optional for products/orders/etc.
-    # Try to init MySQL tables but don't block startup if MySQL is unavailable.
-    try:
-        if check_database_connection():
-            initialize_database_tables()
-            add_cancellation_columns()
-            print("? MySQL connected and tables initialized")
-        else:
-            print("??  MySQL unavailable � running in Supabase-only mode (auth/users via Supabase)")
-    except Exception as _e:
-        print(f"??  MySQL init skipped: {_e}")
-
-    # -- Sync MySQL wishlist ? Supabase on startup -----------------------------
-    def _sync_wishlist_to_supabase():
-        """One-time sync: copy all MySQL wishlist rows into Supabase wishlist table."""
-        try:
-            conn = get_db_connection()
-            cursor = conn.cursor(dictionary=True)
-            cursor.execute("SELECT user_id, product_id FROM wishlist")
-            rows = cursor.fetchall()
-            cursor.close(); conn.close()
-            if not rows:
-                print("? Wishlist sync: MySQL wishlist is empty, nothing to sync")
-                return
-            # Get existing Supabase wishlist rows to avoid duplicates
-            existing_res = sb_admin.table('wishlist').select('user_id, product_id').execute()
-            existing_set = {(r['user_id'], r['product_id']) for r in (existing_res.data or [])}
-            new_records = [
-                {'user_id': r['user_id'], 'product_id': r['product_id']}
-                for r in rows
-                if (r['user_id'], r['product_id']) not in existing_set
-            ]
-            if not new_records:
-                print(f"? Wishlist sync: all {len(rows)} rows already in Supabase")
-                return
-            # Insert in batches of 100
-            for i in range(0, len(new_records), 100):
-                batch = new_records[i:i+100]
-                sb_admin.table('wishlist').insert(batch).execute()
-            print(f"? Wishlist sync: {len(new_records)} new rows synced MySQL ? Supabase")
-        except Exception as _sync_err:
-            print(f"??  Wishlist sync skipped: {_sync_err}")
-    try:
-        _sync_wishlist_to_supabase()
-    except Exception:
-        pass
-    # -------------------------------------------------------------------------
-
-    # -- Ensure Supabase Storage bucket for product images exists -------------
+    # Supabase-only mode - no MySQL initialization needed
+    # Ensure Supabase Storage bucket for product images exists
     try:
         buckets = [b.name for b in sb_admin.storage.list_buckets()]
         if 'product-images' not in buckets:
-            sb_admin.storage.create_bucket(
-                'product-images',
-                options={'public': True}
-            )
-            print("? Created Supabase Storage bucket: product-images (public)")
+            sb_admin.storage.create_bucket('product-images', options={'public': True})
+            print("Created Supabase Storage bucket: product-images (public)")
         else:
-            print("? Supabase Storage bucket 'product-images' already exists")
+            print("Supabase Storage bucket 'product-images' already exists")
     except Exception as _bucket_err:
-        print(f"??  Could not verify/create product-images bucket: {_bucket_err}")
-    # -------------------------------------------------------------------------
+        print(f"Could not verify/create product-images bucket: {_bucket_err}")
 
     app.run(
         host="0.0.0.0",
