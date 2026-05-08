@@ -31,6 +31,14 @@ app.config['PERMANENT_SESSION_LIFETIME'] = timedelta(days=1)
 # Add min and max functions to Jinja2 environment
 app.jinja_env.globals.update(min=min, max=max)
 
+# Show real errors in production logs
+import traceback as _tb
+
+@app.errorhandler(500)
+def internal_error(e):
+    _tb.print_exc()
+    return f"<h1>500 Internal Server Error</h1><pre>{_tb.format_exc()}</pre>", 500
+
 # -- Jinja2 filter: resolve product image to a web-accessible URL -------------
 def product_image_url(image_value):
     """
@@ -263,6 +271,37 @@ def get_user_name_from_session(default='User'):
     except Exception as e:
         print(f"?? get_user_name_from_session error: {e}")
     return default
+
+
+def _resolve_wishlist_user_id(email):
+    """Resolve a numeric user_id for the wishlist table from a user email."""
+    import hashlib
+    try:
+        res = sb_admin.table('users').select('id').eq('email', email).limit(1).execute()
+        if res.data:
+            raw_id = res.data[0].get('id')
+            try:
+                return int(raw_id)
+            except (ValueError, TypeError):
+                pass
+    except Exception as e:
+        print(f"_resolve_wishlist_user_id error: {e}")
+    # Fallback: deterministic hash of email
+    return int(hashlib.md5(email.lower().encode()).hexdigest()[:8], 16) & 0x7FFFFFFF
+
+
+def _get_wishlist_ids():
+    """Return a set of product IDs in the current user's wishlist."""
+    email = session.get('email')
+    if not email:
+        return set()
+    try:
+        user_id = _resolve_wishlist_user_id(email)
+        res = sb_admin.table('wishlist').select('product_id').eq('user_id', user_id).execute()
+        return {str(r['product_id']) for r in (res.data or [])}
+    except Exception as e:
+        print(f"_get_wishlist_ids error: {e}")
+        return set()
 
 # Add proper cleanup on app shutdown
 @app.teardown_appcontext

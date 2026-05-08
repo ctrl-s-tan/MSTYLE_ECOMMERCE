@@ -18,19 +18,31 @@ SUPABASE_ANON = os.environ.get(
     )
 )
 
-# Service role key — bypasses Row Level Security for admin operations.
-# Set SUPABASE_SERVICE_ROLE_KEY as an environment variable in Railway.
-# IMPORTANT: Keep this secret, never expose it to the browser/client.
 SUPABASE_SERVICE_ROLE = os.environ.get(
     'SUPABASE_SERVICE_ROLE_KEY',
     'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5ZGNuaG1ncW92a2V0anF2cG9lIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjIyNzgwMywiZXhwIjoyMDkxODAzODAzfQ.N7gBt1F2bLulJkD2Uh1nXaTvLkV2fiEAFvnN3qVLYAY'
 )
 
+# Retry client creation up to 3 times to handle transient DNS issues at startup
+import time as _time
+
+def _create_with_retry(url, key, retries=3, delay=2):
+    last_err = None
+    for attempt in range(retries):
+        try:
+            return create_client(url, key)
+        except Exception as e:
+            last_err = e
+            print(f"Supabase client creation attempt {attempt+1} failed: {e}")
+            if attempt < retries - 1:
+                _time.sleep(delay)
+    raise last_err
+
 # Default anon client (for auth operations)
-supabase: Client = create_client(SUPABASE_URL, SUPABASE_ANON)
+supabase: Client = _create_with_retry(SUPABASE_URL, SUPABASE_ANON)
 
 # Admin client — uses service role key, bypasses RLS.
 try:
-    supabase_admin: Client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
+    supabase_admin: Client = _create_with_retry(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
 except Exception:
     supabase_admin = supabase
