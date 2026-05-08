@@ -6246,11 +6246,137 @@ def admin_users():
 
 @app.route('/order_monitoring')
 def order_monitoring():
-    """Admin: redirect to pending_users for now."""
+    """Admin: order monitoring page."""
     if 'user_id' not in session or session.get('user_type') != 'Admin':
         flash('Access denied. Admin privileges required.', 'error')
         return redirect(url_for('login'))
-    return redirect(url_for('pending_users'))
+    try:
+        orders_res = sb_admin.table('orders').select('*').order('date', desc=True).limit(100).execute()
+        orders = orders_res.data or []
+        # Enrich with buyer/seller names
+        emails = set()
+        for o in orders:
+            for f in ('email', 'seller_email', 'rider_email'):
+                if o.get(f): emails.add(o[f])
+        user_map = {}
+        if emails:
+            ur = sb_admin.table('users').select('email, first_name, last_name, business_name').in_('email', list(emails)).execute()
+            for u in (ur.data or []):
+                fn = (u.get('first_name') or '').strip()
+                ln = (u.get('last_name') or '').strip()
+                biz = (u.get('business_name') or '').strip()
+                user_map[u['email']] = biz or f'{fn} {ln}'.strip() or u['email']
+        for o in orders:
+            o['buyer_name']  = user_map.get(o.get('email', ''), o.get('email', ''))
+            o['seller_name'] = user_map.get(o.get('seller_email', ''), o.get('seller_email', ''))
+            o['total_amount'] = float(o.get('total_price') or 0)
+            o['order_date']   = o.get('date', '')
+            o['order_status'] = o.get('status', '')
+            o['order_id']     = o['id']
+        stats = {
+            'total_orders':     len(orders),
+            'pending_orders':   sum(1 for o in orders if (o.get('status') or '').lower() == 'pending'),
+            'shipped_orders':   sum(1 for o in orders if (o.get('status') or '').lower() in ('shipped', 'for pickup', 'heading to seller')),
+            'delivered_orders': sum(1 for o in orders if (o.get('status') or '').lower() == 'delivered'),
+            'completed_orders': sum(1 for o in orders if (o.get('status') or '').lower() == 'completed'),
+            'cancelled_orders': sum(1 for o in orders if (o.get('status') or '').lower() == 'cancelled'),
+        }
+    except Exception as e:
+        print(f"order_monitoring error: {e}")
+        orders = []
+        stats = {k: 0 for k in ['total_orders','pending_orders','shipped_orders','delivered_orders','completed_orders','cancelled_orders']}
+    return render_template('order_monitoring.html', orders=orders, riders=[], stats=stats,
+                           current_page=1, total_pages=1, prev_page=None, next_page=None)
+
+
+@app.route('/product_management')
+def product_management():
+    """Admin: product management page."""
+    if 'user_id' not in session or session.get('user_type') != 'Admin':
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('login'))
+    search   = request.args.get('search', '').strip()
+    category = request.args.get('category', '').strip()
+    seller   = request.args.get('seller', '').strip()
+    status   = request.args.get('status', '').strip()
+    try:
+        q = sb_admin.table('products').select('*').order('id', desc=True)
+        if search:
+            q = q.ilike('name', f'%{search}%')
+        if category:
+            q = q.eq('category', category)
+        if seller:
+            q = q.ilike('seller_email', f'%{seller}%')
+        if status == 'active':
+            q = q.eq('is_active', True)
+        elif status == 'inactive':
+            q = q.eq('is_active', False)
+        res = q.execute()
+        products = res.data or []
+        for p in products:
+            p['price'] = float(p.get('price') or 0)
+            p['quantity'] = int(p.get('quantity') or 0)
+    except Exception as e:
+        print(f"product_management error: {e}")
+        products = []
+    return render_template('product_management.html', products=products,
+                           search=search, category=category, seller=seller, status=status)
+
+
+@app.route('/admin_issue_reports')
+def admin_issue_reports():
+    """Admin: issue reports page."""
+    if 'user_id' not in session or session.get('user_type') != 'Admin':
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('login'))
+    try:
+        res = sb_admin.table('order_issues').select('*').order('created_at', desc=True).execute()
+        issues = res.data or []
+    except Exception as e:
+        print(f"admin_issue_reports error: {e}")
+        issues = []
+    return render_template('admin_issue_reports.html', issues=issues)
+
+
+@app.route('/admin_reports_analytics')
+def admin_reports_analytics():
+    """Admin: reports and analytics page."""
+    if 'user_id' not in session or session.get('user_type') != 'Admin':
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('login'))
+    try:
+        orders_res = sb_admin.table('orders').select('id, total_price, status, date, seller_email').execute()
+        all_orders = orders_res.data or []
+        done = [o for o in all_orders if (o.get('status') or '').lower() in ('completed', 'delivered')]
+        total_revenue = sum(float(o.get('total_price') or 0) for o in done)
+        total_orders  = len(all_orders)
+        users_res = sb_admin.table('users').select('id', count='exact').execute()
+        total_users = users_res.count or 0
+        products_res = sb_admin.table('products').select('id', count='exact').execute()
+        total_products = products_res.count or 0
+    except Exception as e:
+        print(f"admin_reports_analytics error: {e}")
+        total_revenue = total_orders = total_users = total_products = 0
+    return render_template('admin_reports_analytics.html',
+                           total_revenue=f"{total_revenue:.2f}",
+                           total_orders=total_orders,
+                           total_users=total_users,
+                           total_products=total_products)
+
+
+@app.route('/archive_accounts')
+def archive_accounts():
+    """Admin: archived accounts page."""
+    if 'user_id' not in session or session.get('user_type') != 'Admin':
+        flash('Access denied. Admin privileges required.', 'error')
+        return redirect(url_for('login'))
+    try:
+        res = sb_admin.table('archived_users').select('*').order('archived_at', desc=True).execute()
+        archived = res.data or []
+    except Exception as e:
+        print(f"archive_accounts error: {e}")
+        archived = []
+    return render_template('archive_accounts.html', archived_users=archived)
 
 
 @app.route('/pending_users')
