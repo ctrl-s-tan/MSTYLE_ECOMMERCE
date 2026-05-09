@@ -6257,8 +6257,10 @@ def admin_users():
     status_filter = request.args.get('status', '').strip().lower()
 
     try:
+        print(f"[admin_users] Fetching users from Supabase with sb_admin...")
         users_res = sb_admin.table('users').select('*').order('id').execute()
         raw_users = users_res.data or []
+        print(f"[admin_users] Got {len(raw_users)} users from Supabase")
 
         # Normalize Supabase field names to match what the template expects
         users = []
@@ -6302,8 +6304,10 @@ def admin_users():
         seller_count  = sum(1 for u in users if u['user_type'].lower() == 'seller')
         rider_count   = sum(1 for u in users if u['user_type'].lower() == 'rider')
 
+        print(f"[admin_users] Returning {total_users} users to template")
+
     except Exception as e:
-        print(f"admin_users error: {e}")
+        print(f"[admin_users] ERROR: {e}")
         import traceback; traceback.print_exc()
         users = []
         total_users = buyer_count = seller_count = rider_count = 0
