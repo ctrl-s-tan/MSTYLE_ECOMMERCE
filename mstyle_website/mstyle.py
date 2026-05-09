@@ -5535,11 +5535,13 @@ def orders_list():
                 for p in (pr.data or []):
                     pid_key = int(p['id'])
                     product_price_map[pid_key] = float(p.get('price') or 0)
-                    # Get first image URL from the product
+                    # Store image and image_colors for color-matched lookup
                     raw_img = (p.get('image') or '').strip()
-                    if raw_img:
-                        first_img = raw_img.split(',')[0].strip()
-                        product_image_map[pid_key] = first_img
+                    image_colors_raw = p.get('image_colors') or ''
+                    product_image_map[pid_key] = {
+                        'image': raw_img,
+                        'image_colors': image_colors_raw,
+                    }
                 print(f"✅ product_price_map: {product_price_map}")
             except Exception as e:
                 print(f"❌ product price/image fetch error: {e}")
@@ -5636,21 +5638,45 @@ def orders_list():
             else:
                 o['date'] = ''
 
-            # Image - resolve URL: prefer order.image if full URL,
-            # otherwise use product image from Supabase
+            # Image - resolve URL: use color-matched image from product's image_colors
             raw_img = (o.get('image') or '').strip()
-            _pid = o.get('product_id')
+            _pid    = o.get('product_id')
+            selected_color = (o.get('variations') or '').strip().lower()
+
+            resolved_url = ''
+
             if raw_img.startswith('http://') or raw_img.startswith('https://'):
-                o['image_url'] = raw_img
-                o['image']     = ''
+                # Order already has a full URL image
+                resolved_url = raw_img
             elif _pid and int(_pid) in product_image_map:
-                prod_img = product_image_map[int(_pid)]
-                if prod_img.startswith('http://') or prod_img.startswith('https://'):
-                    o['image_url'] = prod_img
-                    o['image']     = ''
-                else:
-                    o['image_url'] = ''
-                    o['image']     = prod_img
+                prod_data = product_image_map[int(_pid)]
+                image_colors_raw = prod_data.get('image_colors') or ''
+                all_images_raw   = prod_data.get('image') or ''
+
+                # Try to find color-matched image using _parse_image_colors_dict
+                if selected_color and image_colors_raw:
+                    color_map = _parse_image_colors_dict(image_colors_raw, all_images_raw)
+                    matched = color_map.get(selected_color)
+                    if not matched:
+                        # Try partial match
+                        for k, v in color_map.items():
+                            if selected_color in k or k in selected_color:
+                                matched = v
+                                break
+                    if matched:
+                        resolved_url = matched
+
+                # Fallback: use first image
+                if not resolved_url and all_images_raw:
+                    first_img = all_images_raw.split(',')[0].strip()
+                    resolved_url = first_img
+
+            if resolved_url.startswith('http://') or resolved_url.startswith('https://'):
+                o['image_url'] = resolved_url
+                o['image']     = ''
+            elif resolved_url:
+                o['image_url'] = ''
+                o['image']     = resolved_url
             else:
                 o['image_url'] = ''
                 # keep raw filename for url_for fallback
