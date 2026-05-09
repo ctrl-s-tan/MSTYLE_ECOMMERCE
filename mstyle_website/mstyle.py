@@ -5522,20 +5522,27 @@ def orders_list():
             .execute()
         raw_orders = orders_res.data or []
 
-        # Batch-fetch product prices from products table
+        # Batch-fetch product prices AND images from products table
         product_ids = list({o.get('product_id') for o in raw_orders if o.get('product_id')})
         product_price_map = {}
+        product_image_map = {}
         if product_ids:
             try:
                 pr = sb_admin.table('products') \
-                    .select('id, price') \
+                    .select('id, price, image, image_colors') \
                     .in_('id', product_ids) \
                     .execute()
                 for p in (pr.data or []):
-                    product_price_map[int(p['id'])] = float(p.get('price') or 0)
+                    pid_key = int(p['id'])
+                    product_price_map[pid_key] = float(p.get('price') or 0)
+                    # Get first image URL from the product
+                    raw_img = (p.get('image') or '').strip()
+                    if raw_img:
+                        first_img = raw_img.split(',')[0].strip()
+                        product_image_map[pid_key] = first_img
                 print(f"✅ product_price_map: {product_price_map}")
             except Exception as e:
-                print(f"❌ product price fetch error: {e}")
+                print(f"❌ product price/image fetch error: {e}")
 
         # Batch-fetch buyer info
         buyer_emails = list({o.get('email', '') for o in raw_orders if o.get('email')})
@@ -5629,11 +5636,21 @@ def orders_list():
             else:
                 o['date'] = ''
 
-            # Image � resolve URL
+            # Image - resolve URL: prefer order.image if full URL,
+            # otherwise use product image from Supabase
             raw_img = (o.get('image') or '').strip()
+            _pid = o.get('product_id')
             if raw_img.startswith('http://') or raw_img.startswith('https://'):
                 o['image_url'] = raw_img
                 o['image']     = ''
+            elif _pid and int(_pid) in product_image_map:
+                prod_img = product_image_map[int(_pid)]
+                if prod_img.startswith('http://') or prod_img.startswith('https://'):
+                    o['image_url'] = prod_img
+                    o['image']     = ''
+                else:
+                    o['image_url'] = ''
+                    o['image']     = prod_img
             else:
                 o['image_url'] = ''
                 # keep raw filename for url_for fallback
