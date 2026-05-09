@@ -6257,17 +6257,21 @@ def admin_users():
     try:
         print(f"[admin_users] Fetching users from Supabase with sb_admin...")
         import time as _time
+        from supabase_config import SUPABASE_URL, SUPABASE_SERVICE_ROLE
+        from supabase import create_client
         raw_users = []
-        for attempt in range(3):
+        for attempt in range(5):
             try:
-                users_res = sb_admin.table('users').select('*').order('id').execute()
+                # Create a fresh client each attempt to avoid stale connections
+                _client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
+                users_res = _client.table('users').select('*').order('id').execute()
                 raw_users = users_res.data or []
-                print(f"[admin_users] Got {len(raw_users)} users from Supabase")
+                print(f"[admin_users] Got {len(raw_users)} users from Supabase (attempt {attempt+1})")
                 break
             except Exception as retry_err:
                 print(f"[admin_users] ERROR attempt {attempt+1}: {retry_err}")
-                if attempt < 2:
-                    _time.sleep(2)
+                if attempt < 4:
+                    _time.sleep(3)
                 else:
                     raise
 
