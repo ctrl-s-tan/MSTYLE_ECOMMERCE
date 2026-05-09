@@ -12023,6 +12023,31 @@ def migrate_product_images():
         }
     })
 
+
+
+@app.route('/debug-orders')
+def debug_orders():
+    """Debug: show raw order date fields from Supabase"""
+    if session.get('user_type') not in ('Admin', 'Seller'):
+        return 'Admin/Seller only', 403
+    try:
+        seller_email = session.get('email')
+        res = sb_admin.table('orders') \
+            .select('id, status, date, delivered_at, received_at, cancelled_at') \
+            .eq('seller_email', seller_email) \
+            .in_('status', ['Completed', 'Cancelled']) \
+            .limit(10).execute()
+        rows = res.data or []
+        html = '<h2>Order Date Fields (raw from Supabase)</h2><table border=1 cellpadding=5>'
+        html += '<tr><th>ID</th><th>Status</th><th>date</th><th>delivered_at</th><th>received_at</th><th>cancelled_at</th></tr>'
+        for r in rows:
+            html += f"<tr><td>{r['id']}</td><td>{r['status']}</td><td>{r.get('date','NULL')}</td><td>{r.get('delivered_at','NULL')}</td><td>{r.get('received_at','NULL')}</td><td>{r.get('cancelled_at','NULL')}</td></tr>"
+        html += '</table>'
+        return html
+    except Exception as e:
+        import traceback
+        return f"<pre>Error: {e}\n{traceback.format_exc()}</pre>"
+
 if __name__ == '__main__':
     # Supabase-only mode - no MySQL initialization needed
     # Ensure Supabase Storage bucket for product images exists
