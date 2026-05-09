@@ -7805,11 +7805,21 @@ def cart():
         # Batch-fetch product images for color matching
         product_ids = list({item.get('product_id') for item in raw_items if item.get('product_id')})
         prod_img_map = {}
+        seller_emails_from_cart = list({item.get('seller_email') for item in raw_items if item.get('seller_email')})
+        seller_name_map = {}
         if product_ids:
             try:
                 pr = sb_admin.table('products').select('id, image, image_colors').in_('id', product_ids).execute()
                 for p in (pr.data or []):
                     prod_img_map[p['id']] = {'image': p.get('image',''), 'image_colors': p.get('image_colors','')}
+            except Exception:
+                pass
+        if seller_emails_from_cart:
+            try:
+                sr = sb_admin.table('users').select('email, business_name, first_name, last_name').in_('email', seller_emails_from_cart).execute()
+                for s in (sr.data or []):
+                    biz = s.get('business_name') or f"{s.get('first_name','')} {s.get('last_name','')}".strip() or s['email']
+                    seller_name_map[s['email']] = biz
             except Exception:
                 pass
 
@@ -7844,6 +7854,7 @@ def cart():
                 'quantity': int(item.get('quantity') or 1),
                 'variations': item.get('variations',''), 'size': item.get('size',''),
                 'image': cart_image, 'seller_email': item.get('seller_email',''),
+                'seller_name': seller_name_map.get(item.get('seller_email',''), item.get('seller_email','')),
                 'product_id': pid,
                 'image_url': first_image_url,
                 'first_image_url': first_image_url,

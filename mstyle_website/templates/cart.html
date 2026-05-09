@@ -72,6 +72,12 @@
                         </div>
                         {% endif %}
                         <div class="item-details">
+                            {% if item.seller_name %}
+                            <div style="font-size:11px;color:#6c757d;margin-bottom:2px;display:flex;align-items:center;gap:4px;">
+                                <i class="bi bi-shop" style="font-size:10px;"></i>
+                                <span>{{ item.seller_name }}</span>
+                            </div>
+                            {% endif %}
                             <h3 class="item-name"><a href="{{ view_url }}" style="color:inherit;text-decoration:none;">{{ item.name }}</a></h3>
                             <p class="item-price">₱{{ "%.2f"|format(item.price) }}</p>
                             {% if item.variations or item.size %}
