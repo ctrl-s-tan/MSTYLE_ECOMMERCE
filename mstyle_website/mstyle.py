@@ -6256,9 +6256,20 @@ def admin_users():
 
     try:
         print(f"[admin_users] Fetching users from Supabase with sb_admin...")
-        users_res = sb_admin.table('users').select('*').order('id').execute()
-        raw_users = users_res.data or []
-        print(f"[admin_users] Got {len(raw_users)} users from Supabase")
+        import time as _time
+        raw_users = []
+        for attempt in range(3):
+            try:
+                users_res = sb_admin.table('users').select('*').order('id').execute()
+                raw_users = users_res.data or []
+                print(f"[admin_users] Got {len(raw_users)} users from Supabase")
+                break
+            except Exception as retry_err:
+                print(f"[admin_users] ERROR attempt {attempt+1}: {retry_err}")
+                if attempt < 2:
+                    _time.sleep(2)
+                else:
+                    raise
 
         # Normalize Supabase field names to match what the template expects
         users = []
