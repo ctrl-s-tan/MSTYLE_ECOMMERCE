@@ -6255,25 +6255,44 @@ def admin_users():
     status_filter = request.args.get('status', '').strip().lower()
 
     try:
-        print(f"[admin_users] Fetching users from Supabase with sb_admin...")
+        print(f"[admin_users] Fetching users from Supabase...")
         import time as _time
-        from supabase_config import SUPABASE_URL, SUPABASE_SERVICE_ROLE
-        from supabase import create_client
+        import requests as _requests
         raw_users = []
+
+        # Try direct REST API with requests library (different HTTP stack than httpx)
+        supabase_url = os.environ.get('SUPABASE_URL', 'https://vydcnhmgqovketjqvpoe.supabase.co')
+        service_key  = os.environ.get('SUPABASE_SERVICE_ROLE_KEY',
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5ZGNuaG1ncW92a2V0anF2cG9lIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NjIyNzgwMywiZXhwIjoyMDkxODAzODAzfQ.N7gBt1F2bLulJkD2Uh1nXaTvLkV2fiEAFvnN3qVLYAY')
+
         for attempt in range(5):
             try:
-                # Create a fresh client each attempt to avoid stale connections
-                _client = create_client(SUPABASE_URL, SUPABASE_SERVICE_ROLE)
-                users_res = _client.table('users').select('*').order('id').execute()
-                raw_users = users_res.data or []
-                print(f"[admin_users] Got {len(raw_users)} users from Supabase (attempt {attempt+1})")
+                resp = _requests.get(
+                    f"{supabase_url}/rest/v1/users",
+                    headers={
+                        'apikey': service_key,
+                        'Authorization': f'Bearer {service_key}',
+                        'Content-Type': 'application/json',
+                    },
+                    params={'select': '*', 'order': 'id'},
+                    timeout=15
+                )
+                resp.raise_for_status()
+                raw_users = resp.json() or []
+                print(f"[admin_users] Got {len(raw_users)} users via REST (attempt {attempt+1})")
                 break
             except Exception as retry_err:
-                print(f"[admin_users] ERROR attempt {attempt+1}: {retry_err}")
+                print(f"[admin_users] REST attempt {attempt+1} failed: {retry_err}")
                 if attempt < 4:
                     _time.sleep(3)
                 else:
-                    raise
+                    # Last resort: try sb_admin
+                    try:
+                        users_res = sb_admin.table('users').select('*').order('id').execute()
+                        raw_users = users_res.data or []
+                    except Exception as sb_err:
+                        print(f"[admin_users] sb_admin also failed: {sb_err}")
+                        raw_users = []
 
         # Normalize Supabase field names to match what the template expects
         users = []
