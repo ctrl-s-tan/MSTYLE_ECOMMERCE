@@ -3746,6 +3746,75 @@ def seller_products_with_variants():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@app.route('/api/seller/update-variants', methods=['POST'])
+def seller_update_variants():
+    """API: update variant inventory stock quantities and sync products.quantity."""
+    if 'email' not in session or session.get('user_type', '').lower() != 'seller':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+
+    seller_email = session['email']
+    try:
+        data = request.get_json()
+        if not data:
+            return jsonify({'success': False, 'error': 'No data received'}), 400
+
+        product_id          = data.get('product_id')
+        variants            = data.get('variants', [])
+        low_stock_threshold = int(data.get('low_stock_threshold') or 5)
+
+        if not product_id:
+            return jsonify({'success': False, 'error': 'product_id is required'}), 400
+
+        # Verify product belongs to this seller
+        prod_res = sb_admin.table('products').select('id').eq('id', product_id).eq('seller_email', seller_email).limit(1).execute()
+        if not prod_res.data:
+            return jsonify({'success': False, 'error': 'Product not found or access denied'}), 404
+
+        total_stock = 0
+        for v in variants:
+            color     = (v.get('color') or '').strip()
+            size      = (v.get('size') or '').strip()
+            qty       = int(v.get('stock_quantity') or 0)
+            threshold = int(v.get('low_stock_threshold') or low_stock_threshold)
+            total_stock += qty
+
+            # Upsert variant row
+            sb_admin.table('variant_inventory').upsert({
+                'product_id':          product_id,
+                'color':               color,
+                'size':                size,
+                'stock_quantity':      qty,
+                'low_stock_threshold': threshold,
+            }, on_conflict='product_id,color,size').execute()
+
+            # Stock level notifications
+            check_and_notify_stock_levels(
+                product_id=str(product_id),
+                seller_email=seller_email,
+                new_quantity=qty,
+                threshold=threshold,
+                product_name=data.get('product_name', ''),
+                variant_info={'color': color, 'size': size} if (color or size) else None,
+            )
+
+        # Sync products.quantity = sum of all variant stocks
+        sb_admin.table('products').update({
+            'quantity':            total_stock,
+            'low_stock_threshold': low_stock_threshold,
+        }).eq('id', product_id).execute()
+
+        return jsonify({
+            'success': True,
+            'message': f'Variants updated. Total stock: {total_stock}',
+            'total_stock': total_stock,
+        })
+
+    except Exception as e:
+        print(f"seller_update_variants error: {e}")
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/seller_reviews')
 def seller_reviews():
     """Seller Reviews & Ratings page - powered by Supabase"""
@@ -5304,7 +5373,7 @@ def test_sizes_update(product_id):
     if 'email' not in session:
         return jsonify({'error': 'Not logged in'}), 401
     
-    # MySQL update_variants removed
+    # MySQL update_variants removed — handled by /api/seller/update-variants
     return jsonify({'success': True, 'message': 'Variants updated successfully'})
 
 
