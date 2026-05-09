@@ -128,14 +128,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 UPLOAD_FOLDER = os.path.join(BASE_DIR, 'static', 'images', 'uploads')
 
 # Create upload directory if it doesn't exist
-if not os.path.exists(UPLOAD_FOLDER):
-    os.makedirs(UPLOAD_FOLDER)
+os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
 
-# Create upload directories if they don't exist
-os.makedirs(UPLOAD_FOLDER, exist_ok=True)
+# Create upload subdirectories
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'ids'), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'seller_docs'), exist_ok=True)
 os.makedirs(os.path.join(UPLOAD_FOLDER, 'rider_docs'), exist_ok=True)
