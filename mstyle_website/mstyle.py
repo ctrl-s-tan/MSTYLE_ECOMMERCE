@@ -3534,6 +3534,110 @@ def promotions():
                          user_name=seller_name,
                          user_email=session.get('email', 'Seller'))
 
+
+@app.route('/products')
+def products():
+    """Seller product management page."""
+    if 'email' not in session:
+        return redirect(url_for('home'))
+    if session.get('user_type', '').lower() != 'seller':
+        flash('Access denied. Seller privileges required.', 'error')
+        return redirect(url_for('login'))
+
+    seller_email = session['email']
+    search   = request.args.get('search', '').strip()
+    category = request.args.get('category', '').strip()
+    status   = request.args.get('status', '').strip()
+
+    seller_name = session.get('first_name', 'Seller')
+    try:
+        sb_res = sb_admin.table('users').select('first_name, last_name, business_name').eq('email', seller_email).execute()
+        if sb_res.data:
+            u = sb_res.data[0]
+            seller_name = u.get('business_name') or f"{u.get('first_name','')} {u.get('last_name','')}".strip() or 'Seller'
+    except Exception:
+        pass
+
+    try:
+        q = sb_admin.table('products').select('*').eq('seller_email', seller_email).order('id', desc=True)
+        if search:
+            q = q.ilike('name', f'%{search}%')
+        if category:
+            q = q.eq('category', category)
+        if status == 'active':
+            q = q.eq('is_active', True)
+        elif status == 'inactive':
+            q = q.eq('is_active', False)
+        res = q.execute()
+        seller_products = res.data or []
+        for p in seller_products:
+            p['price'] = float(p.get('price') or 0)
+            p['quantity'] = int(p.get('quantity') or 0)
+            p['sold'] = int(p.get('sold') or 0)
+    except Exception as e:
+        print(f"products route error: {e}")
+        seller_products = []
+
+    return render_template('products.html',
+                           products=seller_products,
+                           user_name=seller_name,
+                           user_email=seller_email,
+                           search=search,
+                           category=category,
+                           status=status)
+
+
+@app.route('/variant_inventory')
+def variant_inventory():
+    """Seller variant inventory page."""
+    if 'email' not in session:
+        return redirect(url_for('home'))
+    if session.get('user_type', '').lower() != 'seller':
+        flash('Access denied. Seller privileges required.', 'error')
+        return redirect(url_for('login'))
+
+    seller_email = session['email']
+    seller_name = session.get('first_name', 'Seller')
+
+    try:
+        # Get all products for this seller
+        prod_res = sb_admin.table('products').select('id, name, category, image').eq('seller_email', seller_email).order('name').execute()
+        seller_products = prod_res.data or []
+
+        # Get variant inventory for all seller products
+        product_ids = [p['id'] for p in seller_products]
+        variants = []
+        if product_ids:
+            vi_res = sb_admin.table('variant_inventory').select('*').in_('product_id', product_ids).execute()
+            variants = vi_res.data or []
+
+        # Map product names to variants
+        prod_map = {p['id']: p for p in seller_products}
+        for v in variants:
+            prod = prod_map.get(v.get('product_id'), {})
+            v['product_name'] = prod.get('name', 'Unknown')
+            v['product_image'] = prod.get('image', '')
+            v['stock_quantity'] = int(v.get('stock_quantity') or 0)
+            v['low_stock_threshold'] = int(v.get('low_stock_threshold') or 5)
+
+    except Exception as e:
+        print(f"variant_inventory error: {e}")
+        seller_products = []
+        variants = []
+
+    return render_template('variant_inventory.html',
+                           products=seller_products,
+                           variants=variants,
+                           user_name=seller_name,
+                           user_email=seller_email)
+
+
+@app.route('/add_product', methods=['GET', 'POST'])
+def add_product():
+    """Redirect to add_new_product for compatibility."""
+    return redirect(url_for('add_new_product'))
+
+
 @app.route('/seller_reviews')
 def seller_reviews():
     """Seller Reviews & Ratings page - powered by Supabase"""
