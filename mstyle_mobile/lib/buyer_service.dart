@@ -64,33 +64,38 @@ class BuyerService {
           .toList();
       if (sellerEmails.isNotEmpty) {
         try {
-          final sellerRes = await supabase
-              .from('users')
-              .select('email, business_name, first_name, last_name')
-              .inFilter('email', sellerEmails);
+          // Use admin REST call to bypass RLS on users table
+          final uri = Uri.parse('$supabaseUrl/rest/v1/users').replace(queryParameters: {
+            'select': 'email,business_name,first_name,last_name',
+            'email': 'in.(${sellerEmails.join(',')})',
+          });
+          final sellerRes = await http.get(uri, headers: {
+            'apikey': supabaseServiceRole,
+            'Authorization': 'Bearer $supabaseServiceRole',
+          });
+          final sellerList = sellerRes.statusCode == 200
+              ? List<Map<String, dynamic>>.from(jsonDecode(sellerRes.body) as List)
+              : <Map<String, dynamic>>[];
           final sellerMap = <String, String?>{};
-          for (final s in (sellerRes as List)) {
-            final email = s['email'] as String? ?? '';
-            final biz   = (s['business_name'] as String? ?? '').trim();
-            final first = (s['first_name']    as String? ?? '').trim();
-            final last  = (s['last_name']     as String? ?? '').trim();
+          for (final s in sellerList) {
+            final sEmail = s['email'] as String? ?? '';
+            final biz    = (s['business_name'] as String? ?? '').trim();
+            final first  = (s['first_name']    as String? ?? '').trim();
+            final last   = (s['last_name']     as String? ?? '').trim();
             final fullName = '$first $last'.trim();
-            // Only store a real name — never the raw email
-            sellerMap[email] = biz.isNotEmpty
-                ? biz
-                : fullName.isNotEmpty
-                    ? fullName
-                    : null;
+            sellerMap[sEmail] = biz.isNotEmpty ? biz : fullName.isNotEmpty ? fullName : null;
           }
           for (final item in items) {
             final se = item['seller_email'] as String? ?? '';
-            final name = sellerMap[se];
-            if (se.isNotEmpty && name != null) {
-              item['seller_name'] = name;
+            final sName = sellerMap[se];
+            if (se.isNotEmpty && sName != null) {
+              item['seller_name'] = sName;
             }
-            // If name is null, seller_name stays absent → Flutter won't show the row
           }
-        } catch (_) { /* seller_name stays null */ }
+          debugPrint('getCartItems: seller names resolved for ${sellerMap.length} sellers');
+        } catch (e) {
+          debugPrint('getCartItems seller name fetch error: $e');
+        }
       }
 
       return items;
@@ -815,6 +820,47 @@ class BuyerService {
           }
         } catch (e) {
           debugPrint('BuyerService.getProducts rating fetch error: $e');
+        }
+      }
+
+      // Batch-fetch seller names for all unique seller emails (admin REST — bypasses RLS)
+      if (filtered.isNotEmpty) {
+        try {
+          final sellerEmails = filtered
+              .map((p) => p['seller_email'] as String?)
+              .whereType<String>()
+              .where((e) => e.isNotEmpty)
+              .toSet()
+              .toList();
+          if (sellerEmails.isNotEmpty) {
+            final uri = Uri.parse('$supabaseUrl/rest/v1/users').replace(queryParameters: {
+              'select': 'email,business_name,first_name,last_name',
+              'email': 'in.(${sellerEmails.join(',')})',
+            });
+            final sellerRes = await http.get(uri, headers: {
+              'apikey': supabaseServiceRole,
+              'Authorization': 'Bearer $supabaseServiceRole',
+            });
+            final sellerList = sellerRes.statusCode == 200
+                ? List<Map<String, dynamic>>.from(jsonDecode(sellerRes.body) as List)
+                : <Map<String, dynamic>>[];
+            final sellerMap = <String, String?>{};
+            for (final s in sellerList) {
+              final sEmail = s['email'] as String? ?? '';
+              final biz    = (s['business_name'] as String? ?? '').trim();
+              final first  = (s['first_name']    as String? ?? '').trim();
+              final last   = (s['last_name']     as String? ?? '').trim();
+              final fullName = '$first $last'.trim();
+              sellerMap[sEmail] = biz.isNotEmpty ? biz : fullName.isNotEmpty ? fullName : null;
+            }
+            for (final p in filtered) {
+              final se = p['seller_email'] as String? ?? '';
+              final sName = sellerMap[se];
+              if (se.isNotEmpty && sName != null) p['seller_name'] = sName;
+            }
+          }
+        } catch (e) {
+          debugPrint('BuyerService.getProducts seller name fetch error: $e');
         }
       }
 
