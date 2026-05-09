@@ -177,17 +177,18 @@
                                 </td>
                                 <td>
                                     <div class="product-info">
-                                        {% if order.image_url %}
-                                        <img src="{{ order.image_url }}"
+                                        {% set img_src = order.image_url if order.image_url else (order.image|product_img if order.image else '') %}
+                                        {% if img_src %}
+                                        <img src="{{ img_src }}"
                                             alt="{{ order.name }}" class="product-image"
-                                            onerror="this.onerror=null;this.src='/static/images/placeholder.png';">
-                                        {% elif order.image %}
-                                        <img src="{{ order.image|product_img }}"
-                                            alt="{{ order.name }}" class="product-image"
-                                            onerror="this.onerror=null;this.src='/static/images/placeholder.png';">
+                                            style="width:50px;height:50px;object-fit:cover;border-radius:6px;"
+                                            onerror="this.onerror=null;this.style.display='none';this.nextElementSibling.style.display='flex';">
+                                        <div style="display:none;width:50px;height:50px;background:#f0f0f0;border-radius:6px;align-items:center;justify-content:center;">
+                                            <i class="bi bi-image" style="color:#adb5bd;font-size:1.2rem;"></i>
+                                        </div>
                                         {% else %}
-                                        <div class="product-image" style="background:#f0f0f0;display:flex;align-items:center;justify-content:center;width:50px;height:50px;border-radius:6px;">
-                                            <i class="bi bi-image" style="color:#adb5bd;"></i>
+                                        <div style="width:50px;height:50px;background:#f0f0f0;display:flex;align-items:center;justify-content:center;border-radius:6px;">
+                                            <i class="bi bi-image" style="color:#adb5bd;font-size:1.2rem;"></i>
                                         </div>
                                         {% endif %}
                                         <div class="product-name">{{ order.name }}</div>
