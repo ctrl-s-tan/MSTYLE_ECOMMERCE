@@ -242,7 +242,9 @@ class _BuyerCartPageState extends State<BuyerCartPage> {
     final imageRaw   = item['image'] as String?;
     final pid        = item['product_id'];
     final sellerEmail = item['seller_email'] as String? ?? '';
-    final sellerName  = item['seller_name'] as String? ?? sellerEmail;
+    // Use business name if available; never fall back to raw email for display
+    final sellerName  = (item['seller_name'] as String?)?.trim();
+    final showSeller  = sellerEmail.isNotEmpty && sellerName != null && sellerName.isNotEmpty;
     final productId  = pid is int ? pid : int.tryParse('$pid');
     final imageUrl   = imageRaw != null && imageRaw.trim().isNotEmpty
         ? buildImageUrl(imageRaw.split(',').first.trim())
@@ -294,25 +296,34 @@ class _BuyerCartPageState extends State<BuyerCartPage> {
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               // ── Seller name (clickable) ────────────────────────────────
-              if (sellerEmail.isNotEmpty)
+              if (showSeller)
                 GestureDetector(
                   onTap: () => Navigator.push(context, MaterialPageRoute(
                       builder: (_) => BuyerViewShopPage(
                         userEmail: widget.userEmail,
                         sellerEmail: sellerEmail,
                       ))),
-                  child: Text(
-                    sellerName,
-                    style: const TextStyle(
-                      color: _textLight,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.storefront_outlined, size: 10, color: _textLight),
+                      const SizedBox(width: 3),
+                      Flexible(
+                        child: Text(
+                          sellerName!,
+                          style: const TextStyle(
+                            color: _textLight,
+                            fontSize: 11,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
-              if (sellerEmail.isNotEmpty) const SizedBox(height: 2),
+              if (showSeller) const SizedBox(height: 2),
               // ── Clickable product name ─────────────────────────────────
               GestureDetector(
                 onTap: productId != null

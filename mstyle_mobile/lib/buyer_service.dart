@@ -68,23 +68,27 @@ class BuyerService {
               .from('users')
               .select('email, business_name, first_name, last_name')
               .inFilter('email', sellerEmails);
-          final sellerMap = <String, String>{};
+          final sellerMap = <String, String?>{};
           for (final s in (sellerRes as List)) {
             final email = s['email'] as String? ?? '';
             final biz   = (s['business_name'] as String? ?? '').trim();
             final first = (s['first_name']    as String? ?? '').trim();
             final last  = (s['last_name']     as String? ?? '').trim();
+            final fullName = '$first $last'.trim();
+            // Only store a real name — never the raw email
             sellerMap[email] = biz.isNotEmpty
                 ? biz
-                : '$first $last'.trim().isNotEmpty
-                    ? '$first $last'.trim()
-                    : email;
+                : fullName.isNotEmpty
+                    ? fullName
+                    : null;
           }
           for (final item in items) {
             final se = item['seller_email'] as String? ?? '';
-            if (se.isNotEmpty && sellerMap.containsKey(se)) {
-              item['seller_name'] = sellerMap[se];
+            final name = sellerMap[se];
+            if (se.isNotEmpty && name != null) {
+              item['seller_name'] = name;
             }
+            // If name is null, seller_name stays absent → Flutter won't show the row
           }
         } catch (_) { /* seller_name stays null */ }
       }
