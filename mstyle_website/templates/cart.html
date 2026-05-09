@@ -75,7 +75,11 @@
                             {% if item.seller_name %}
                             <div style="font-size:11px;color:#6c757d;margin-bottom:2px;display:flex;align-items:center;gap:4px;">
                                 <i class="bi bi-shop" style="font-size:10px;"></i>
+                                {% if item.seller_email %}
+                                <a href="{{ url_for('view_shop', seller_email=item.seller_email) }}" style="color:#6c757d;text-decoration:none;" onmouseover="this.style.color='#d4af37'" onmouseout="this.style.color='#6c757d'">{{ item.seller_name }}</a>
+                                {% else %}
                                 <span>{{ item.seller_name }}</span>
+                                {% endif %}
                             </div>
                             {% endif %}
                             <h3 class="item-name"><a href="{{ view_url }}" style="color:inherit;text-decoration:none;">{{ item.name }}</a></h3>
