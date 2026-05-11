@@ -171,6 +171,22 @@
                             <p>{{ review.review_text }}</p>
                         </div>
 
+                        <!-- Review Images -->
+                        {% if review.review_images %}
+                        <div class="review-images">
+                            {% for img_url in review.review_images.split(',') %}
+                                {% set img = img_url.strip() %}
+                                {% if img %}
+                                <img src="{{ img }}"
+                                     alt="Review photo"
+                                     class="review-photo"
+                                     onclick="openImageViewer('{{ img }}')"
+                                     onerror="this.style.display='none'">
+                                {% endif %}
+                            {% endfor %}
+                        </div>
+                        {% endif %}
+
                         <!-- Seller Response Section -->
                         {% if review.seller_response %}
                         <div class="seller-response">
@@ -220,6 +236,22 @@
         function viewOrder(orderId) {
             window.location.href = `/orders_list?order_id=${orderId}`;
         }
+
+        // ── Image Viewer ──────────────────────────────────────────────────
+        function openImageViewer(src) {
+            const overlay = document.getElementById('image-viewer-overlay');
+            const img = document.getElementById('image-viewer-img');
+            img.src = src;
+            overlay.classList.add('active');
+        }
+
+        function closeImageViewer() {
+            document.getElementById('image-viewer-overlay').classList.remove('active');
+        }
+
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape') closeImageViewer();
+        });
 
         function submitResponse(reviewId) {
             const textarea = document.getElementById(`response-text-${reviewId}`);
@@ -286,5 +318,83 @@
         }
     </script>
     <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+
+    <!-- Image Viewer Overlay -->
+    <div id="image-viewer-overlay" onclick="closeImageViewer()">
+        <button class="image-viewer-close" onclick="closeImageViewer()">
+            <i class="bi bi-x-lg"></i>
+        </button>
+        <img id="image-viewer-img" src="" alt="Review photo" onclick="event.stopPropagation()">
+    </div>
+
+    <style>
+        /* ── Review Images ── */
+        .review-images {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 16px;
+        }
+
+        .review-photo {
+            width: 80px;
+            height: 80px;
+            object-fit: cover;
+            border-radius: 10px;
+            border: 1px solid var(--border-color);
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+
+        .review-photo:hover {
+            transform: scale(1.06);
+            box-shadow: 0 6px 18px rgba(0,0,0,0.15);
+        }
+
+        /* ── Image Viewer Overlay ── */
+        #image-viewer-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.88);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        #image-viewer-overlay.active {
+            display: flex;
+        }
+
+        #image-viewer-img {
+            max-width: 90vw;
+            max-height: 88vh;
+            border-radius: 12px;
+            object-fit: contain;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+        }
+
+        .image-viewer-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.15);
+            border: none;
+            color: white;
+            font-size: 1.1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+
+        .image-viewer-close:hover {
+            background: rgba(255,255,255,0.3);
+        }
+    </style>
 </body>
 </html>

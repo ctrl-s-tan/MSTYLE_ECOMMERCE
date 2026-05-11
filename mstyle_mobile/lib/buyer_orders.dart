@@ -5,6 +5,7 @@ import 'buyer_service.dart';
 import 'product_image_carousel.dart' show buildImageUrl;
 import 'supabase_client.dart' show supabase;
 import 'buyer_vieworder_details.dart';
+import 'buyer_reviews.dart' show showReviewBottomSheet;
 
 const Color _primary   = Color(0xFF1a1a1a);
 const Color _accent    = Color(0xFF2c3e50);
@@ -69,6 +70,8 @@ class _BuyerOrdersPageState extends State<BuyerOrdersPage> {
   bool _loading = true;
   List<Map<String, dynamic>> _orders = [];
   StreamSubscription<List<Map<String, dynamic>>>? _ordersSub;
+  // Tracks which order IDs already have a review submitted
+  final Set<dynamic> _reviewedOrderIds = {};
 
   @override
   void initState() {
@@ -161,8 +164,32 @@ class _BuyerOrdersPageState extends State<BuyerOrdersPage> {
       }
 
       if (mounted) setState(() { _orders = data; _loading = false; });
+
+      // Fetch which completed orders already have a review
+      _loadReviewedOrders();
     } catch (e) {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _loadReviewedOrders() async {
+    try {
+      final completedIds = _orders
+          .where((o) => (o['status'] as String? ?? '').toLowerCase() == 'completed')
+          .map((o) => o['id'])
+          .toList();
+      if (completedIds.isEmpty) return;
+
+      final res = await supabase
+          .from('reviews')
+          .select('order_id')
+          .eq('customer_email', widget.userEmail)
+          .inFilter('order_id', completedIds);
+
+      final ids = (res as List).map((r) => r['order_id']).toSet();
+      if (mounted) setState(() => _reviewedOrderIds.addAll(ids));
+    } catch (e) {
+      debugPrint('_loadReviewedOrders error: $e');
     }
   }
 
@@ -425,23 +452,37 @@ class _BuyerOrdersPageState extends State<BuyerOrdersPage> {
                   ),
                 )
               else if (status == 'Completed')
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _showReviewDialog(order),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: _gold.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: _gold.withOpacity(0.3)),
-                    ),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.star_outline, size: 13, color: _gold),
-                      SizedBox(width: 5),
-                      Text('Leave Review', style: TextStyle(color: _gold, fontSize: 12, fontWeight: FontWeight.w700)),
-                    ]),
-                  ),
-                )
+                _reviewedOrderIds.contains(orderId)
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.green.withOpacity(0.3)),
+                      ),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.check_circle, size: 13, color: Colors.green),
+                        SizedBox(width: 5),
+                        Text('Reviewed', style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w700)),
+                      ]),
+                    )
+                  : GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _showReviewDialog(order),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: _gold.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: _gold.withOpacity(0.3)),
+                        ),
+                        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.star_outline, size: 13, color: _gold),
+                          SizedBox(width: 5),
+                          Text('Leave Review', style: TextStyle(color: _gold, fontSize: 12, fontWeight: FontWeight.w700)),
+                        ]),
+                      ),
+                    )
               else
                 const SizedBox.shrink(),
             ]),
@@ -618,99 +659,17 @@ class _BuyerOrdersPageState extends State<BuyerOrdersPage> {
   }
 
   void _showReviewDialog(Map<String, dynamic> order) {
-    final orderId     = order['id'] as int? ?? 0;
-    final productId   = order['product_id'] as int? ?? 0;
-    final orderName   = order['name'] as String? ?? 'Product';
-    final sellerEmail = order['seller_email'] as String? ?? '';
-    int rating = 0;
-    final reviewCtrl = TextEditingController();
-    bool _submitting = false;
-
-    showDialog(
-      context: context,
-      builder: (_) => StatefulBuilder(
-        builder: (ctx, setS) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: const Row(children: [
-            Icon(Icons.star, color: _gold),
-            SizedBox(width: 8),
-            Text('Leave a Review', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 18)),
-          ]),
-          content: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(orderName, style: const TextStyle(color: _accent, fontWeight: FontWeight.w600, fontSize: 13)),
-            const SizedBox(height: 12),
-            // Star rating
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: List.generate(5, (i) =>
-              GestureDetector(
-                onTap: () => setS(() => rating = i + 1),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Icon(i < rating ? Icons.star : Icons.star_border, color: _gold, size: 34),
-                ),
-              ),
-            )),
-            const SizedBox(height: 4),
-            Text(rating == 0 ? 'Tap to rate' : _ratingLabel(rating),
-              style: TextStyle(color: rating == 0 ? _textLight : _gold, fontSize: 12, fontWeight: FontWeight.w600)),
-            const SizedBox(height: 12),
-            TextField(
-              controller: reviewCtrl,
-              maxLines: 3,
-              decoration: InputDecoration(
-                hintText: 'Share your experience...',
-                hintStyle: const TextStyle(color: _textLight, fontSize: 13),
-                filled: true, fillColor: _bg,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide(color: _border)),
-                focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: _gold, width: 2)),
-              ),
-            ),
-          ]),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(context),
-              child: const Text('Skip', style: TextStyle(color: _textLight))),
-            ElevatedButton(
-              onPressed: _submitting || rating == 0 ? null : () async {
-                setS(() => _submitting = true);
-                try {
-                  await BuyerService.submitReview(
-                    orderId:       orderId,
-                    productId:     productId,
-                    customerEmail: widget.userEmail,
-                    sellerEmail:   sellerEmail,
-                    rating:        rating,
-                    reviewText:    reviewCtrl.text.trim(),
-                  );
-                  if (ctx.mounted) Navigator.pop(ctx);
-                  _showSuccessSnack('Review submitted! Thank you.');
-                } catch (e) {
-                  setS(() => _submitting = false);
-                  _showSuccessSnack('Failed to submit review. Please try again.');
-                }
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: rating == 0 ? Colors.grey : _primary,
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
-              child: _submitting
-                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
-                : const Text('Submit Review'),
-            ),
-          ],
-        ),
-      ),
+    final orderId = order['id'];
+    showReviewBottomSheet(
+      context,
+      order: order,
+      userEmail: widget.userEmail,
+      onSubmitted: () {
+        // Mark this order as reviewed so the button changes immediately
+        if (mounted) setState(() => _reviewedOrderIds.add(orderId));
+        _showSuccessSnack('Review submitted! Thank you.');
+      },
     );
-  }
-
-  String _ratingLabel(int rating) {
-    switch (rating) {
-      case 1: return 'Poor';
-      case 2: return 'Fair';
-      case 3: return 'Good';
-      case 4: return 'Very Good';
-      case 5: return 'Excellent!';
-      default: return '';
-    }
   }
 
   void _showSuccessSnack(String msg) {

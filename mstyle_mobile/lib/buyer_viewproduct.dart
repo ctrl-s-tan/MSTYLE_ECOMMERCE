@@ -71,6 +71,7 @@ class ReviewItem {
   final String text;
   final String date;
   final String? sellerResponse;
+  final List<String> images;
 
   const ReviewItem({
     required this.reviewer,
@@ -78,6 +79,7 @@ class ReviewItem {
     required this.text,
     required this.date,
     this.sellerResponse,
+    this.images = const [],
   });
 }
 
@@ -151,7 +153,11 @@ class _BuyerViewProductPageState extends State<BuyerViewProductPage> {
             ? DateTime.parse(r['created_at']).toLocal().toString().split(' ')[0]
             : '',
         sellerResponse: r['seller_response'] as String?,
-      )).toList();
+        images: (r['review_images'] as String? ?? '')
+            .split(',')
+            .map((e) => e.trim())
+            .where((e) => e.isNotEmpty)
+            .toList(),      )).toList();
 
       // Average rating from actual reviews if available, else use stored rating
       final avgRating = reviews.isNotEmpty
@@ -944,6 +950,40 @@ class _BuyerViewProductPageState extends State<BuyerViewProductPage> {
       ]),
       const SizedBox(height: 8),
       Text(r.text, style: const TextStyle(color: _textLight, fontSize: 13, height: 1.5)),
+
+      // ── Review images ──────────────────────────────────────────────
+      if (r.images.isNotEmpty) ...[
+        const SizedBox(height: 10),
+        SizedBox(
+          height: 80,
+          child: ListView.separated(
+            scrollDirection: Axis.horizontal,
+            itemCount: r.images.length,
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
+            itemBuilder: (_, i) => GestureDetector(
+              onTap: () => _showImageViewer(r.images, i),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  r.images[i],
+                  width: 80, height: 80,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    width: 80, height: 80,
+                    decoration: BoxDecoration(
+                      color: _bg,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: _border),
+                    ),
+                    child: const Icon(Icons.broken_image_outlined, color: _textLight, size: 28),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ],
+
       if (r.sellerResponse != null) ...[
         const SizedBox(height: 8),
         Container(
@@ -966,6 +1006,15 @@ class _BuyerViewProductPageState extends State<BuyerViewProductPage> {
       const Divider(height: 20),
     ]),
   );
+
+  // ── Full-screen image viewer ─────────────────────────────────────────────
+  void _showImageViewer(List<String> images, int initialIndex) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (_) => _ImageViewerDialog(images: images, initialIndex: initialIndex),
+    );
+  }
 
   // ─── Bottom Actions ───────────────────────────────────────────────────────
   Widget _bottomActions() => Container(
@@ -1093,5 +1142,93 @@ class _BuyerViewProductPageState extends State<BuyerViewProductPage> {
       behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
     ));
+  }
+}
+
+// ─── Full-screen Image Viewer Dialog ─────────────────────────────────────────
+class _ImageViewerDialog extends StatefulWidget {
+  final List<String> images;
+  final int initialIndex;
+  const _ImageViewerDialog({required this.images, required this.initialIndex});
+
+  @override
+  State<_ImageViewerDialog> createState() => _ImageViewerDialogState();
+}
+
+class _ImageViewerDialogState extends State<_ImageViewerDialog> {
+  late final PageController _ctrl;
+  late int _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = widget.initialIndex;
+    _ctrl = PageController(initialPage: widget.initialIndex);
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.transparent,
+      insetPadding: EdgeInsets.zero,
+      child: Stack(children: [
+        // Page view
+        PageView.builder(
+          controller: _ctrl,
+          itemCount: widget.images.length,
+          onPageChanged: (i) => setState(() => _current = i),
+          itemBuilder: (_, i) => InteractiveViewer(
+            child: Center(
+              child: Image.network(
+                widget.images[i],
+                fit: BoxFit.contain,
+                errorBuilder: (_, __, ___) => const Icon(
+                  Icons.broken_image_outlined, color: Colors.white54, size: 64),
+              ),
+            ),
+          ),
+        ),
+
+        // Close button
+        Positioned(
+          top: 40, right: 16,
+          child: GestureDetector(
+            onTap: () => Navigator.pop(context),
+            child: Container(
+              width: 36, height: 36,
+              decoration: const BoxDecoration(
+                color: Colors.black54, shape: BoxShape.circle),
+              child: const Icon(Icons.close, color: Colors.white, size: 20),
+            ),
+          ),
+        ),
+
+        // Page indicator
+        if (widget.images.length > 1)
+          Positioned(
+            bottom: 24,
+            left: 0, right: 0,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(widget.images.length, (i) => AnimatedContainer(
+                duration: const Duration(milliseconds: 200),
+                margin: const EdgeInsets.symmetric(horizontal: 3),
+                width: _current == i ? 18 : 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: _current == i ? _gold : Colors.white54,
+                  borderRadius: BorderRadius.circular(3),
+                ),
+              )),
+            ),
+          ),
+      ]),
+    );
   }
 }

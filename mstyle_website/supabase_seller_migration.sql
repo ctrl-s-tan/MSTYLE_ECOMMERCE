@@ -48,10 +48,14 @@ CREATE TABLE IF NOT EXISTS reviews (
   seller_email    TEXT        NOT NULL,
   rating          INT         NOT NULL CHECK (rating >= 1 AND rating <= 5),
   review_text     TEXT        NOT NULL,
+  review_images   TEXT,
   seller_response TEXT,
   response_date   TIMESTAMPTZ,
   created_at      TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Add review_images column if it doesn't exist yet (safe to run multiple times)
+ALTER TABLE reviews ADD COLUMN IF NOT EXISTS review_images TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_reviews_order_customer ON reviews(order_id, customer_email);
 CREATE INDEX IF NOT EXISTS idx_reviews_product_id     ON reviews(product_id);
