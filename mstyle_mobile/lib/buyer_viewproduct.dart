@@ -894,7 +894,8 @@ class _BuyerViewProductPageState extends State<BuyerViewProductPage> {
         const SizedBox(width: 20),
         Expanded(child: Column(
           children: [5, 4, 3, 2, 1].map((star) {
-            final frac = p!.reviewCount > 0 ? (star == 5 ? 0.6 : star == 4 ? 0.25 : 0.1) : 0.0;
+            final count = p!.reviews.where((r) => r.rating.round() == star).length;
+            final frac = p!.reviewCount > 0 ? count / p!.reviewCount : 0.0;
             return Padding(
               padding: const EdgeInsets.symmetric(vertical: 2),
               child: Row(children: [
