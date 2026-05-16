@@ -3524,8 +3524,11 @@ def promotions():
 
     seller_email = session['email']
     try:
-        from datetime import date as _date
-        today = _date.today().isoformat()
+        from datetime import date as _date, timezone, timedelta
+        # Use Philippine Standard Time (UTC+8) for date comparisons
+        _pht = timezone(timedelta(hours=8))
+        from datetime import datetime as _datetime
+        today = _datetime.now(_pht).date().isoformat()
 
         # Products for promotion management
         prod_res = sb_admin.table('products').select('id, name, price, image, quantity, category').eq('seller_email', seller_email).gt('quantity', 0).order('name').execute()
