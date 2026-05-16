@@ -6952,6 +6952,14 @@ def admin_users():
         flash('Access denied. Admin privileges required.', 'error')
         return redirect(url_for('login'))
 
+    # Show success banner when redirected from an approval/rejection action
+    approved_name = request.args.get('approved', '').strip()
+    rejected      = request.args.get('rejected', '').strip()
+    if approved_name:
+        flash(f'✅ {approved_name} has been approved successfully! A notification email has been sent.', 'success')
+    elif rejected:
+        flash('The application has been rejected and the user has been notified via email.', 'info')
+
     search      = request.args.get('search', '').strip().lower()
     sort_type   = request.args.get('sort', 'all').strip().lower()
     status_filter = request.args.get('status', '').strip().lower()

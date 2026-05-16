@@ -502,7 +502,6 @@
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('startDate').min = today;
             document.getElementById('endDate').min = today;
-            document.getElementById('startDate').value = today;
 
             // Debug: Check if products are loaded
             const productCheckboxes = document.querySelectorAll('#specificProductsSection input[type="checkbox"]');
@@ -535,7 +534,16 @@
                 if (!promotionId) {
                     // Reset form when modal opens for create
                     resetPromotionModal();
-                    document.getElementById('startDate').value = today;
+
+                    // Auto-fill start date with today and start time with current time
+                    const now = new Date();
+                    const todayStr = now.toISOString().split('T')[0];
+                    const hours = String(now.getHours()).padStart(2, '0');
+                    const minutes = String(now.getMinutes()).padStart(2, '0');
+                    const currentTime = `${hours}:${minutes}`;
+
+                    document.getElementById('startDate').value = todayStr;
+                    document.getElementById('startTime').value = currentTime;
                 }
             });
 

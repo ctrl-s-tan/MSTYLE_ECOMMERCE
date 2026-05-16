@@ -838,15 +838,26 @@
                     if (data.success) {
                         const sellerRow = approveBtn.closest('tr');
                         const sellerName = sellerRow.querySelector('.seller-name .name')?.textContent.trim() || 'Seller';
-                        showToast('Seller Approved', `${sellerName} has been approved successfully!`, 'success',
-                            'The seller can now access their account and start listing products.');
-                        if (sellerRow) updateSellerStatusInUI(sellerRow, 'approved');
+                        // Animate row out, then redirect to user management with success param
+                        if (sellerRow) {
+                            sellerRow.style.transition = 'all 0.4s ease';
+                            sellerRow.style.opacity = '0';
+                            sellerRow.style.transform = 'translateX(20px)';
+                        }
+                        setTimeout(() => {
+                            window.location.href = '/admin_users?approved=' + encodeURIComponent(sellerName);
+                        }, 450);
                     } else {
                         showToast('Approval Failed', 'Failed to approve seller', 'error', data.error || 'Please try again.');
+                        approveBtn.innerHTML = originalHTML;
+                        approveBtn.disabled = false;
                     }
                 })
-                .catch(() => showToast('Network Error', 'Unable to connect to the server', 'error'))
-                .finally(() => { approveBtn.innerHTML = originalHTML; approveBtn.disabled = false; });
+                .catch(() => {
+                    showToast('Network Error', 'Unable to connect to the server', 'error');
+                    approveBtn.innerHTML = originalHTML;
+                    approveBtn.disabled = false;
+                });
         }
     }
 
@@ -999,17 +1010,15 @@
             .then(data => {
                 if (data.success) {
                     closeRejectModal();
-                    showToast('Seller Rejected', 'Seller application has been rejected', 'success',
-                        'The seller has been notified via email and can re-register.');
                     const sellerRow = document.querySelector(`tr[data-seller-id="${userId}"]`);
                     if (sellerRow) {
                         sellerRow.style.transition = 'all 0.4s';
                         sellerRow.style.opacity = '0';
                         sellerRow.style.transform = 'translateX(20px)';
-                        setTimeout(() => { sellerRow.remove(); }, 400);
-                    } else {
-                        setTimeout(() => window.location.reload(), 1500);
                     }
+                    setTimeout(() => {
+                        window.location.href = '/admin_users?rejected=1';
+                    }, 450);
                 } else {
                     showToast('Rejection Failed', 'Failed to reject seller', 'error', data.error || 'Please try again.');
                     btn.innerHTML = '<i class="fas fa-times-circle"></i> Reject Application';

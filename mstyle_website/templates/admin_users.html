@@ -13,6 +13,21 @@
     </div>
 
     <div class="dashboard-container">
+        <!-- Flash Messages (from approval/rejection redirects) -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="alert-banner alert-banner-{{ category }}" id="flashBanner">
+            <div class="alert-banner-inner">
+                <i class="fas fa-{% if category == 'success' %}check-circle{% elif category == 'error' %}exclamation-circle{% elif category == 'warning' %}exclamation-triangle{% else %}info-circle{% endif %}"></i>
+                <span>{{ message }}</span>
+            </div>
+            <button onclick="this.parentElement.remove()" class="alert-banner-close">&times;</button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
         <!-- Stats Summary -->
         <div class="stats-summary">
             <div class="stat-card">
@@ -1378,6 +1393,16 @@
 
         // Auto-submit filter form functionality - Matching Product Management
         document.addEventListener('DOMContentLoaded', function() {
+            // Auto-dismiss flash banner after 6 seconds
+            const banner = document.getElementById('flashBanner');
+            if (banner) {
+                setTimeout(() => {
+                    banner.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                    banner.style.opacity = '0';
+                    banner.style.transform = 'translateY(-8px)';
+                    setTimeout(() => banner.remove(), 500);
+                }, 6000);
+            }
             let searchTimeout;
             const filterForm = document.getElementById('filterForm');
             const searchInput = document.getElementById('searchInput');
@@ -3160,5 +3185,26 @@
                 width: 100%;
             }
         }
+        /* ── Approval/rejection flash banner ─────────────────────────── */
+        .alert-banner {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 20px; border-radius: 12px; margin-bottom: 20px;
+            font-size: 14px; font-weight: 500; animation: slideDown 0.4s ease;
+        }
+        @keyframes slideDown { from { opacity:0; transform:translateY(-12px) } to { opacity:1; transform:translateY(0) } }
+        .alert-banner-inner { display: flex; align-items: center; gap: 10px; }
+        .alert-banner-inner i { font-size: 18px; flex-shrink: 0; }
+        .alert-banner-success { background: rgba(34,197,94,0.15); border: 1px solid rgba(34,197,94,0.35); color: #166534; }
+        .alert-banner-success i { color: #22c55e; }
+        .alert-banner-info    { background: rgba(59,130,246,0.12); border: 1px solid rgba(59,130,246,0.3); color: #1e40af; }
+        .alert-banner-info i  { color: #3b82f6; }
+        .alert-banner-error   { background: rgba(239,68,68,0.12); border: 1px solid rgba(239,68,68,0.3); color: #991b1b; }
+        .alert-banner-error i { color: #ef4444; }
+        .alert-banner-close {
+            background: none; border: none; font-size: 20px; cursor: pointer;
+            color: inherit; opacity: 0.6; line-height: 1; padding: 0 4px;
+            transition: opacity 0.2s;
+        }
+        .alert-banner-close:hover { opacity: 1; }
     </style>
     {% endblock %}

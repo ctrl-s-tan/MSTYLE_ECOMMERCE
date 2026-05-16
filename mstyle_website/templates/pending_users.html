@@ -491,13 +491,13 @@
             .then(r => r.json())
             .then(data => {
                 if (data.success) {
-                    showToast('User Approved', `${firstName} has been approved successfully!`, 'success',
-                        'An email notification has been sent. They can now log in.');
                     const row = btn.closest('tr');
                     row.style.transition = 'all 0.4s';
                     row.style.opacity = '0';
                     row.style.transform = 'translateX(20px)';
-                    setTimeout(() => { row.remove(); }, 400);
+                    setTimeout(() => {
+                        window.location.href = '/admin_users?approved=' + encodeURIComponent(firstName);
+                    }, 450);
                 } else {
                     showToast('Approval Failed', data.error || 'Approval failed', 'error', 'Please try again.');
                     btn.innerHTML = orig;
@@ -761,14 +761,16 @@
             .then(data => {
                 if (data.success) {
                     closeRejectModal();
-                    // Remove the row
+                    const rejectedId = rejectUserId;
                     document.querySelectorAll('.user-row').forEach(row => {
-                        if (row.innerHTML.includes(`'${rejectUserId}'`)) {
+                        if (row.innerHTML.includes(`'${rejectedId}'`)) {
                             row.style.transition = 'all 0.4s';
                             row.style.opacity = '0';
-                            setTimeout(() => { row.remove(); }, 400);
                         }
                     });
+                    setTimeout(() => {
+                        window.location.href = '/admin_users?rejected=1';
+                    }, 450);
                 } else {
                     alert('Error: ' + (data.error || 'Rejection failed'));
                     btn.innerHTML = '<i class="fas fa-times-circle"></i> Reject Registration';
