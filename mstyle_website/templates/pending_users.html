@@ -526,14 +526,14 @@
             })
             .then(data => {
                 if (data.success) {
-                    // Backend returns docs embedded in the user object — normalise here
+                    // Backend now provides variation arrays directly
                     const docs = {
                         valid_id_url:        data.user.valid_id_url,
-                        path_variations:     data.user.valid_id_url ? [data.user.valid_id_url] : [],
+                        path_variations:     data.user.path_variations || [],
                         or_cr_url:           data.user.or_cr_url,
-                        or_cr_variations:    data.user.or_cr_url ? [data.user.or_cr_url] : [],
+                        or_cr_variations:    data.user.or_cr_variations || [],
                         nbi_clearance_url:   data.user.nbi_clearance_url,
-                        nbi_variations:      data.user.nbi_clearance_url ? [data.user.nbi_clearance_url] : [],
+                        nbi_variations:      data.user.nbi_variations || [],
                     };
                     showDocumentsModal(data.user, docs);
                 } else {

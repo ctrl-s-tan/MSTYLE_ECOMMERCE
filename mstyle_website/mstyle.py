@@ -7344,16 +7344,26 @@ def get_user_documents(user_id):
                 rv_res = sb_admin.table('pending_rider_vehicles').select('*').eq('supabase_uid', uid).limit(1).execute()
                 rv = rv_res.data[0] if rv_res.data else {}
             except Exception: pass
+        valid_id_url = signed_url(u.get('valid_id_path'))
+        or_cr_url = signed_url(rv.get('or_cr_path'))
+        nbi_clearance_url = signed_url(rv.get('nbi_clearance_path'))
+        
         return jsonify({'success': True, 'user': {
             'first_name': u.get('first_name',''), 'last_name': u.get('last_name',''),
             'email': u.get('email',''), 'phone_number': u.get('phone',''),
             'address': ', '.join(filter(None,[u.get('house_street',''),u.get('barangay',''),u.get('city',''),u.get('province',''),u.get('region',''),u.get('zip_code','')])),
             'user_type': u.get('role','buyer'),
-            'valid_id_url': signed_url(u.get('valid_id_path')),
+            'valid_id_url': valid_id_url,
+            'valid_id_path': u.get('valid_id_path'),
+            'path_variations': [valid_id_url] if valid_id_url else [],
             'vehicle_type': rv.get('vehicle_type'), 'vehicle_model': rv.get('vehicle_model'),
             'vehicle_plate_number': rv.get('plate_number'), 'vehicle_year_model': rv.get('year_model'),
-            'or_cr_url': signed_url(rv.get('or_cr_path')),
-            'nbi_clearance_url': signed_url(rv.get('nbi_clearance_path')),
+            'or_cr_url': or_cr_url,
+            'or_cr_path': rv.get('or_cr_path'),
+            'or_cr_variations': [or_cr_url] if or_cr_url else [],
+            'nbi_clearance_url': nbi_clearance_url,
+            'nbi_clearance_path': rv.get('nbi_clearance_path'),
+            'nbi_variations': [nbi_clearance_url] if nbi_clearance_url else [],
         }})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
@@ -7402,13 +7412,20 @@ def get_approved_user_documents(user_id):
         except Exception:
             pass
 
+        valid_id_url = signed_url(u.get('valid_id_path'))
+        dti_url = signed_url(u.get('dti_path'))
+        bir_url = signed_url(u.get('bir_path'))
+        business_permit_url = signed_url(u.get('business_permit_path'))
+        or_cr_url = signed_url(or_cr_path)
+        nbi_clearance_url = signed_url(nbi_path)
+        
         documents = {
-            'valid_id_url':            signed_url(u.get('valid_id_path')),
-            'dti_url':                 signed_url(u.get('dti_path')),
-            'bir_url':                 signed_url(u.get('bir_path')),
-            'business_permit_url':     signed_url(u.get('business_permit_path')),
-            'or_cr_url':               signed_url(or_cr_path),
-            'nbi_clearance_url':       signed_url(nbi_path),
+            'valid_id_url':            valid_id_url,
+            'dti_url':                 dti_url,
+            'bir_url':                 bir_url,
+            'business_permit_url':     business_permit_url,
+            'or_cr_url':               or_cr_url,
+            'nbi_clearance_url':       nbi_clearance_url,
             # Keep raw paths for reference
             'valid_id_path':           u.get('valid_id_path'),
             'dti_path':                u.get('dti_path'),
@@ -7416,6 +7433,13 @@ def get_approved_user_documents(user_id):
             'business_permit_path':    u.get('business_permit_path'),
             'or_cr_path':              or_cr_path,
             'nbi_clearance_path':      nbi_path,
+            # Variation arrays for fallback
+            'valid_id_variations':     [valid_id_url] if valid_id_url else [],
+            'dti_variations':          [dti_url] if dti_url else [],
+            'bir_variations':          [bir_url] if bir_url else [],
+            'business_permit_variations': [business_permit_url] if business_permit_url else [],
+            'or_cr_variations':        [or_cr_url] if or_cr_url else [],
+            'nbi_variations':          [nbi_clearance_url] if nbi_clearance_url else [],
         }
 
         return jsonify({
