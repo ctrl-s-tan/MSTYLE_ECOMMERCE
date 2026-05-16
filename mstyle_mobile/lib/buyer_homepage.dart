@@ -66,7 +66,7 @@ class BuyerHomePage extends StatefulWidget {
   State<BuyerHomePage> createState() => _BuyerHomePageState();
 }
 
-class _BuyerHomePageState extends State<BuyerHomePage> with TickerProviderStateMixin {
+class _BuyerHomePageState extends State<BuyerHomePage> with TickerProviderStateMixin, RouteAware {
   final _searchCtrl = TextEditingController();
   final _scrollCtrl = ScrollController();
   int _heroSlide = 0;
@@ -82,6 +82,9 @@ class _BuyerHomePageState extends State<BuyerHomePage> with TickerProviderStateM
   late final AnimationController _fadeCtrl;
   late final Animation<double> _fadeAnim;
 
+  // RouteObserver for detecting when we return to this page
+  static final routeObserver = RouteObserver<ModalRoute<void>>();
+
   @override
   void initState() {
     super.initState();
@@ -92,6 +95,18 @@ class _BuyerHomePageState extends State<BuyerHomePage> with TickerProviderStateM
       setState(() => _heroSlide = (_heroSlide + 1) % _heroSlides.length);
     });
     _scrollCtrl.addListener(_onScroll);
+    _loadProducts();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    routeObserver.subscribe(this, ModalRoute.of(context)!);
+  }
+
+  /// Called when user navigates back to this page — refresh ratings
+  @override
+  void didPopNext() {
     _loadProducts();
   }
 
@@ -119,6 +134,7 @@ class _BuyerHomePageState extends State<BuyerHomePage> with TickerProviderStateM
 
   @override
   void dispose() {
+    routeObserver.unsubscribe(this);
     _searchCtrl.dispose();
     _scrollCtrl.dispose();
     _heroTimer?.cancel();

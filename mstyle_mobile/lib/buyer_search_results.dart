@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'buyer_bottom_navbar.dart';
+import 'buyer_service.dart';
 import 'product_card.dart';
 import 'supabase_client.dart';
 
@@ -85,12 +86,50 @@ class _BuyerSearchResultsPageState extends State<BuyerSearchResultsPage> {
         return true;
       }).toList();
 
+      // ── Compute live ratings from reviews table (same as BuyerService.getProducts) ──
+      if (list.isNotEmpty) {
+        try {
+          final productIds = list.map((p) => p['id']).whereType<int>().toList();
+          if (productIds.isNotEmpty) {
+            final reviewsRes = await supabase
+                .from('reviews')
+                .select('product_id, rating')
+                .inFilter('product_id', productIds);
+
+            final ratingMap = <int, List<double>>{};
+            for (final r in (reviewsRes as List)) {
+              final pid = r['product_id'] as int?;
+              final rat = (r['rating'] as num?)?.toDouble();
+              if (pid != null && rat != null) {
+                ratingMap.putIfAbsent(pid, () => []).add(rat);
+              }
+            }
+            for (final p in list) {
+              final pid = p['id'] as int?;
+              if (pid == null) continue;
+              final ratings = ratingMap[pid];
+              if (ratings != null && ratings.isNotEmpty) {
+                final avg = ratings.reduce((a, b) => a + b) / ratings.length;
+                p['rating'] = double.parse(avg.toStringAsFixed(1));
+                p['review_count'] = ratings.length;
+              } else {
+                p['review_count'] = 0;
+              }
+            }
+          }
+        } catch (e) {
+          debugPrint('Search rating fetch error: $e');
+        }
+      }
+
+      // Sort after live ratings are attached
       if (_sortBy == 'price_low')  list.sort((a, b) => ((a['price'] as num?) ?? 0).compareTo((b['price'] as num?) ?? 0));
       if (_sortBy == 'price_high') list.sort((a, b) => ((b['price'] as num?) ?? 0).compareTo((a['price'] as num?) ?? 0));
       if (_sortBy == 'rating')     list.sort((a, b) => ((b['rating'] as num?) ?? 0).compareTo((a['rating'] as num?) ?? 0));
 
       if (mounted) setState(() { _results = list; _loading = false; });
-    } catch (_) {
+    } catch (e) {
+      debugPrint('Search error: $e');
       if (mounted) setState(() => _loading = false);
     }
   }
