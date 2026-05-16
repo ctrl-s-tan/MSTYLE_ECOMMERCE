@@ -3515,24 +3515,40 @@ def promotions():
                 'price': float(p.get('price') or 0), 'image': p.get('image',''),
                 'quantity': int(p.get('quantity') or 0), 'category': p.get('category','')})
 
-        # Active promotions
-        ap_res = sb_admin.table('promotions').select('*').eq('seller_email', seller_email).eq('is_active', True).lte('start_date', today).gte('end_date', today).order('created_at', desc=True).limit(10).execute()
+        # All promotions for this seller
+        all_res = sb_admin.table('promotions').select('*').eq('seller_email', seller_email).order('created_at', desc=True).execute()
+
         active_promotions = []
-        for p in (ap_res.data or []):
+        scheduled_promotions = []
+        expired_promotions = []
+
+        for p in (all_res.data or []):
             sd = str(p.get('start_date') or '')[:10]
             ed = str(p.get('end_date') or '')[:10]
-            active_promotions.append({**p, 'start_date': sd, 'end_date': ed,
-                'total_uses': int(p.get('current_usage_count') or 0),
-                'total_discount_given': 0.0})
+            row = {**p, 'start_date': sd, 'end_date': ed,
+                   'total_uses': int(p.get('current_usage_count') or 0),
+                   'total_discount_given': 0.0}
+            if not p.get('is_active'):
+                expired_promotions.append(row)
+            elif sd > today:
+                scheduled_promotions.append(row)
+            elif ed < today:
+                expired_promotions.append(row)
+            else:
+                active_promotions.append(row)
 
     except Exception as e:
         print(f"promotions Supabase error: {e}")
         products = []
         active_promotions = []
+        scheduled_promotions = []
+        expired_promotions = []
 
     return render_template('promotions.html',
                          products=products,
                          active_promotions=active_promotions,
+                         scheduled_promotions=scheduled_promotions,
+                         expired_promotions=expired_promotions,
                          user_name=seller_name,
                          user_email=session.get('email', 'Seller'))
 

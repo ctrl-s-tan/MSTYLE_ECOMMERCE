@@ -40,7 +40,7 @@
                 </div>
 
                 <!-- Active Promotions Section -->
-                <div class="row mb-5">
+                <div class="row mb-4">
                     <div class="col-12">
                         <div class="card promotion-card">
                             <div class="card-header">
@@ -70,8 +70,7 @@
                                             </div>
                                             <div class="promotion-content">
                                                 <h6>{{ promotion.name }}</h6>
-                                                <p class="text-muted mb-1">Code: <strong>{{ promotion.code }}</strong>
-                                                </p>
+                                                <p class="text-muted mb-1">Code: <strong>{{ promotion.code }}</strong></p>
                                                 <p class="text-muted mb-2">Valid until: {{ promotion.end_date }}</p>
                                                 <div class="promotion-stats">
                                                     <small class="text-success">
@@ -83,6 +82,11 @@
                                                 <button class="btn btn-sm btn-outline-primary edit-promotion-btn"
                                                     data-promotion-id="{{ promotion.id }}">
                                                     <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-warning toggle-promotion-btn"
+                                                    data-promotion-id="{{ promotion.id }}"
+                                                    title="Deactivate">
+                                                    <i class="bi bi-pause-circle"></i>
                                                 </button>
                                                 <button class="btn btn-sm btn-outline-danger delete-promotion-btn"
                                                     data-promotion-id="{{ promotion.id }}">
@@ -109,6 +113,126 @@
                     </div>
                 </div>
 
+                <!-- Scheduled Promotions Section -->
+                {% if scheduled_promotions %}
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card promotion-card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-calendar-event"></i> Scheduled Promotions
+                                </h5>
+                                <span class="badge bg-info">{{ scheduled_promotions|length }} Scheduled</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    {% for promotion in scheduled_promotions %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="promotion-item" style="border-left: 4px solid #0dcaf0; opacity: 0.9;">
+                                            <div class="promotion-badge" data-type="{{ promotion.type }}" style="background: linear-gradient(135deg, #0dcaf0, #0a9ec4);">
+                                                <span class="discount-percent">
+                                                    {% if promotion.type == 'percentage' %}
+                                                    {{ promotion.discount_value|int }}% OFF
+                                                    {% elif promotion.type == 'fixed' %}
+                                                    ₱{{ promotion.discount_value|int }} OFF
+                                                    {% elif promotion.type == 'buy_one_get_one' %}
+                                                    BOGO
+                                                    {% elif promotion.type == 'free_shipping' %}
+                                                    FREE SHIP
+                                                    {% endif %}
+                                                </span>
+                                            </div>
+                                            <div class="promotion-content">
+                                                <h6>{{ promotion.name }}</h6>
+                                                <p class="text-muted mb-1">Code: <strong>{{ promotion.code }}</strong></p>
+                                                <p class="text-muted mb-1">Starts: {{ promotion.start_date }}</p>
+                                                <p class="text-muted mb-2">Ends: {{ promotion.end_date }}</p>
+                                            </div>
+                                            <div class="promotion-actions">
+                                                <button class="btn btn-sm btn-outline-primary edit-promotion-btn"
+                                                    data-promotion-id="{{ promotion.id }}">
+                                                    <i class="bi bi-pencil"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger delete-promotion-btn"
+                                                    data-promotion-id="{{ promotion.id }}">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Expired / Inactive Promotions Section -->
+                {% if expired_promotions %}
+                <div class="row mb-4">
+                    <div class="col-12">
+                        <div class="card promotion-card">
+                            <div class="card-header">
+                                <h5 class="card-title mb-0">
+                                    <i class="bi bi-archive"></i> Expired / Inactive Promotions
+                                </h5>
+                                <span class="badge bg-secondary">{{ expired_promotions|length }}</span>
+                            </div>
+                            <div class="card-body">
+                                <div class="row">
+                                    {% for promotion in expired_promotions %}
+                                    <div class="col-md-6 mb-3">
+                                        <div class="promotion-item" style="border-left: 4px solid #6c757d; opacity: 0.75;">
+                                            <div class="promotion-badge" data-type="{{ promotion.type }}" style="background: linear-gradient(135deg, #6c757d, #495057);">
+                                                <span class="discount-percent">
+                                                    {% if promotion.type == 'percentage' %}
+                                                    {{ promotion.discount_value|int }}% OFF
+                                                    {% elif promotion.type == 'fixed' %}
+                                                    ₱{{ promotion.discount_value|int }} OFF
+                                                    {% elif promotion.type == 'buy_one_get_one' %}
+                                                    BOGO
+                                                    {% elif promotion.type == 'free_shipping' %}
+                                                    FREE SHIP
+                                                    {% endif %}
+                                                </span>
+                                            </div>
+                                            <div class="promotion-content">
+                                                <h6 class="text-muted">{{ promotion.name }}</h6>
+                                                <p class="text-muted mb-1">Code: <strong>{{ promotion.code }}</strong></p>
+                                                <p class="text-muted mb-2">
+                                                    {% if not promotion.is_active %}
+                                                    <span class="badge bg-secondary">Inactive</span>
+                                                    {% else %}
+                                                    Expired: {{ promotion.end_date }}
+                                                    {% endif %}
+                                                </p>
+                                                <div class="promotion-stats">
+                                                    <small class="text-muted">
+                                                        <i class="bi bi-graph-up"></i> {{ promotion.total_uses }} uses
+                                                    </small>
+                                                </div>
+                                            </div>
+                                            <div class="promotion-actions">
+                                                <button class="btn btn-sm btn-outline-success toggle-promotion-btn"
+                                                    data-promotion-id="{{ promotion.id }}"
+                                                    title="Reactivate">
+                                                    <i class="bi bi-play-circle"></i>
+                                                </button>
+                                                <button class="btn btn-sm btn-outline-danger delete-promotion-btn"
+                                                    data-promotion-id="{{ promotion.id }}">
+                                                    <i class="bi bi-trash"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
 
             </div>
         </div>
@@ -433,6 +557,12 @@
                     const promotionId = e.target.closest('.delete-promotion-btn').getAttribute('data-promotion-id');
                     console.log('Delete button clicked, promotion ID:', promotionId);
                     deletePromotion(promotionId);
+                }
+
+                if (e.target.closest('.toggle-promotion-btn')) {
+                    const promotionId = e.target.closest('.toggle-promotion-btn').getAttribute('data-promotion-id');
+                    console.log('Toggle button clicked, promotion ID:', promotionId);
+                    togglePromotion(promotionId);
                 }
             });
         });
@@ -1027,6 +1157,25 @@
             document.getElementById('savePromotion').innerHTML =
                 '<i class="bi bi-check-circle"></i> Update Promotion';
         }
+        function togglePromotion(promotionId) {
+            fetch(`/api/toggle_promotion/${promotionId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while toggling the promotion.');
+                });
+        }
+
     </script>
 </body>
 
