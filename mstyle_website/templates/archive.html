@@ -34,27 +34,29 @@
                             </td>
                             <td class="user-name">
                                 <div class="user-avatar">
-                                    <i class="fas fa-{% if user.user_type|lower == 'seller' %}store{% elif user.user_type|lower == 'rider' %}shipping-fast{% else %}user{% endif %}"></i>
+                                    <i class="fas fa-{% if user.role|lower == 'seller' %}store{% elif user.role|lower == 'rider' %}shipping-fast{% else %}user{% endif %}"></i>
                                 </div>
                                 <div class="user-info">
                                     <span class="name">{{ user.first_name }} {{ user.last_name }}</span>
-                                    <span class="phone">{{ user.phone_number or 'No phone' }}</span>
+                                    <span class="phone">{{ user.phone or 'No phone' }}</span>
                                 </div>
                             </td>
                             <td class="user-email">{{ user.email }}</td>
                             <td class="user-address">
-                                {% if user.address %}
-                                <div class="address-simple" title="{{ user.address }}">
-                                    {{ user.address[:60] }}{% if user.address|length > 60 %}...{% endif %}
+                                {% set addr_parts = [user.house_street, user.barangay, user.city, user.province, user.region] | select | list %}
+                                {% if addr_parts %}
+                                {% set addr = addr_parts | join(', ') %}
+                                <div class="address-simple" title="{{ addr }}">
+                                    {{ addr[:60] }}{% if addr|length > 60 %}...{% endif %}
                                 </div>
                                 {% else %}
                                 <span class="no-address">No address</span>
                                 {% endif %}
                             </td>
                             <td class="user-type">
-                                <span class="type-badge type-{{ user.user_type.lower() }}">
-                                    <i class="fas fa-{% if user.user_type|lower == 'seller' %}store{% elif user.user_type|lower == 'rider' %}shipping-fast{% else %}user-tag{% endif %}"></i>
-                                    {{ user.user_type }}
+                                <span class="type-badge type-{{ (user.role or 'buyer')|lower }}">
+                                    <i class="fas fa-{% if user.role|lower == 'seller' %}store{% elif user.role|lower == 'rider' %}shipping-fast{% else %}user-tag{% endif %}"></i>
+                                    {{ (user.role or 'Buyer')|capitalize }}
                                 </span>
                             </td>
                             <td class="user-joined">
