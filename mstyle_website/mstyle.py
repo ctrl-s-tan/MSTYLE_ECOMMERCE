@@ -463,9 +463,10 @@ def get_featured_products(limit=6):
 def get_promotional_products(limit=4, category_filter=None):
     """Get products with active promotions from Supabase for the hero section."""
     try:
-        # Fetch active promotions from Supabase
-        from datetime import date as _date, datetime as _datetime
-        today = _date.today().isoformat()
+        # Use Philippine Standard Time (UTC+8) to avoid date mismatch on Railway (UTC)
+        from datetime import datetime as _datetime, timezone as _tz, timedelta as _td
+        _pht = _tz(_td(hours=8))
+        today = _datetime.now(_pht).date().isoformat()
 
         promo_res = sb_admin.table('promotions') \
             .select('id, name, type, discount_value, code, product_scope, start_date, end_date') \
@@ -497,27 +498,57 @@ def get_promotional_products(limit=4, category_filter=None):
             and not (p.get('flagged_at') and str(p.get('flagged_at')).strip())
         ]
 
-        # Match products to promotions (scope: all ? any product qualifies)
+        # Build lookup maps for specific-scope promotions
+        promo_product_ids = {}    # promotion_id -> set of product_ids
+        promo_category_names = {} # promotion_id -> set of categories
+        specific_promo_ids = [p['id'] for p in promotions if p.get('product_scope') == 'specific']
+        category_promo_ids = [p['id'] for p in promotions if p.get('product_scope') == 'category']
+
+        if specific_promo_ids:
+            pp_res = sb_admin.table('promotion_products') \
+                .select('promotion_id, product_id') \
+                .in_('promotion_id', specific_promo_ids).execute()
+            for row in (pp_res.data or []):
+                promo_product_ids.setdefault(row['promotion_id'], set()).add(row['product_id'])
+
+        if category_promo_ids:
+            pc_res = sb_admin.table('promotion_categories') \
+                .select('promotion_id, category') \
+                .in_('promotion_id', category_promo_ids).execute()
+            for row in (pc_res.data or []):
+                promo_category_names.setdefault(row['promotion_id'], set()).add(row['category'])
+
+        # Match products to promotions
         promotional = []
         seen_ids = set()
 
         for promo in promotions:
             scope = promo.get('product_scope', 'all')
+            pid   = promo['id']
+
             for p in all_products:
                 if p['id'] in seen_ids:
                     continue
-                if scope == 'all' or scope == 'category':
-                    # For simplicity treat 'all' and 'category' as matching any product
+
+                qualifies = False
+                if scope == 'all':
+                    qualifies = True
+                elif scope == 'specific':
+                    qualifies = p['id'] in promo_product_ids.get(pid, set())
+                elif scope == 'category':
+                    qualifies = str(p.get('category', '')).upper() in \
+                                {c.upper() for c in promo_category_names.get(pid, set())}
+
+                if qualifies:
                     enriched = dict(p)
-                    enriched['promotion_type'] = promo.get('type', '')
+                    enriched['promotion_type']     = promo.get('type', '')
                     enriched['promotion_discount'] = float(promo.get('discount_value') or 0)
-                    enriched['promotion_code'] = promo.get('code', '')
-                    enriched['promotion_name'] = promo.get('name', '')
-                    # Ensure numeric types
-                    enriched['price'] = float(enriched.get('price') or 0)
+                    enriched['promotion_code']     = promo.get('code', '')
+                    enriched['promotion_name']     = promo.get('name', '')
+                    enriched['price']    = float(enriched.get('price') or 0)
                     enriched['quantity'] = int(enriched.get('quantity') or 0)
-                    enriched['sold'] = int(enriched.get('sold') or 0)
-                    enriched['rating'] = float(enriched.get('rating') or 0)
+                    enriched['sold']     = int(enriched.get('sold') or 0)
+                    enriched['rating']   = float(enriched.get('rating') or 0)
                     promotional.append(enriched)
                     seen_ids.add(p['id'])
                     break  # one product per promotion for hero
@@ -606,8 +637,9 @@ def get_active_promotions_for_product(product_id, seller_email, category):
         if not product_id or not seller_email:
             return None
 
-        from datetime import date as _date
-        today = _date.today().isoformat()
+        from datetime import datetime as _datetime, timezone as _tz, timedelta as _td
+        _pht = _tz(_td(hours=8))
+        today = _datetime.now(_pht).date().isoformat()
 
         # Fetch active promotions for this seller
         promo_res = sb_admin.table('promotions') \
@@ -1158,12 +1190,21 @@ def home():
     all_products = all_products_raw[offset: offset + per_page]
 
     featured_products    = get_featured_products(6)
-    promotional_products = get_promotional_products()
+    promotional_products = get_promotional_products(limit=20)  # fetch more for card enrichment
+
+    # Build a promo lookup keyed by product id for the product grid cards
+    promo_map = {p['id']: p for p in promotional_products}
+    for prod in all_products:
+        if prod['id'] in promo_map:
+            pp = promo_map[prod['id']]
+            prod['promotion_type']     = pp.get('promotion_type', '')
+            prod['promotion_discount'] = pp.get('promotion_discount', 0)
+            prod['promotion_code']     = pp.get('promotion_code', '')
 
     return render_template('index.html',
                            featured_products=featured_products,
                            all_products=all_products,
-                           promotional_products=promotional_products,
+                           promotional_products=promotional_products[:4],
                            current_page=page,
                            total_pages=total_pages,
                            total_products=total_count,
@@ -2315,7 +2356,16 @@ def homepage():
     offset = (page - 1) * per_page
     all_products = all_products_raw[offset: offset + per_page]
 
-    promotional_products = get_promotional_products()
+    promotional_products = get_promotional_products(limit=20)
+
+    # Build a promo lookup keyed by product id for the product grid cards
+    promo_map = {p['id']: p for p in promotional_products}
+    for prod in all_products:
+        if prod['id'] in promo_map:
+            pp = promo_map[prod['id']]
+            prod['promotion_type']     = pp.get('promotion_type', '')
+            prod['promotion_discount'] = pp.get('promotion_discount', 0)
+            prod['promotion_code']     = pp.get('promotion_code', '')
 
     # Fetch user's wishlist product IDs for heart icon state
     wishlist_product_ids = _get_wishlist_ids()
@@ -2324,7 +2374,7 @@ def homepage():
                            user_name=user_name,
                            user_email=session.get('email', 'User'),
                            all_products=all_products,
-                           promotional_products=promotional_products,
+                           promotional_products=promotional_products[:4],
                            current_page=page,
                            total_pages=total_pages,
                            total_products=total_count,

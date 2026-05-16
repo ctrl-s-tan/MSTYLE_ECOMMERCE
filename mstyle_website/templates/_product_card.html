@@ -1,23 +1,37 @@
 {# ── Reusable product card partial — matches mobile ProductCard style ──────
    Variables expected in caller scope:
-     product            — product dict
+     product            — product dict (may already have promotion_type/promotion_discount
+                          injected by the route, or fall back to scanning promotional_products)
      promotional_products — list (optional, pass [] if none)
 #}
 {% set promo = namespace(has=false, type='', discount=0, code='', final_price=product.price|float) %}
-{% if promotional_products %}
-{% for pp in promotional_products %}
-{% if pp.id == product.id %}
-{% set promo.has = true %}
-{% set promo.type = pp.promotion_type %}
-{% set promo.discount = pp.promotion_discount|float %}
-{% set promo.code = pp.promotion_code %}
-{% if promo.type == 'percentage' and promo.discount > 0 %}
-{% set promo.final_price = [product.price|float * (1 - promo.discount / 100), 0.01]|max %}
-{% elif promo.type == 'fixed' and promo.discount > 0 %}
-{% set promo.final_price = [product.price|float - promo.discount, 0.01]|max %}
-{% endif %}
-{% endif %}
-{% endfor %}
+
+{# First try: promo data already embedded in the product dict by the route #}
+{% if product.promotion_type %}
+  {% set promo.has      = true %}
+  {% set promo.type     = product.promotion_type %}
+  {% set promo.discount = product.promotion_discount|float if product.promotion_discount else 0 %}
+  {% set promo.code     = product.promotion_code or '' %}
+  {% if promo.type == 'percentage' and promo.discount > 0 %}
+    {% set promo.final_price = [product.price|float * (1 - promo.discount / 100), 0.01]|max %}
+  {% elif promo.type == 'fixed' and promo.discount > 0 %}
+    {% set promo.final_price = [product.price|float - promo.discount, 0.01]|max %}
+  {% endif %}
+{% elif promotional_products %}
+  {# Fallback: scan the promotional_products list #}
+  {% for pp in promotional_products %}
+    {% if pp.id == product.id %}
+      {% set promo.has      = true %}
+      {% set promo.type     = pp.promotion_type %}
+      {% set promo.discount = pp.promotion_discount|float %}
+      {% set promo.code     = pp.promotion_code %}
+      {% if promo.type == 'percentage' and promo.discount > 0 %}
+        {% set promo.final_price = [product.price|float * (1 - promo.discount / 100), 0.01]|max %}
+      {% elif promo.type == 'fixed' and promo.discount > 0 %}
+        {% set promo.final_price = [product.price|float - promo.discount, 0.01]|max %}
+      {% endif %}
+    {% endif %}
+  {% endfor %}
 {% endif %}
 
 {% set oos = (product.quantity|int) <= 0 and (product.sold or 0)|int > 0 %}
