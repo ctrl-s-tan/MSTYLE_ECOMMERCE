@@ -7185,7 +7185,9 @@ def get_seller_documents(seller_id):
                 return url
         except Exception as e:
             print(f'seller signed_url error for {storage_path}: {e}')
-        return f"{SUPABASE_STORAGE_BASE}/{storage_path}"
+        # Fallback: build public URL (works if bucket is public)
+        clean = storage_path.lstrip('/')
+        return f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{clean}"
 
     # -- Supabase-registered seller (sb_ prefix) --------------------------
     if str(seller_id).startswith('sb_'):
@@ -7323,9 +7325,12 @@ def get_user_documents(user_id):
             result = sb_admin.storage.from_(BUCKET).create_signed_url(path, 3600)
             if isinstance(result, dict):
                 return result.get('signedURL') or result.get('signedUrl') or result.get('signed_url')
-            return getattr(result, 'signed_url', None) or f"{SUPABASE_STORAGE_BASE}/{path}"
+            return getattr(result, 'signed_url', None) or getattr(result, 'signedURL', None)
         except Exception:
-            return f"{SUPABASE_STORAGE_BASE}/{path}"
+            pass
+        # Fallback: public URL
+        clean = path.lstrip('/')
+        return f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{clean}"
     try:
         record_id = user_id[3:] if str(user_id).startswith('sb_') else user_id
         res = sb_admin.table('pending_users').select('first_name, last_name, email, phone, house_street, barangay, city, province, region, zip_code, role, valid_id_path, supabase_uid').eq('id', str(record_id)).limit(1).execute()

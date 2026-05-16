@@ -1086,22 +1086,46 @@
     }
 
     function loadAnalyticsData() {
-        // Fetch actual data from backend
+        // Show loading state
+        const loadingHtml = `<tr><td colspan="11" class="text-center text-muted py-4">
+            <div class="spinner-border text-warning" role="status" style="width:2rem;height:2rem;"></div>
+            <p class="mt-2 mb-0">Loading data…</p></td></tr>`;
+        ['inventoryProductsTable','sellerPerformanceTable','riderAnalyticsTable',
+         'buyerInsightsTable','promoCodeAnalyticsTable','platformCommissionTable','complaintsIssuesTable']
+            .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = loadingHtml; });
+
         fetch('/api/admin/analytics')
             .then(response => {
                 if (!response.ok) {
-                    throw new Error('Network response was not ok');
+                    return response.json().then(err => { throw new Error(err.error || `HTTP ${response.status}`); });
                 }
                 return response.json();
             })
             .then(data => {
+                if (data.error) throw new Error(data.error);
                 console.log('Analytics data received:', data);
+                // Store original data for filtering
+                originalData.inventoryProducts  = data.inventoryProducts  || [];
+                originalData.sellerPerformance  = data.sellerPerformance  || [];
+                originalData.riderAnalytics     = data.riderAnalytics     || [];
+                originalData.buyerInsights      = data.buyerInsights      || [];
+                originalData.promoCodeAnalytics = data.promoCodeAnalytics || [];
+                originalData.platformCommission = data.platformCommission || [];
+                originalData.complaintsIssues   = data.complaintsIssues   || [];
                 updateMetrics(data);
                 updateTables(data);
             })
             .catch(error => {
                 console.error('Error loading analytics:', error);
-                alert('Failed to load analytics data. Please check the console for details.');
+                const errHtml = `<tr><td colspan="11" class="text-center text-danger py-4">
+                    <i class="fas fa-exclamation-circle fa-2x mb-2"></i>
+                    <p class="mb-0">Failed to load data: ${error.message}</p>
+                    <button class="btn btn-sm btn-outline-secondary mt-2" onclick="loadAnalyticsData()">
+                        <i class="fas fa-redo"></i> Retry
+                    </button></td></tr>`;
+                ['inventoryProductsTable','sellerPerformanceTable','riderAnalyticsTable',
+                 'buyerInsightsTable','promoCodeAnalyticsTable','platformCommissionTable','complaintsIssuesTable']
+                    .forEach(id => { const el = document.getElementById(id); if (el) el.innerHTML = errHtml; });
             });
     }
 
@@ -2685,5 +2709,105 @@
         // Call original function to display data
         originalUpdateTablesFunction(data);
     };
+</script>
+
+<script>
+    // ── Table update helpers (used by filter functions) ───────────────────
+    function updateInventoryTable(data) {
+        if (!data || data.length === 0) {
+            document.getElementById('inventoryProductsTable').innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-search fa-3x mb-3" style="opacity:.3"></i><h5>No products found</h5></td></tr>`;
+            document.getElementById('inventory-total-count').textContent = '0';
+            document.getElementById('inventory-total-sold').textContent = '0';
+            return;
+        }
+        // Re-use the same rendering logic from updateTables
+        updateTables({ inventoryProducts: data, sellerPerformance: originalData.sellerPerformance,
+            riderAnalytics: originalData.riderAnalytics, buyerInsights: originalData.buyerInsights,
+            promoCodeAnalytics: originalData.promoCodeAnalytics, platformCommission: originalData.platformCommission,
+            complaintsIssues: originalData.complaintsIssues });
+    }
+
+    function updateSellerTable(data) {
+        if (!data || data.length === 0) {
+            document.getElementById('sellerPerformanceTable').innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-search fa-3x mb-3" style="opacity:.3"></i><h5>No sellers found</h5></td></tr>`;
+            document.getElementById('seller-total-count').textContent = '0';
+            document.getElementById('seller-total-revenue').textContent = '₱0.00';
+            return;
+        }
+        updateTables({ inventoryProducts: originalData.inventoryProducts, sellerPerformance: data,
+            riderAnalytics: originalData.riderAnalytics, buyerInsights: originalData.buyerInsights,
+            promoCodeAnalytics: originalData.promoCodeAnalytics, platformCommission: originalData.platformCommission,
+            complaintsIssues: originalData.complaintsIssues });
+    }
+
+    function updateRiderTable(data) {
+        if (!data || data.length === 0) {
+            document.getElementById('riderAnalyticsTable').innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-search fa-3x mb-3" style="opacity:.3"></i><h5>No riders found</h5></td></tr>`;
+            document.getElementById('rider-total-count').textContent = '0';
+            document.getElementById('rider-total-deliveries').textContent = '0';
+            document.getElementById('rider-total-earnings').textContent = '₱0.00';
+            return;
+        }
+        updateTables({ inventoryProducts: originalData.inventoryProducts, sellerPerformance: originalData.sellerPerformance,
+            riderAnalytics: data, buyerInsights: originalData.buyerInsights,
+            promoCodeAnalytics: originalData.promoCodeAnalytics, platformCommission: originalData.platformCommission,
+            complaintsIssues: originalData.complaintsIssues });
+    }
+
+    function updateBuyerTable(data) {
+        if (!data || data.length === 0) {
+            document.getElementById('buyerInsightsTable').innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-search fa-3x mb-3" style="opacity:.3"></i><h5>No buyers found</h5></td></tr>`;
+            document.getElementById('buyer-total-count').textContent = '0';
+            document.getElementById('buyer-total-spend').textContent = '₱0.00';
+            return;
+        }
+        updateTables({ inventoryProducts: originalData.inventoryProducts, sellerPerformance: originalData.sellerPerformance,
+            riderAnalytics: originalData.riderAnalytics, buyerInsights: data,
+            promoCodeAnalytics: originalData.promoCodeAnalytics, platformCommission: originalData.platformCommission,
+            complaintsIssues: originalData.complaintsIssues });
+    }
+
+    function updatePromoTable(data) {
+        if (!data || data.length === 0) {
+            document.getElementById('promoCodeAnalyticsTable').innerHTML = `<tr><td colspan="9" class="text-center text-muted py-4"><i class="fas fa-search fa-3x mb-3" style="opacity:.3"></i><h5>No promo codes found</h5></td></tr>`;
+            document.getElementById('promo-total-count').textContent = '0';
+            document.getElementById('promo-total-uses').textContent = '0';
+            document.getElementById('promo-total-discount').textContent = '₱0.00';
+            return;
+        }
+        updateTables({ inventoryProducts: originalData.inventoryProducts, sellerPerformance: originalData.sellerPerformance,
+            riderAnalytics: originalData.riderAnalytics, buyerInsights: originalData.buyerInsights,
+            promoCodeAnalytics: data, platformCommission: originalData.platformCommission,
+            complaintsIssues: originalData.complaintsIssues });
+    }
+
+    function updateCommissionTable(data) {
+        if (!data || data.length === 0) {
+            document.getElementById('platformCommissionTable').innerHTML = `<tr><td colspan="11" class="text-center text-muted py-4"><i class="fas fa-search fa-3x mb-3" style="opacity:.3"></i><h5>No commission data found</h5></td></tr>`;
+            document.getElementById('commission-total-count').textContent = '0';
+            document.getElementById('commission-total-seller').textContent = '₱0.00';
+            document.getElementById('commission-total-rider').textContent = '₱0.00';
+            document.getElementById('commission-total-earnings').textContent = '₱0.00';
+            return;
+        }
+        updateTables({ inventoryProducts: originalData.inventoryProducts, sellerPerformance: originalData.sellerPerformance,
+            riderAnalytics: originalData.riderAnalytics, buyerInsights: originalData.buyerInsights,
+            promoCodeAnalytics: originalData.promoCodeAnalytics, platformCommission: data,
+            complaintsIssues: originalData.complaintsIssues });
+    }
+
+    function updateIssuesTable(data) {
+        if (!data || data.length === 0) {
+            document.getElementById('complaintsIssuesTable').innerHTML = `<tr><td colspan="8" class="text-center text-muted py-4"><i class="fas fa-search fa-3x mb-3" style="opacity:.3"></i><h5>No issues found</h5></td></tr>`;
+            document.getElementById('issues-total-count').textContent = '0';
+            document.getElementById('issues-pending-count').textContent = '0';
+            document.getElementById('issues-resolved-count').textContent = '0';
+            return;
+        }
+        updateTables({ inventoryProducts: originalData.inventoryProducts, sellerPerformance: originalData.sellerPerformance,
+            riderAnalytics: originalData.riderAnalytics, buyerInsights: originalData.buyerInsights,
+            promoCodeAnalytics: originalData.promoCodeAnalytics, platformCommission: originalData.platformCommission,
+            complaintsIssues: data });
+    }
 </script>
 {% endblock %}
