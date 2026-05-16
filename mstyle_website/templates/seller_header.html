@@ -1,5 +1,57 @@
 <header>
+    <!-- Mobile nav overlay -->
+    <div class="mobile-nav-overlay" id="mobileNavOverlay" onclick="closeMobileNav()"></div>
+
+    <!-- Mobile nav drawer -->
+    <nav class="mobile-nav-drawer" id="mobileNavDrawer">
+        <div class="mobile-nav-header">
+            <span class="shop-name">{{ seller_business_name or 'My Shop' }}</span>
+            <button class="mobile-nav-close" onclick="closeMobileNav()">
+                <i class="bi bi-x-lg"></i>
+            </button>
+        </div>
+        <div class="mobile-nav-links">
+            <a href="{{ url_for('seller_dashboard') }}" class="{% if request.endpoint=='seller_dashboard' %}active{% endif %}">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </a>
+            <a href="{{ url_for('products') }}" class="{% if request.endpoint=='products' %}active{% endif %}">
+                <i class="bi bi-box-seam"></i> Products
+            </a>
+            <a href="{{ url_for('orders_list') }}" class="{% if request.endpoint=='orders_list' %}active{% endif %}">
+                <i class="bi bi-list-check"></i> Order Lists
+            </a>
+            <a href="{{ url_for('seller_order_history') }}" class="{% if request.endpoint=='seller_order_history' %}active{% endif %}">
+                <i class="bi bi-clock-history"></i> Order History
+            </a>
+            <a href="{{ url_for('promotions') }}" class="{% if request.endpoint=='promotions' %}active{% endif %}">
+                <i class="bi bi-megaphone"></i> Promotions
+            </a>
+            <a href="{{ url_for('seller_reviews') }}" class="{% if request.endpoint=='seller_reviews' %}active{% endif %}">
+                <i class="bi bi-star-fill"></i> Reviews & Ratings
+            </a>
+            <a href="{{ url_for('reports_analytics') }}" class="{% if request.endpoint=='reports_analytics' %}active{% endif %}">
+                <i class="bi bi-graph-up"></i> Reports & Analytics
+            </a>
+            <div class="mobile-nav-divider"></div>
+            <a href="{{ url_for('profile') }}">
+                <i class="bi bi-person"></i> My Profile
+            </a>
+        </div>
+        <div class="mobile-nav-footer">
+            <a href="#" onclick="confirmLogout()">
+                <i class="bi bi-box-arrow-right"></i> Logout
+            </a>
+        </div>
+    </nav>
+
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/seller_mobile.css') }}">
+
     <div class="top-header">
+        <!-- Hamburger — mobile only -->
+        <button class="mobile-menu-btn" id="mobileMenuBtn" onclick="openMobileNav()" aria-label="Open menu">
+            <i class="bi bi-list"></i>
+        </button>
+
         <div class="logo-container">
             <a href="/seller_dashboard">
                 {% if seller_profile_picture %}
@@ -1108,6 +1160,24 @@
                 loadAllConversations();
             }
         }, 30000);
+    });
+
+    // ── Mobile nav ────────────────────────────────────────────────────────────
+    function openMobileNav() {
+        document.getElementById('mobileNavDrawer').classList.add('open');
+        document.getElementById('mobileNavOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeMobileNav() {
+        document.getElementById('mobileNavDrawer').classList.remove('open');
+        document.getElementById('mobileNavOverlay').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+
+    // Close mobile nav on Escape
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeMobileNav();
     });
 </script>
 

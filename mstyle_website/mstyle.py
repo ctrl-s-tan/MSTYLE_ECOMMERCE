@@ -4003,6 +4003,117 @@ def seller_respond_to_review():
     if 'email' not in session or session.get('user_type', '').lower() != 'seller':
         return jsonify({'success': False, 'error': 'Unauthorized. Please log in as a seller.'}), 401
 
+
+# ── Seller Notifications API ──────────────────────────────────────────────────
+
+@app.route('/api/seller/notifications', methods=['GET'])
+def get_seller_notifications():
+    """Get notifications for the logged-in seller."""
+    if 'email' not in session or session.get('user_type', '').lower() != 'seller':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    seller_email = session['email']
+    try:
+        res = sb_admin.table('notifications') \
+            .select('id, message, type, is_read, order_id, created_at') \
+            .eq('seller_email', seller_email) \
+            .order('created_at', desc=True) \
+            .limit(30) \
+            .execute()
+        notifications = res.data or []
+        formatted = []
+        for n in notifications:
+            formatted.append({
+                'id':         n['id'],
+                'message':    n.get('message', ''),
+                'type':       n.get('type', 'order'),
+                'read':       n.get('is_read', False),
+                'order_id':   n.get('order_id'),
+                'created_at': n.get('created_at', ''),
+            })
+        return jsonify({'success': True, 'notifications': formatted})
+    except Exception as e:
+        print(f"get_seller_notifications error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/seller/notifications/mark-read', methods=['POST'])
+def mark_seller_notification_read():
+    """Mark a single notification as read."""
+    if 'email' not in session or session.get('user_type', '').lower() != 'seller':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    data = request.get_json(silent=True) or {}
+    notification_id = data.get('notification_id')
+    if not notification_id:
+        return jsonify({'success': False, 'error': 'notification_id required'}), 400
+    try:
+        sb_admin.table('notifications') \
+            .update({'is_read': True}) \
+            .eq('id', notification_id) \
+            .eq('seller_email', session['email']) \
+            .execute()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"mark_seller_notification_read error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/seller/notifications/mark-all-read', methods=['POST'])
+def mark_all_seller_notifications_read():
+    """Mark all notifications as read for the logged-in seller."""
+    if 'email' not in session or session.get('user_type', '').lower() != 'seller':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    seller_email = session['email']
+    try:
+        res = sb_admin.table('notifications') \
+            .update({'is_read': True}) \
+            .eq('seller_email', seller_email) \
+            .eq('is_read', False) \
+            .execute()
+        affected = len(res.data) if res.data else 0
+        return jsonify({'success': True, 'affected_rows': affected})
+    except Exception as e:
+        print(f"mark_all_seller_notifications_read error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/seller/notifications/delete', methods=['POST'])
+def delete_seller_notification():
+    """Delete a single notification."""
+    if 'email' not in session or session.get('user_type', '').lower() != 'seller':
+        return jsonify({'success': False, 'error': 'Unauthorized. Please log in as a seller.'}), 401
+    data = request.get_json(silent=True) or {}
+    notification_id = data.get('notification_id')
+    if not notification_id:
+        return jsonify({'success': False, 'error': 'notification_id required'}), 400
+    try:
+        sb_admin.table('notifications') \
+            .delete() \
+            .eq('id', notification_id) \
+            .eq('seller_email', session['email']) \
+            .execute()
+        return jsonify({'success': True})
+    except Exception as e:
+        print(f"delete_seller_notification error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@app.route('/api/seller/notifications/delete-all', methods=['POST'])
+def delete_all_seller_notifications():
+    """Delete all notifications for the logged-in seller."""
+    if 'email' not in session or session.get('user_type', '').lower() != 'seller':
+        return jsonify({'success': False, 'error': 'Unauthorized'}), 401
+    seller_email = session['email']
+    try:
+        res = sb_admin.table('notifications') \
+            .delete() \
+            .eq('seller_email', seller_email) \
+            .execute()
+        deleted = len(res.data) if res.data else 0
+        return jsonify({'success': True, 'deleted_count': deleted})
+    except Exception as e:
+        print(f"delete_all_seller_notifications error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
     try:
         data = request.get_json()
         if not data:
