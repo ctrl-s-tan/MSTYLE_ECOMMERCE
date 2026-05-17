@@ -3585,12 +3585,27 @@ def promotions():
         from datetime import datetime as _datetime
         today = _datetime.now(_pht).date().isoformat()
 
-        # Products for promotion management
-        prod_res = sb_admin.table('products').select('id, name, price, image, quantity, category').eq('seller_email', seller_email).gt('quantity', 0).order('name').execute()
+        # Products for promotion management — include ALL seller products regardless of stock
+        prod_res = sb_admin.table('products').select('id, name, price, image, quantity, category').eq('seller_email', seller_email).eq('is_active', True).order('name').execute()
         products = []
         for p in (prod_res.data or []):
+            raw_image = p.get('image', '') or ''
+            # Get first image and resolve to a web-accessible URL
+            first_img = raw_image.split(',')[0].strip() if raw_image else ''
+            if first_img:
+                if first_img.startswith('http://') or first_img.startswith('https://'):
+                    img_url = first_img
+                elif first_img.startswith('/app/'):
+                    img_url = first_img[4:]  # strip /app prefix
+                elif first_img.startswith('/static/') or first_img.startswith('static/'):
+                    img_url = '/' + first_img.lstrip('/')
+                else:
+                    # Supabase Storage key
+                    img_url = f"https://vydcnhmgqovketjqvpoe.supabase.co/storage/v1/object/public/product-images/products/{first_img.split('/')[-1]}"
+            else:
+                img_url = ''
             products.append({'id': p['id'], 'name': p['name'],
-                'price': float(p.get('price') or 0), 'image': p.get('image',''),
+                'price': float(p.get('price') or 0), 'image': img_url,
                 'quantity': int(p.get('quantity') or 0), 'category': p.get('category','')})
 
         # All promotions for this seller
