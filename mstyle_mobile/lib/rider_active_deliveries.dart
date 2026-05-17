@@ -822,9 +822,21 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
               ]),
               const SizedBox(height: 12),
               if (next != null)
-                _primaryBtn(
-                  _actionIcon(status), _actionLabel(status),
-                  () => _updateStatus(d, next),
+                Row(children: [
+                  Expanded(child: _outlineBtn(
+                    Icons.visibility_outlined, 'View Details',
+                    _accent, () => _showOrderModal(d),
+                  )),
+                  const SizedBox(width: 10),
+                  Expanded(child: _primaryBtn(
+                    _actionIcon(status), _actionLabel(status),
+                    () => _updateStatus(d, next),
+                  )),
+                ])
+              else
+                _outlineBtn(
+                  Icons.visibility_outlined, 'View Details',
+                  _accent, () => _showOrderModal(d),
                 ),
             ]),
           ),
@@ -978,11 +990,19 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
 
                   // ── Pricing Summary ──────────────────────────────────────
                   Builder(builder: (_) {
-                    final unitPrice = (live['unit_price'] as double?) ?? 0.0;
-                    final qty = (live['quantity'] as int?) ?? 1;
+                    final totalPrice  = (live['total_price'] as num?)?.toDouble() ?? 0.0;
                     final deliveryFee = fee;
-                    final subtotal = unitPrice * qty;
-                    final totalPrice = subtotal + deliveryFee;
+                    final unitPrice   = (live['unit_price'] as double?) ?? 0.0;
+                    final qty         = (live['quantity'] as int?) ?? 1;
+
+                    // Original subtotal (before any discount)
+                    final originalSubtotal = unitPrice * qty;
+                    // Actual subtotal paid = total_price - delivery_fee
+                    final paidSubtotal = (totalPrice - deliveryFee).clamp(0.0, double.infinity);
+                    // Discount = difference between original and paid subtotal
+                    final discount = (originalSubtotal - paidSubtotal).clamp(0.0, double.infinity);
+                    final hasDiscount = discount > 0.01;
+
                     return Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
@@ -991,11 +1011,50 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
                         border: Border.all(color: _gold.withOpacity(0.25)),
                       ),
                       child: Column(children: [
-                        _pricingRow('Subtotal', '₱${subtotal.toStringAsFixed(2)}', _accent, false),
+                        // Original price (show strikethrough if discounted)
+                        if (hasDiscount) ...[
+                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            const Text('Original Price',
+                              style: TextStyle(color: _textLight, fontSize: 12, fontWeight: FontWeight.w500)),
+                            Text('₱${originalSubtotal.toStringAsFixed(2)}',
+                              style: const TextStyle(
+                                color: _textLight, fontSize: 12,
+                                decoration: TextDecoration.lineThrough,
+                                decorationColor: _textLight)),
+                          ]),
+                          const SizedBox(height: 6),
+                          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                            const Text('Promo Discount',
+                              style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w600)),
+                            Text('- ₱${discount.toStringAsFixed(2)}',
+                              style: const TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w700)),
+                          ]),
+                          const SizedBox(height: 6),
+                          _pricingRow('Subtotal (after promo)', '₱${paidSubtotal.toStringAsFixed(2)}', _accent, false),
+                        ] else
+                          _pricingRow('Subtotal', '₱${originalSubtotal.toStringAsFixed(2)}', _accent, false),
                         const Divider(height: 14),
                         _pricingRow('Delivery Fee', isFree ? 'Free' : '₱${deliveryFee.toStringAsFixed(2)}', Colors.teal, false),
                         const Divider(height: 14),
-                        _pricingRow('Total', '₱${totalPrice.toStringAsFixed(2)}', _gold, true),
+                        _pricingRow('Total Paid', '₱${totalPrice.toStringAsFixed(2)}', _gold, true),
+                        if (hasDiscount) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: Colors.green.shade50,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.green.shade200),
+                            ),
+                            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              Icon(Icons.local_offer_outlined, color: Colors.green.shade600, size: 13),
+                              const SizedBox(width: 5),
+                              Text('Buyer saved ₱${discount.toStringAsFixed(2)} with a promotion',
+                                style: TextStyle(color: Colors.green.shade700, fontSize: 11, fontWeight: FontWeight.w600)),
+                            ]),
+                          ),
+                        ],
                       ]),
                     );
                   }),
