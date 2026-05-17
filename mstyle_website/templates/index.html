@@ -36,6 +36,29 @@
                 {% if images and images[0].strip() %}
                 <img src="{{ images[0].strip()|product_img }}" alt="{{ product.name }}" class="mhero-bg-img">
                 {% endif %}
+                {% if product.promotion_type %}
+                <div class="mhero-promo-badge">
+                    {% if product.promotion_type == 'percentage' %}{{ product.promotion_discount|int }}% OFF
+                    {% elif product.promotion_type == 'fixed' %}₱{{ product.promotion_discount|int }} OFF
+                    {% elif product.promotion_type == 'buy_one_get_one' %}BOGO
+                    {% elif product.promotion_type == 'free_shipping' %}FREE SHIP
+                    {% else %}SALE{% endif %}
+                </div>
+                {% endif %}
+                <div class="mhero-product-info">
+                    <span class="mhero-product-name">{{ product.name[:24] }}{% if product.name|length > 24 %}…{% endif %}</span>
+                    {% if product.promotion_type in ('percentage','fixed') and product.promotion_discount %}
+                    <span class="mhero-product-price">
+                        {% if product.promotion_type == 'percentage' %}
+                        ₱{{ "%.0f"|format(product.price|float * (1 - product.promotion_discount|float/100)) }}
+                        {% else %}
+                        ₱{{ "%.0f"|format(product.price|float - product.promotion_discount|float) }}
+                        {% endif %}
+                    </span>
+                    {% else %}
+                    <span class="mhero-product-price">₱{{ "%.0f"|format(product.price|float) }}</span>
+                    {% endif %}
+                </div>
             </div>
             {% endfor %}
             {% else %}
@@ -148,6 +171,25 @@
         background: rgba(255,255,255,0.38); cursor: pointer; transition: all 0.3s;
     }
     .mhero-dot.active { width: 24px; background: #d4af37; box-shadow: 0 0 8px rgba(212,175,55,0.6); }
+
+    .mhero-promo-badge {
+        position: absolute; top: 16px; right: 16px; z-index: 4;
+        background: linear-gradient(135deg, #d4af37, #f4d03f);
+        color: #1a1a1a; font-size: 10px; font-weight: 900; letter-spacing: 0.8px;
+        padding: 5px 12px; border-radius: 16px;
+        box-shadow: 0 3px 10px rgba(212,175,55,0.5);
+    }
+    .mhero-product-info {
+        position: absolute; bottom: 36px; right: 16px; z-index: 4;
+        background: rgba(26,26,26,0.85); border: 1px solid rgba(212,175,55,0.3);
+        border-radius: 10px; padding: 6px 12px;
+        display: flex; flex-direction: column; align-items: flex-end; max-width: 55%;
+    }
+    .mhero-product-name {
+        color: rgba(255,255,255,0.75); font-size: 9px; font-weight: 500;
+        white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%;
+    }
+    .mhero-product-price { color: #d4af37; font-size: 15px; font-weight: 800; line-height: 1.2; }
     @media (max-width: 768px) {
         .mhero { height: 320px; }
         .mhero-content { width: 78%; padding: 20px 16px 36px; }
