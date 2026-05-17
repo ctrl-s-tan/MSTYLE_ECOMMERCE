@@ -1,353 +1,206 @@
 {#
-  Shared category hero — matches mobile _heroSection() in suits.dart / outerwear.dart etc.
+  Shared category hero — same style as homepage mhero.
   Variables expected:
     hero_title      e.g. "Men's"
     hero_highlight  e.g. "Suits & Blazers"
-    hero_sub        e.g. "Timeless elegance and modern sophistication."
+    hero_sub        e.g. "Timeless elegance..."
     hero_badge      e.g. "Premium Suits Collection"
-    hero_icon       e.g. "fas fa-user-tie"
-    hero_from_price e.g. "₱2,899.00"  (optional)
+    hero_icon       e.g. "fas fa-user-tie"   (fallback when no promo products)
     promotional_products  (list, may be empty)
 #}
-<section class="cat-hero">
-    <!-- Left dark panel -->
-    <div class="cat-hero-left">
-        <div class="cat-hero-badge">
-            <i class="fas fa-star"></i>
-            <span>{{ hero_badge }}</span>
-        </div>
-        <p class="cat-hero-title-top">{{ hero_title }}</p>
-        <h1 class="cat-hero-highlight">{{ hero_highlight }}</h1>
-        <div class="cat-hero-bar"></div>
-        <p class="cat-hero-sub">{{ hero_sub }}</p>
-        <a href="#product-grid" class="cat-hero-btn">
-            Shop Now <i class="fas fa-arrow-right"></i>
-        </a>
-    </div>
-
-    <!-- Right image panel -->
-    <div class="cat-hero-right">
+<section class="mhero">
+    <!-- Background: promotional product images carousel -->
+    <div class="mhero-bg-carousel">
         {% if promotional_products %}
-        <!-- Promotional product carousel -->
-        <div class="cat-hero-carousel">
-            {% for product in promotional_products[:3] %}
-            <div class="cat-hero-slide {% if loop.first %}active{% endif %}">
-                {% set images = product.image.split(',') if product.image else [] %}
-                {% if images and images[0].strip() %}
-                <img src="{{ images[0].strip()|product_img }}"
-                     alt="{{ product.name }}" class="cat-hero-img">
-                {% else %}
-                <div class="cat-hero-img-placeholder">
-                    <i class="{{ hero_icon }}"></i>
-                </div>
-                {% endif %}
-                <!-- Price badge -->
-                <div class="cat-hero-price-badge">
-                    <span class="cat-hero-price-label">{{ product.name[:20] }}{% if product.name|length > 20 %}…{% endif %}</span>
-                    {% if product.promotion_type == 'percentage' and product.promotion_discount %}
-                    <span class="cat-hero-price-value">₱{{ "%.0f"|format(product.price|float * (1 - product.promotion_discount|float/100)) }}</span>
-                    {% else %}
-                    <span class="cat-hero-price-value">₱{{ "%.0f"|format(product.price|float) }}</span>
-                    {% endif %}
-                </div>
-                <!-- Promo badge -->
-                {% if product.promotion_type %}
-                <div class="cat-hero-promo-tag">
-                    {% if product.promotion_type == 'percentage' %}{{ product.promotion_discount|int }}% OFF
-                    {% elif product.promotion_type == 'fixed' %}₱{{ product.promotion_discount|int }} OFF
-                    {% elif product.promotion_type == 'buy_one_get_one' %}BOGO
-                    {% elif product.promotion_type == 'free_shipping' %}FREE SHIP
-                    {% else %}SALE{% endif %}
-                </div>
-                {% else %}
-                <div class="cat-hero-promo-tag">NEW</div>
-                {% endif %}
-            </div>
-            {% endfor %}
-        </div>
-        <!-- Slide dots -->
-        {% if promotional_products|length > 1 %}
-        <div class="cat-hero-dots">
-            {% for product in promotional_products[:3] %}
-            <span class="cat-hero-dot {% if loop.first %}active{% endif %}"
-                  onclick="catHeroSlide({{ loop.index0 }})"></span>
-            {% endfor %}
-        </div>
-        {% endif %}
-        {% else %}
-        <!-- Fallback: icon + from-price -->
-        <div class="cat-hero-fallback">
-            <div class="cat-hero-glow"></div>
-            <i class="{{ hero_icon }} cat-hero-fallback-icon"></i>
-            {% if hero_from_price %}
-            <div class="cat-hero-price-badge">
-                <span class="cat-hero-price-label">Starting from</span>
-                <span class="cat-hero-price-value">{{ hero_from_price }}</span>
+        {% for product in promotional_products[:4] %}
+        {% set images = product.image.split(',') if product.image else [] %}
+        <div class="mhero-bg-slide {% if loop.first %}active{% endif %}">
+            {% if images and images[0].strip() %}
+            <img src="{{ images[0].strip()|product_img }}" alt="{{ product.name }}" class="mhero-bg-img">
+            {% endif %}
+            {% if product.promotion_type %}
+            <div class="mhero-promo-badge">
+                {% if product.promotion_type == 'percentage' %}{{ product.promotion_discount|int }}% OFF
+                {% elif product.promotion_type == 'fixed' %}₱{{ product.promotion_discount|int }} OFF
+                {% elif product.promotion_type == 'buy_one_get_one' %}BOGO
+                {% elif product.promotion_type == 'free_shipping' %}FREE SHIP
+                {% else %}SALE{% endif %}
             </div>
             {% endif %}
-            <div class="cat-hero-promo-tag">NEW</div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <!-- Fallback: category icon on dark background -->
+        <div class="mhero-bg-slide active mhero-bg-fallback">
+            <i class="{{ hero_icon }} mhero-fallback-icon"></i>
         </div>
         {% endif %}
     </div>
+
+    <!-- Left-heavy dark gradient overlay -->
+    <div class="mhero-overlay"></div>
+
+    <!-- Text content -->
+    <div class="mhero-content">
+        <div class="mhero-badge">{{ hero_badge }}</div>
+        <p class="mhero-title-top">{{ hero_title }}</p>
+        <h1 class="mhero-highlight">{{ hero_highlight }}</h1>
+        <div class="mhero-bar"></div>
+        <p class="mhero-sub">{{ hero_sub }}</p>
+        <div class="mhero-btns">
+            <a href="#product-grid" class="mhero-btn-primary">
+                Shop Now <i class="fas fa-arrow-right"></i>
+            </a>
+        </div>
+    </div>
+
+    <!-- Slide dots -->
+    {% if promotional_products and promotional_products|length > 1 %}
+    <div class="mhero-dots">
+        {% for product in promotional_products[:4] %}
+        <span class="mhero-dot {% if loop.first %}active{% endif %}"
+              onclick="catMheroGo({{ loop.index0 }})"></span>
+        {% endfor %}
+    </div>
+    {% endif %}
 </section>
 
 <style>
-/* ── Category Hero — matches mobile _heroSection() ──────────────────────── */
-.cat-hero {
-    display: flex;
-    min-height: 340px;
-    overflow: hidden;
-    position: relative;
+/* ── Category hero — same as homepage mhero ─────────────────────────────── */
+.mhero {
+    position: relative; height: 520px; overflow: hidden;
+    background: linear-gradient(135deg, #1a1a1a, #2c3e50);
 }
-
-/* Left dark panel */
-.cat-hero-left {
-    flex: 0 0 55%;
-    background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%);
-    padding: 32px 28px;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    gap: 0;
+.mhero-bg-carousel { position: absolute; inset: 0; }
+.mhero-bg-slide {
+    position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s ease;
+    display: flex; align-items: stretch; justify-content: flex-end;
 }
-
-.cat-hero-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
+.mhero-bg-slide.active { opacity: 1; }
+.mhero-bg-img {
+    height: 100%; width: auto; max-width: 55%;
+    object-fit: contain; object-position: center center; display: block;
+}
+.mhero-bg-fallback {
+    background: linear-gradient(135deg, #0d1b2a, #1b2a3b);
+    align-items: center; justify-content: center;
+}
+.mhero-fallback-icon { font-size: 120px; color: rgba(44,74,106,0.35); }
+.mhero-overlay {
+    position: absolute; inset: 0; z-index: 1;
+    background: linear-gradient(to right,
+        rgba(26,26,26,0.97) 0%,
+        rgba(26,26,26,0.88) 45%,
+        rgba(26,26,26,0.55) 70%,
+        rgba(26,26,26,0.10) 100%);
+}
+.mhero-content {
+        position: absolute; left: 0; top: 0; bottom: 0;
+        width: 55%; padding: 0 32px 48px 32px;
+        display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+        text-align: left; z-index: 2;
+    }
+.mhero-badge {
+    display: inline-block;
     background: linear-gradient(135deg, #d4af37, #f4d03f);
-    color: #1a1a1a;
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.8px;
-    padding: 5px 12px;
-    border-radius: 20px;
-    width: fit-content;
-    margin-bottom: 14px;
-    box-shadow: 0 3px 10px rgba(212,175,55,0.35);
+    color: #1a1a1a; font-size: 9px; font-weight: 900; letter-spacing: 1.5px;
+    padding: 5px 14px; border-radius: 20px; width: fit-content;
+    margin-bottom: 16px; box-shadow: 0 3px 10px rgba(212,175,55,0.4);
 }
-.cat-hero-badge i { font-size: 8px; }
-
-.cat-hero-title-top {
-    color: rgba(255,255,255,0.7);
-    font-size: 14px;
-    font-weight: 400;
-    margin: 0 0 3px;
+.mhero-title-top {
+    color: rgba(255,255,255,0.7); font-size: 15px; font-weight: 400;
+    letter-spacing: 0.3px; margin: 0 0 6px;
 }
-
-.cat-hero-highlight {
+.mhero-highlight {
     background: linear-gradient(135deg, #d4af37, #f4d03f);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    font-size: 28px;
-    font-weight: 900;
-    letter-spacing: -0.5px;
-    line-height: 1.1;
-    margin: 0 0 10px;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+    font-size: 38px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.1;
+    margin: 0 0 14px;
 }
-
-.cat-hero-bar {
-    width: 40px;
-    height: 3px;
+.mhero-bar {
+    width: 44px; height: 3px;
     background: linear-gradient(135deg, #d4af37, #f4d03f);
-    border-radius: 2px;
-    margin-bottom: 10px;
+    border-radius: 2px; margin-bottom: 14px;
 }
-
-.cat-hero-sub {
-    color: rgba(255,255,255,0.6);
-    font-size: 11px;
-    line-height: 1.6;
-    margin: 0 0 18px;
-    max-width: 280px;
+.mhero-sub {
+    color: rgba(255,255,255,0.6); font-size: 13px; line-height: 1.6;
+    margin: 0 0 24px; max-width: 340px;
 }
-
-.cat-hero-btn {
-    display: inline-flex;
-    align-items: center;
-    gap: 7px;
+.mhero-btns { display: flex; gap: 12px; flex-wrap: wrap; }
+.mhero-btn-primary {
+    display: inline-flex; align-items: center; gap: 7px;
     background: linear-gradient(135deg, #d4af37, #f4d03f);
-    color: #1a1a1a;
-    font-size: 12px;
-    font-weight: 800;
-    padding: 10px 20px;
-    border-radius: 30px;
-    text-decoration: none;
-    width: fit-content;
-    box-shadow: 0 4px 14px rgba(212,175,55,0.4);
+    color: #1a1a1a; font-size: 13px; font-weight: 800; letter-spacing: 0.5px;
+    padding: 11px 22px; border-radius: 30px; text-decoration: none;
+    box-shadow: 0 4px 14px rgba(212,175,55,0.45);
     transition: transform 0.2s, box-shadow 0.2s;
 }
-.cat-hero-btn:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(212,175,55,0.5);
-    text-decoration: none;
-    color: #1a1a1a;
+.mhero-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(212,175,55,0.55); text-decoration: none; color: #1a1a1a; }
+.mhero-dots {
+    position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
+    display: flex; gap: 6px; z-index: 3;
 }
-
-/* Right image panel */
-.cat-hero-right {
-    flex: 0 0 45%;
-    background: linear-gradient(135deg, #0d1b2a 0%, #1b2a3b 100%);
-    position: relative;
-    overflow: hidden;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.mhero-dot {
+    width: 8px; height: 8px; border-radius: 4px;
+    background: rgba(255,255,255,0.38); cursor: pointer; transition: all 0.3s;
 }
-
-/* Carousel */
-.cat-hero-carousel { width: 100%; height: 100%; position: relative; }
-.cat-hero-slide {
-    position: absolute;
-    inset: 0;
-    display: none;
-    align-items: center;
-    justify-content: center;
-}
-.cat-hero-slide.active { display: flex; }
-
-.cat-hero-img {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    display: block;
-}
-
-.cat-hero-img-placeholder {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 64px;
-    color: rgba(44,74,106,0.6);
-}
-
-/* Fallback (no promo products) */
-.cat-hero-fallback {
-    width: 100%;
-    height: 100%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
-}
-.cat-hero-glow {
-    position: absolute;
-    width: 160px;
-    height: 160px;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(212,175,55,0.15) 0%, transparent 70%);
-}
-.cat-hero-fallback-icon {
-    font-size: 72px;
-    color: rgba(44,74,106,0.5);
-    position: relative;
-    z-index: 1;
-}
-
-/* Price badge — bottom-left overlay */
-.cat-hero-price-badge {
-    position: absolute;
-    bottom: 20px;
-    left: 12px;
-    background: rgba(26,26,26,0.88);
-    border: 1px solid rgba(212,175,55,0.3);
-    border-radius: 10px;
-    padding: 6px 12px;
-    display: flex;
-    flex-direction: column;
-    z-index: 5;
-}
-.cat-hero-price-label {
-    color: rgba(255,255,255,0.7);
-    font-size: 8px;
-    font-weight: 500;
-}
-.cat-hero-price-value {
-    color: #d4af37;
-    font-size: 14px;
-    font-weight: 800;
-    line-height: 1.2;
-}
-
-/* Promo tag — top-right */
-.cat-hero-promo-tag {
-    position: absolute;
-    top: 14px;
-    right: 10px;
+.mhero-dot.active { width: 24px; background: #d4af37; box-shadow: 0 0 8px rgba(212,175,55,0.6); }
+.mhero-promo-badge {
+    position: absolute; top: 20px; right: 20px; z-index: 4;
     background: linear-gradient(135deg, #d4af37, #f4d03f);
-    color: #1a1a1a;
-    font-size: 9px;
-    font-weight: 800;
-    letter-spacing: 0.8px;
-    padding: 4px 10px;
-    border-radius: 14px;
-    box-shadow: 0 2px 8px rgba(212,175,55,0.4);
-    z-index: 5;
+    color: #1a1a1a; font-size: 11px; font-weight: 900; letter-spacing: 0.8px;
+    padding: 6px 14px; border-radius: 16px;
+    box-shadow: 0 3px 10px rgba(212,175,55,0.5);
 }
-
-/* Slide dots */
-.cat-hero-dots {
-    position: absolute;
-    bottom: 10px;
-    left: 50%;
-    transform: translateX(-50%);
-    display: flex;
-    gap: 5px;
-    z-index: 10;
+@media (max-width: 1024px) {
+    .mhero { height: 460px; }
+    .mhero-highlight { font-size: 32px; }
+    .mhero-bg-img { max-width: 50%; }
 }
-.cat-hero-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: rgba(255,255,255,0.35);
-    cursor: pointer;
-    transition: all 0.3s;
-}
-.cat-hero-dot.active {
-    width: 22px;
-    border-radius: 4px;
-    background: #d4af37;
-}
-
-/* ── Responsive ─────────────────────────────────────────────────────────── */
 @media (max-width: 768px) {
-    .cat-hero { flex-direction: column; min-height: auto; }
-    .cat-hero-left  { flex: none; padding: 24px 20px; }
-    .cat-hero-right { flex: none; height: 220px; }
-    .cat-hero-highlight { font-size: 22px; }
-    .cat-hero-sub { font-size: 12px; }
+    .mhero { height: 360px; }
+    .mhero-content {
+        position: absolute; left: 0; top: 0; bottom: 0;
+        width: 55%; padding: 0 32px 48px 32px;
+        display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+        text-align: left; z-index: 2;
+    }
+    .mhero-highlight { font-size: 26px; }
+    .mhero-sub { font-size: 12px; }
+    .mhero-bg-img { max-width: 48%; }
 }
 @media (max-width: 480px) {
-    .cat-hero-left  { padding: 20px 16px; }
-    .cat-hero-right { height: 180px; }
-    .cat-hero-highlight { font-size: 18px; }
-    .cat-hero-badge { font-size: 8px; }
+    .mhero { height: 300px; }
+    .mhero-content {
+        position: absolute; left: 0; top: 0; bottom: 0;
+        width: 55%; padding: 0 32px 48px 32px;
+        display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
+        text-align: left; z-index: 2;
+    }
+    .mhero-highlight { font-size: 20px; }
+    .mhero-btn-primary { font-size: 12px; padding: 9px 16px; }
+    .mhero-bg-img { max-width: 60%; }
 }
 </style>
 
 <script>
 (function() {
-    let _catSlide = 0;
-    const _slides = document.querySelectorAll('.cat-hero-slide');
-    const _dots   = document.querySelectorAll('.cat-hero-dot');
-
-    window.catHeroSlide = function(n) {
-        _slides.forEach(s => s.classList.remove('active'));
-        _dots.forEach(d => d.classList.remove('active'));
-        _catSlide = n;
-        if (_slides[n]) _slides[n].classList.add('active');
-        if (_dots[n])   _dots[n].classList.add('active');
-    };
-
-    // Auto-advance if multiple slides
-    if (_slides.length > 1) {
-        setInterval(() => {
-            _catSlide = (_catSlide + 1) % _slides.length;
-            catHeroSlide(_catSlide);
-        }, 4000);
+    var _s = 0;
+    function catMheroGo(n) {
+        var slides = document.querySelectorAll('.mhero .mhero-bg-slide');
+        var dots   = document.querySelectorAll('.mhero .mhero-dot');
+        slides.forEach(function(s){ s.classList.remove('active'); });
+        dots.forEach(function(d){ d.classList.remove('active'); });
+        _s = n;
+        if (slides[n]) slides[n].classList.add('active');
+        if (dots[n])   dots[n].classList.add('active');
     }
+    window.catMheroGo = catMheroGo;
+    document.addEventListener('DOMContentLoaded', function() {
+        var slides = document.querySelectorAll('.mhero .mhero-bg-slide');
+        if (slides.length > 1) {
+            setInterval(function(){ catMheroGo((_s + 1) % slides.length); }, 4000);
+        }
+    });
 })();
 </script>
