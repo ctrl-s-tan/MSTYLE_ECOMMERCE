@@ -174,7 +174,6 @@
                                                 <th>Product Name</th>
                                                 <th>Units Sold</th>
                                                 <th>Revenue</th>
-                                                <th>Stock Left</th>
                                                 <th>Rating</th>
                                             </tr>
                                         </thead>
@@ -187,15 +186,6 @@
                                                 <td>{{ product.name }}</td>
                                                 <td>{{ product.total_sold }}</td>
                                                 <td class="text-success fw-bold">₱{{ "%.2f"|format(product.revenue) }}</td>
-                                                <td>
-                                                    {% if product.stock_left > 10 %}
-                                                    <span class="badge bg-primary">{{ product.stock_left }}</span>
-                                                    {% elif product.stock_left > 0 %}
-                                                    <span class="badge bg-warning">{{ product.stock_left }}</span>
-                                                    {% else %}
-                                                    <span class="badge bg-danger">Out of Stock</span>
-                                                    {% endif %}
-                                                </td>
                                                 <td>
                                                     {% if product.avg_rating > 0 %}
                                                     <div class="rating-display">
@@ -544,8 +534,6 @@
                     { value: 'units-asc', text: 'Units Sold (Low to High)' },
                     { value: 'revenue-desc', text: 'Revenue (High to Low)' },
                     { value: 'revenue-asc', text: 'Revenue (Low to High)' },
-                    { value: 'stock-desc', text: 'Stock (High to Low)' },
-                    { value: 'stock-asc', text: 'Stock (Low to High)' },
                     { value: 'rating-desc', text: 'Rating (High to Low)' },
                     { value: 'rating-asc', text: 'Rating (Low to High)' }
                 ],
@@ -751,13 +739,9 @@
                             valA = parseFloat(a.cells[3].textContent.replace(/[₱,]/g, ''));
                             valB = parseFloat(b.cells[3].textContent.replace(/[₱,]/g, ''));
                             break;
-                        case 'stock':
-                            valA = parseInt(a.cells[4].textContent) || 0;
-                            valB = parseInt(b.cells[4].textContent) || 0;
-                            break;
                         case 'rating':
-                            valA = parseFloat(a.cells[5].textContent) || 0;
-                            valB = parseFloat(b.cells[5].textContent) || 0;
+                            valA = parseFloat(a.cells[4].textContent) || 0;
+                            valB = parseFloat(b.cells[4].textContent) || 0;
                             break;
                     }
                     
@@ -1222,10 +1206,10 @@
 
             // Export Top Products
             csv += 'TOP SELLING PRODUCTS\n';
-            csv += 'Rank,Product Name,Units Sold,Revenue,Stock Left,Rating\n';
+            csv += 'Rank,Product Name,Units Sold,Revenue,Rating\n';
             {% if top_products %}
             {% for product in top_products %}
-            csv += '{{ loop.index }},"{{ product.name|replace('"', '""') }}",{{ product.total_sold }},{{ "%.2f"|format(product.revenue) }},{{ product.stock_left }},{{ "%.1f"|format(product.avg_rating) if product.avg_rating > 0 else "N/A" }}\n';
+            csv += '{{ loop.index }},"{{ product.name|replace('"', '""') }}",{{ product.total_sold }},{{ "%.2f"|format(product.revenue) }},{{ "%.1f"|format(product.avg_rating) if product.avg_rating > 0 else "N/A" }}\n';
             {% endfor %}
             {% endif %}
             csv += '\n';
