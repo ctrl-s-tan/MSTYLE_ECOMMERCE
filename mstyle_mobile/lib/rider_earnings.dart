@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'supabase_client.dart';
 
 const Color _primary   = Color(0xFF1a1a1a);
@@ -47,25 +49,62 @@ class _RiderEarningsPageState extends State<RiderEarningsPage>
 
   Future<void> _fetchEarnings() async {
     try {
-      final data = await supabase
-          .from('orders')
-          .select('id, name, shipping_fee, date')
-          .eq('rider_email', widget.riderEmail)
-          .eq('status', 'Completed')
-          .order('date', ascending: false);
-      if (mounted) _earnings = List<Map<String, dynamic>>.from(data);
-    } catch (_) {}
+      // Use service role to bypass RLS on orders table
+      final data = await supabaseAdminSelect(
+        table: 'orders',
+        select: 'id, name, shipping_fee, date, total_price',
+        filters: {
+          'rider_email': widget.riderEmail,
+          'status': 'Delivered',
+        },
+      );
+      // Also fetch Completed orders
+      final data2 = await supabaseAdminSelect(
+        table: 'orders',
+        select: 'id, name, shipping_fee, date, total_price',
+        filters: {
+          'rider_email': widget.riderEmail,
+          'status': 'Completed',
+        },
+      );
+      if (mounted) {
+        _earnings = [...data, ...data2];
+        // Sort by date descending
+        _earnings.sort((a, b) {
+          final da = a['date'] != null ? DateTime.tryParse(a['date'] as String) : null;
+          final db = b['date'] != null ? DateTime.tryParse(b['date'] as String) : null;
+          if (da == null && db == null) return 0;
+          if (da == null) return 1;
+          if (db == null) return -1;
+          return db.compareTo(da);
+        });
+      }
+    } catch (e) {
+      debugPrint('_fetchEarnings error: $e');
+    }
   }
 
   Future<void> _fetchWithdrawals() async {
     try {
-      final data = await supabase
-          .from('rider_withdrawals')
-          .select()
-          .eq('rider_email', widget.riderEmail)
-          .order('requested_at', ascending: false);
-      if (mounted) _withdrawals = List<Map<String, dynamic>>.from(data);
-    } catch (_) {}
+      // Use service role REST call to bypass RLS on rider_withdrawals
+      final uri = Uri.parse(
+        '$supabaseUrl/rest/v1/rider_withdrawals'
+        '?rider_email=eq.${Uri.encodeComponent(widget.riderEmail)}'
+        '&order=requested_at.desc',
+      );
+      final resp = await http.get(uri, headers: {
+        'apikey':        supabaseServiceRole,
+        'Authorization': 'Bearer $supabaseServiceRole',
+        'Accept':        'application/json',
+      });
+      if (resp.statusCode == 200 && mounted) {
+        _withdrawals = List<Map<String, dynamic>>.from(jsonDecode(resp.body) as List);
+      } else {
+        debugPrint('_fetchWithdrawals: ${resp.statusCode} ${resp.body}');
+      }
+    } catch (e) {
+      debugPrint('_fetchWithdrawals error: $e');
+    }
   }
 
   // ── Computed totals ──────────────────────────────────────────────────────
@@ -237,14 +276,26 @@ class _RiderEarningsPageState extends State<RiderEarningsPage>
                     if (!formKey.currentState!.validate()) return;
                     setSheet(() => submitting = true);
                     try {
-                      await supabase.from('rider_withdrawals').insert({
-                        'rider_email':    widget.riderEmail,
-                        'amount':         double.parse(amountCtrl.text.trim()),
-                        'method':         method,
-                        'account_name':   nameCtrl.text.trim(),
-                        'account_number': numberCtrl.text.trim(),
-                        'status':         'pending',
-                      });
+                      final uri = Uri.parse('$supabaseUrl/rest/v1/rider_withdrawals');
+                      final resp = await http.post(uri,
+                        headers: {
+                          'apikey':        supabaseServiceRole,
+                          'Authorization': 'Bearer $supabaseServiceRole',
+                          'Content-Type':  'application/json',
+                          'Prefer':        'return=minimal',
+                        },
+                        body: jsonEncode({
+                          'rider_email':    widget.riderEmail,
+                          'amount':         double.parse(amountCtrl.text.trim()),
+                          'method':         method,
+                          'account_name':   nameCtrl.text.trim(),
+                          'account_number': numberCtrl.text.trim(),
+                          'status':         'pending',
+                        }),
+                      );
+                      if (resp.statusCode != 200 && resp.statusCode != 201) {
+                        throw Exception('Insert failed: ${resp.statusCode} ${resp.body}');
+                      }
                       if (!mounted) return;
                       Navigator.pop(ctx);
                       await _fetchWithdrawals();
@@ -450,52 +501,154 @@ class _RiderEarningsPageState extends State<RiderEarningsPage>
 
   Widget _earningsBreakdown() => Container(
     padding: const EdgeInsets.all(16),
-    decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 3))]),
+    decoration: BoxDecoration(
+      color: Colors.white,
+      borderRadius: BorderRadius.circular(16),
+      boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 3))],
+    ),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      const Row(children: [
-        Icon(Icons.receipt_long_outlined, color: _gold, size: 16),
-        SizedBox(width: 6),
-        Text('Earnings Breakdown', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13)),
+      // ── Header ──────────────────────────────────────────────────────────
+      Row(children: [
+        Container(
+          width: 34, height: 34,
+          decoration: BoxDecoration(gradient: _goldGrad, borderRadius: BorderRadius.circular(10)),
+          child: const Icon(Icons.receipt_long_outlined, color: _primary, size: 16),
+        ),
+        const SizedBox(width: 10),
+        const Text('Earnings Breakdown',
+          style: TextStyle(color: _accent, fontWeight: FontWeight.w800, fontSize: 14)),
+        const Spacer(),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.green.shade50,
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: Colors.green.shade200),
+          ),
+          child: Text('${_earnings.length} deliveries',
+            style: TextStyle(color: Colors.green.shade700, fontSize: 10, fontWeight: FontWeight.w700)),
+        ),
       ]),
       const SizedBox(height: 4),
-      Container(width: 36, height: 3, decoration: BoxDecoration(borderRadius: BorderRadius.circular(2), gradient: _goldGrad)),
+      Container(width: 36, height: 3,
+        decoration: BoxDecoration(borderRadius: BorderRadius.circular(2), gradient: _goldGrad)),
       const SizedBox(height: 14),
+
       if (_earnings.isEmpty)
-        const Center(child: Padding(
-          padding: EdgeInsets.symmetric(vertical: 16),
-          child: Text('No earnings yet', style: TextStyle(color: _textLight, fontSize: 13)),
+        Center(child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 24),
+          child: Column(children: [
+            Icon(Icons.receipt_long_outlined, size: 48, color: _border),
+            const SizedBox(height: 8),
+            const Text('No earnings yet',
+              style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 14)),
+            const SizedBox(height: 4),
+            const Text('Completed deliveries will appear here.',
+              style: TextStyle(color: _textLight, fontSize: 12)),
+          ]),
         ))
       else
         ..._earnings.map((d) {
-          final fee = (d['shipping_fee'] as num?)?.toDouble() ?? 0;
+          final fee     = (d['shipping_fee'] as num?)?.toDouble() ?? 0;
+          final isFree  = fee == 0;
           final dateStr = d['date'] != null
               ? DateTime.tryParse(d['date'] as String)?.toLocal().toString().split(' ')[0] ?? ''
               : '';
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 10),
+          return Container(
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: _bg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: _border),
+            ),
             child: Row(children: [
-              Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(6), border: Border.all(color: _border)),
-                child: Text('#${d['id']}', style: const TextStyle(color: _textLight, fontSize: 10, fontWeight: FontWeight.w700))),
-              const SizedBox(width: 8),
-              Expanded(child: Text(d['name'] as String? ?? '',
-                style: const TextStyle(color: _accent, fontSize: 12), maxLines: 1, overflow: TextOverflow.ellipsis)),
-              Text(dateStr, style: const TextStyle(color: _textLight, fontSize: 10)),
+              // Status dot + icon
+              Container(
+                width: 36, height: 36,
+                decoration: BoxDecoration(
+                  color: isFree ? Colors.teal.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  isFree ? Icons.local_shipping_outlined : Icons.payments_outlined,
+                  size: 16,
+                  color: isFree ? Colors.teal : Colors.green,
+                ),
+              ),
               const SizedBox(width: 10),
-              Text(fee == 0 ? 'Free' : '₱${fee.toStringAsFixed(0)}',
-                style: TextStyle(color: fee == 0 ? Colors.teal : Colors.green,
-                  fontWeight: FontWeight.w800, fontSize: 13)),
+              // Order info
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(d['name'] as String? ?? 'Delivery',
+                  style: const TextStyle(color: _accent, fontSize: 12, fontWeight: FontWeight.w700),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 3),
+                Row(children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                    decoration: BoxDecoration(
+                      color: _accent.withOpacity(0.08),
+                      borderRadius: BorderRadius.circular(4),
+                    ),
+                    child: Text('#${d['id']}',
+                      style: const TextStyle(color: _accent, fontSize: 9, fontWeight: FontWeight.w700)),
+                  ),
+                  const SizedBox(width: 6),
+                  Icon(Icons.calendar_today_outlined, size: 9, color: _textLight),
+                  const SizedBox(width: 3),
+                  Text(dateStr, style: const TextStyle(color: _textLight, fontSize: 10)),
+                ]),
+              ])),
+              // Earnings amount
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(
+                  isFree ? 'Free' : '₱${fee.toStringAsFixed(2)}',
+                  style: TextStyle(
+                    color: isFree ? Colors.teal : Colors.green.shade600,
+                    fontWeight: FontWeight.w900,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: const Text('Earned',
+                    style: TextStyle(color: Colors.green, fontSize: 8, fontWeight: FontWeight.w700)),
+                ),
+              ]),
             ]),
           );
         }),
-      const Divider(height: 16),
-      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        const Text('Total', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 14)),
-        ShaderMask(shaderCallback: (b) => _goldGrad.createShader(b),
-          child: Text('₱${_totalEarned.toStringAsFixed(2)}',
-            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 16))),
-      ]),
+
+      // ── Total footer ─────────────────────────────────────────────────────
+      if (_earnings.isNotEmpty) ...[
+        const SizedBox(height: 4),
+        Container(
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            gradient: _premiumGrad,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Row(children: [
+              const Icon(Icons.account_balance_wallet_outlined, color: _gold, size: 16),
+              const SizedBox(width: 8),
+              const Text('Total Earnings',
+                style: TextStyle(color: Colors.white70, fontWeight: FontWeight.w600, fontSize: 13)),
+            ]),
+            ShaderMask(
+              shaderCallback: (b) => _goldGrad.createShader(b),
+              child: Text('₱${_totalEarned.toStringAsFixed(2)}',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 18)),
+            ),
+          ]),
+        ),
+      ],
     ]),
   );
 

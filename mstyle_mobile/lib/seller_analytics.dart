@@ -211,11 +211,9 @@ class _SellerAnalyticsPageState extends State<SellerAnalyticsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      bottomNavigationBar: _bottomNav(),
       body: CustomScrollView(
         slivers: [
           _appBar(),
-          SliverToBoxAdapter(child: _pageHeader()),
           SliverToBoxAdapter(child: _statsCards()),
           SliverToBoxAdapter(child: _filterBar()),
           SliverToBoxAdapter(child: _sectionTabs()),
@@ -232,38 +230,19 @@ class _SellerAnalyticsPageState extends State<SellerAnalyticsPage> {
     backgroundColor: _primary,
     elevation: 6,
     titleSpacing: 16,
-    automaticallyImplyLeading: false,
-    title: Row(children: [
-      Container(
-        width: 32, height: 32,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: _goldGrad,
-          boxShadow: [BoxShadow(color: _gold.withOpacity(0.3), blurRadius: 6)],
-        ),
-        child: const Icon(Icons.store, color: _primary, size: 18),
-      ),
-      const SizedBox(width: 8),
-      Flexible(
-        child: ShaderMask(
-          shaderCallback: (b) => _goldGrad.createShader(b),
-          child: Text(
-            _businessName.isNotEmpty ? _businessName : widget.sellerEmail.split('@').first,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.5),
-            maxLines: 1, overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ),
-    ]),
+    leading: IconButton(
+      icon: const Icon(Icons.arrow_back, color: Colors.white),
+      onPressed: () => Navigator.pop(context),
+    ),
+    title: ShaderMask(
+      shaderCallback: (b) => _goldGrad.createShader(b),
+      child: const Text('Reports & Analytics',
+        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+    ),
     actions: [
       IconButton(icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
         onPressed: () => Navigator.push(context,
           MaterialPageRoute(builder: (_) => SellerNotificationsPage(sellerEmail: widget.sellerEmail)))),
-      IconButton(
-        icon: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 22),
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Messages coming soon'), behavior: SnackBarBehavior.floating)),
-      ),
       IconButton(
         icon: const Icon(Icons.person_outline, color: Colors.white, size: 22),
         onPressed: () => Navigator.push(context,

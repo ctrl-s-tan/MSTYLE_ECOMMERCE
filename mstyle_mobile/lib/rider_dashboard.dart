@@ -368,30 +368,191 @@ class _RiderDashboardPageState extends State<RiderDashboardPage> {
 
               const SizedBox(height: 14),
 
-              // Accept button
-              GestureDetector(
-                onTap: () => _acceptDelivery(d),
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  decoration: BoxDecoration(
-                    gradient: _premiumGrad,
-                    borderRadius: BorderRadius.circular(12),
-                    boxShadow: [BoxShadow(color: _primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))],
+              // View Details + Accept buttons
+              Row(children: [
+                // View Details
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _showOrderDetails(d),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _border, width: 1.5),
+                      ),
+                      child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(Icons.visibility_outlined, size: 15, color: _accent),
+                        SizedBox(width: 6),
+                        Text('View Details',
+                          style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 12)),
+                      ]),
+                    ),
                   ),
-                  child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    Icon(Icons.check_circle_outline, size: 16, color: _gold),
-                    SizedBox(width: 7),
-                    Text('Accept Delivery',
-                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 13)),
-                  ]),
                 ),
-              ),
+                const SizedBox(width: 10),
+                // Accept button
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () => _acceptDelivery(d),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: _premiumGrad,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [BoxShadow(color: _primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))],
+                      ),
+                      child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Icon(Icons.check_circle_outline, size: 15, color: _gold),
+                        SizedBox(width: 6),
+                        Text('Accept',
+                          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 12)),
+                      ]),
+                    ),
+                  ),
+                ),
+              ]),
             ]),
           ),
         ]),
     );
   }
+
+  void _showOrderDetails(Map<String, dynamic> order) {
+    final fee    = (order['shipping_fee'] as num?)?.toDouble() ?? 0;
+    final isFree = fee == 0;
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.75,
+        maxChildSize: 0.92,
+        minChildSize: 0.4,
+        builder: (_, ctrl) => Container(
+          decoration: const BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Column(children: [
+            // Handle
+            Padding(
+              padding: const EdgeInsets.only(top: 12),
+              child: Center(child: Container(width: 40, height: 4,
+                decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2)))),
+            ),
+            // Header
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+              child: Row(children: [
+                Container(
+                  width: 38, height: 38,
+                  decoration: BoxDecoration(gradient: _premiumGrad, borderRadius: BorderRadius.circular(10)),
+                  child: const Icon(Icons.local_shipping_outlined, color: _gold, size: 18),
+                ),
+                const SizedBox(width: 10),
+                Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Order #${order['id']}',
+                    style: const TextStyle(color: _accent, fontWeight: FontWeight.w800, fontSize: 15)),
+                  Text(order['name'] as String? ?? '',
+                    style: const TextStyle(color: _textLight, fontSize: 12),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                ])),
+                GestureDetector(
+                  onTap: () => Navigator.pop(context),
+                  child: const Icon(Icons.close, color: _textLight, size: 20)),
+              ]),
+            ),
+            const Divider(height: 20),
+            // Content
+            Expanded(child: ListView(controller: ctrl, padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), children: [
+              // Earnings
+              Container(
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(gradient: _goldGrad, borderRadius: BorderRadius.circular(14)),
+                child: Row(children: [
+                  const Icon(Icons.account_balance_wallet_outlined, color: _primary, size: 20),
+                  const SizedBox(width: 10),
+                  const Text('Delivery Earnings', style: TextStyle(color: _primary, fontWeight: FontWeight.w700, fontSize: 13)),
+                  const Spacer(),
+                  Text(isFree ? 'Free Delivery' : '₱${fee.toStringAsFixed(2)}',
+                    style: const TextStyle(color: _primary, fontWeight: FontWeight.w900, fontSize: 18)),
+                ]),
+              ),
+              const SizedBox(height: 16),
+              // Order info
+              _detailSection('Order Information', Icons.receipt_long_outlined, [
+                _detailRow('Order ID', '#${order['id']}'),
+                _detailRow('Product', order['name'] as String? ?? '—'),
+                _detailRow('Status', 'Waiting for Pickup'),
+              ]),
+              const SizedBox(height: 12),
+              // Buyer info
+              _detailSection('Buyer Information', Icons.person_outline, [
+                _detailRow('Name',
+                  (order['buyer_full_name'] as String?)?.isNotEmpty == true
+                    ? order['buyer_full_name'] as String
+                    : order['email'] as String? ?? '—'),
+                if ((order['buyer_phone'] as String?)?.isNotEmpty == true)
+                  _detailRow('Phone', order['buyer_phone'] as String),
+                _detailRow('Email', order['email'] as String? ?? '—'),
+              ]),
+              const SizedBox(height: 12),
+              // Delivery address
+              _detailSection('Delivery Address', Icons.location_on_outlined, [
+                _detailRow('Address', order['address'] as String? ?? '—'),
+              ]),
+              const SizedBox(height: 20),
+              // Accept button
+              GestureDetector(
+                onTap: () {
+                  Navigator.pop(context);
+                  _acceptDelivery(order);
+                },
+                child: Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(vertical: 15),
+                  decoration: BoxDecoration(
+                    gradient: _premiumGrad,
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [BoxShadow(color: _primary.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 4))],
+                  ),
+                  child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    Icon(Icons.check_circle_outline, size: 18, color: _gold),
+                    SizedBox(width: 8),
+                    Text('Accept Delivery',
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 14)),
+                  ]),
+                ),
+              ),
+            ])),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _detailSection(String title, IconData icon, List<Widget> rows) => Container(
+    padding: const EdgeInsets.all(14),
+    decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _border)),
+    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      Row(children: [
+        Icon(icon, color: _gold, size: 14),
+        const SizedBox(width: 6),
+        Text(title, style: const TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 12)),
+      ]),
+      const SizedBox(height: 10),
+      ...rows,
+    ]),
+  );
+
+  Widget _detailRow(String label, String value) => Padding(
+    padding: const EdgeInsets.only(bottom: 6),
+    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+      SizedBox(width: 80, child: Text(label, style: const TextStyle(color: _textLight, fontSize: 11))),
+      Expanded(child: Text(value, style: const TextStyle(color: _accent, fontWeight: FontWeight.w600, fontSize: 11))),
+    ]),
+  );
 
   Future<void> _acceptDelivery(Map<String, dynamic> order) async {
     final fee = (order['shipping_fee'] as num?)?.toDouble() ?? 0;
