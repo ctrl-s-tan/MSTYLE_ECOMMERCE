@@ -749,6 +749,80 @@ class BuyerService {
   }
 
   /// Fetch featured/all products
+  /// Fetch products that have active promotions — used for the hero carousel.
+  static Future<List<Map<String, dynamic>>> getPromotionalProducts({int limit = 4}) async {
+    try {
+      final today = DateTime.now().toUtc().toIso8601String().split('T')[0];
+      // 1. Fetch active promotions
+      final promoUri = Uri.parse('$supabaseUrl/rest/v1/promotions').replace(queryParameters: {
+        'select': 'id,type,discount_value,code,product_scope,seller_email',
+        'is_active': 'eq.true',
+        'start_date': 'lte.$today',
+        'end_date':   'gte.$today',
+        'limit':      '$limit',
+      });
+      final promoResp = await http.get(promoUri, headers: {
+        'apikey':        supabaseServiceRole,
+        'Authorization': 'Bearer $supabaseServiceRole',
+      });
+      if (promoResp.statusCode != 200) return [];
+      final promos = List<Map<String, dynamic>>.from(jsonDecode(promoResp.body) as List);
+      if (promos.isEmpty) return [];
+
+      // 2. Collect seller emails from promos with scope=all
+      final sellerEmails = promos
+          .where((p) => (p['product_scope'] as String? ?? 'all') == 'all')
+          .map((p) => p['seller_email'] as String?)
+          .whereType<String>()
+          .toSet()
+          .toList();
+      if (sellerEmails.isEmpty) return [];
+
+      // 3. Fetch one product per seller that has stock
+      final prodUri = Uri.parse('$supabaseUrl/rest/v1/products').replace(queryParameters: {
+        'select': 'id,name,price,image,category,seller_email,quantity,sold',
+        'seller_email': 'in.(${sellerEmails.join(',')})',
+        'quantity':     'gt.0',
+        'is_active':    'eq.true',
+        'order':        'id.desc',
+        'limit':        '$limit',
+      });
+      final prodResp = await http.get(prodUri, headers: {
+        'apikey':        supabaseServiceRole,
+        'Authorization': 'Bearer $supabaseServiceRole',
+      });
+      if (prodResp.statusCode != 200) return [];
+      final products = List<Map<String, dynamic>>.from(jsonDecode(prodResp.body) as List);
+
+      // 4. Attach promo data to each product
+      final promoBySellerEmail = <String, Map<String, dynamic>>{
+        for (final p in promos) (p['seller_email'] as String? ?? ''): p,
+      };
+      for (final p in products) {
+        final se    = p['seller_email'] as String? ?? '';
+        final promo = promoBySellerEmail[se];
+        if (promo == null) continue;
+        final promoType     = promo['type'] as String? ?? '';
+        final promoDiscount = double.tryParse(promo['discount_value']?.toString() ?? '0') ?? 0;
+        final basePrice     = double.tryParse(p['price']?.toString() ?? '0') ?? 0;
+        double? salePrice;
+        if (promoType == 'percentage' && promoDiscount > 0) {
+          salePrice = (basePrice * (1 - promoDiscount / 100)).clamp(0.01, double.infinity);
+        } else if (promoType == 'fixed' && promoDiscount > 0) {
+          salePrice = (basePrice - promoDiscount).clamp(0.01, double.infinity);
+        }
+        p['promotion_type']     = promoType;
+        p['promotion_discount'] = promoDiscount;
+        p['promotion_code']     = promo['code'] as String? ?? '';
+        if (salePrice != null) p['sale_price'] = salePrice;
+      }
+      return products;
+    } catch (e) {
+      debugPrint('BuyerService.getPromotionalProducts error: $e');
+      return [];
+    }
+  }
+
   /// Only returns products that have had stock set (quantity > 0 OR sold > 0).
   /// Excludes flagged products and inactive products.
   static Future<List<Map<String, dynamic>>> getProducts({
@@ -864,14 +938,71 @@ class BuyerService {
         }
       }
 
+      // Fetch active promotions and attach to products
+      if (filtered.isNotEmpty) {
+        try {
+          final today = DateTime.now().toUtc().toIso8601String().split('T')[0];
+          final promoUri = Uri.parse('$supabaseUrl/rest/v1/promotions').replace(queryParameters: {
+            'select': 'id,type,discount_value,code,product_scope,seller_email',
+            'is_active': 'eq.true',
+            'start_date': 'lte.$today',
+            'end_date':   'gte.$today',
+          });
+          final promoResp = await http.get(promoUri, headers: {
+            'apikey':        supabaseServiceRole,
+            'Authorization': 'Bearer $supabaseServiceRole',
+          });
+          final promos = promoResp.statusCode == 200
+              ? List<Map<String, dynamic>>.from(jsonDecode(promoResp.body) as List)
+              : <Map<String, dynamic>>[];
+
+          // Build map: productId → first matching promo (scope=all matches by seller)
+          final promoMap = <int, Map<String, dynamic>>{};
+          for (final promo in promos) {
+            final scope = promo['product_scope'] as String? ?? 'all';
+            if (scope == 'all') {
+              for (final p in filtered) {
+                final pid       = p['id'] as int?;
+                final pSeller   = p['seller_email'] as String? ?? '';
+                final pSeller2  = promo['seller_email'] as String? ?? '';
+                if (pid != null && pSeller == pSeller2 && !promoMap.containsKey(pid)) {
+                  promoMap[pid] = promo;
+                }
+              }
+            }
+          }
+
+          for (final p in filtered) {
+            final pid = p['id'] as int?;
+            if (pid == null) continue;
+            final promo = promoMap[pid];
+            if (promo == null) continue;
+            final promoType     = promo['type'] as String? ?? '';
+            final promoDiscount = double.tryParse(promo['discount_value']?.toString() ?? '0') ?? 0;
+            final promoCode     = promo['code'] as String? ?? '';
+            final basePrice     = double.tryParse(p['price']?.toString() ?? '0') ?? 0;
+            double? salePrice;
+            if (promoType == 'percentage' && promoDiscount > 0) {
+              salePrice = (basePrice * (1 - promoDiscount / 100)).clamp(0.01, double.infinity);
+            } else if (promoType == 'fixed' && promoDiscount > 0) {
+              salePrice = (basePrice - promoDiscount).clamp(0.01, double.infinity);
+            }
+            p['promotion_type']     = promoType;
+            p['promotion_discount'] = promoDiscount;
+            p['promotion_code']     = promoCode;
+            if (salePrice != null) p['sale_price'] = salePrice;
+          }
+        } catch (e) {
+          debugPrint('BuyerService.getProducts promo fetch error: $e');
+        }
+      }
+
       return filtered;
     } catch (e) {
       debugPrint('BuyerService.getProducts error: $e');
       return [];
     }
   }
-
-  /// Get stock for a specific product variant (color+size)
   static Future<int?> getVariantStock(int productId, String color, String size) async {
     try {
       final res = await supabase

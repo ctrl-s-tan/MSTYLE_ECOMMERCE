@@ -76,6 +76,7 @@ class _BuyerHomePageState extends State<BuyerHomePage> with TickerProviderStateM
   double _lastScrollOffset = 0;
 
   List<Map<String, dynamic>> _products = [];
+  List<Map<String, dynamic>> _promoProducts = [];
   bool _productsLoading = true;
   String? _productsError;
 
@@ -113,8 +114,15 @@ class _BuyerHomePageState extends State<BuyerHomePage> with TickerProviderStateM
   Future<void> _loadProducts() async {
     if (mounted) setState(() { _productsLoading = true; _productsError = null; });
     try {
-      final data = await BuyerService.getProducts(limit: 8);
-      if (mounted) setState(() { _products = data; _productsLoading = false; });
+      final results = await Future.wait([
+        BuyerService.getProducts(limit: 8),
+        BuyerService.getPromotionalProducts(limit: 4),
+      ]);
+      if (mounted) setState(() {
+        _products        = results[0];
+        _promoProducts   = results[1];
+        _productsLoading = false;
+      });
     } catch (e) {
       debugPrint('_loadProducts error: $e');
       if (mounted) setState(() { _productsLoading = false; _productsError = e.toString(); });
@@ -411,34 +419,39 @@ class _BuyerHomePageState extends State<BuyerHomePage> with TickerProviderStateM
           ),
           Expanded(
             flex: 42,
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFFECEFF1), Color(0xFFE9ECEF)]),
-              ),
-              child: Stack(alignment: Alignment.center, children: [
-                Container(width: 140, height: 140, decoration: BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [_gold.withOpacity(0.12), Colors.transparent]))),
-                const Icon(Icons.storefront, size: 64, color: Color(0xFFCED4DA)),
-                Positioned(top: 18, right: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(gradient: _goldGrad, borderRadius: BorderRadius.circular(16),
-                      boxShadow: [BoxShadow(color: _gold.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 3))],
-                      border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5)),
-                    child: const Text('SPECIAL', style: TextStyle(color: _primary, fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 0.8)),
+            child: _promoProducts.isEmpty
+              ? Container(
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
+                      colors: [Color(0xFFECEFF1), Color(0xFFE9ECEF)]),
                   ),
-                ),
-                Positioned(bottom: 30, left: 10,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(color: _primary.withOpacity(0.85), borderRadius: BorderRadius.circular(10), border: Border.all(color: _gold.withOpacity(0.3))),
-                    child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text('Premium Item', style: TextStyle(color: Colors.white70, fontSize: 8)),
-                      Text('₱1,299.00', style: TextStyle(color: _gold, fontWeight: FontWeight.w800, fontSize: 12)),
-                    ]),
-                  ),
-                ),
-              ]),
-            ),
+                  child: Stack(alignment: Alignment.center, children: [
+                    Container(width: 140, height: 140, decoration: BoxDecoration(shape: BoxShape.circle,
+                      gradient: RadialGradient(colors: [_gold.withOpacity(0.12), Colors.transparent]))),
+                    const Icon(Icons.storefront, size: 64, color: Color(0xFFCED4DA)),
+                    Positioned(top: 18, right: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(gradient: _goldGrad, borderRadius: BorderRadius.circular(16),
+                          boxShadow: [BoxShadow(color: _gold.withOpacity(0.4), blurRadius: 8, offset: const Offset(0, 3))],
+                          border: Border.all(color: Colors.white.withOpacity(0.3), width: 1.5)),
+                        child: const Text('SPECIAL', style: TextStyle(color: _primary, fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 0.8)),
+                      ),
+                    ),
+                    Positioned(bottom: 30, left: 10,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                        decoration: BoxDecoration(color: _primary.withOpacity(0.85), borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: _gold.withOpacity(0.3))),
+                        child: const Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                          Text('Premium Item', style: TextStyle(color: Colors.white70, fontSize: 8)),
+                          Text('₱1,299.00', style: TextStyle(color: _gold, fontWeight: FontWeight.w800, fontSize: 12)),
+                        ]),
+                      ),
+                    ),
+                  ]),
+                )
+              : _BuyerPromoCarousel(products: _promoProducts, heroSlide: _heroSlide),
           ),
         ]),
         Positioned(bottom: 10, left: 0, right: 0,
@@ -741,4 +754,147 @@ class _BuyerHomePageState extends State<BuyerHomePage> with TickerProviderStateM
         boxShadow: [BoxShadow(color: _gold.withOpacity(0.35), blurRadius: 8)]),
     ),
   ]);
+}
+
+// ─── Promotional Products Carousel (hero right panel) ────────────────────────
+class _BuyerPromoCarousel extends StatefulWidget {
+  final List<Map<String, dynamic>> products;
+  final int heroSlide;
+  const _BuyerPromoCarousel({required this.products, required this.heroSlide});
+  @override
+  State<_BuyerPromoCarousel> createState() => _BuyerPromoCarouselState();
+}
+
+class _BuyerPromoCarouselState extends State<_BuyerPromoCarousel> {
+  late PageController _ctrl;
+  late int _current;
+
+  @override
+  void initState() {
+    super.initState();
+    _current = 0;
+    _ctrl = PageController();
+  }
+
+  @override
+  void didUpdateWidget(_BuyerPromoCarousel old) {
+    super.didUpdateWidget(old);
+    if (widget.heroSlide != old.heroSlide && widget.products.isNotEmpty) {
+      final next = widget.heroSlide % widget.products.length;
+      _ctrl.animateToPage(next, duration: const Duration(milliseconds: 500), curve: Curves.easeInOut);
+      _current = next;
+    }
+  }
+
+  @override
+  void dispose() { _ctrl.dispose(); super.dispose(); }
+
+  String _promoBadge(Map<String, dynamic> p) {
+    final t = p['promotion_type'] as String? ?? '';
+    final d = (p['promotion_discount'] as num?)?.toDouble() ?? 0;
+    if (t == 'percentage') return '${d.toInt()}% OFF';
+    if (t == 'fixed')      return '₱${d.toInt()} OFF';
+    if (t == 'buy_one_get_one') return 'BOGO';
+    if (t == 'free_shipping')   return 'FREE SHIP';
+    return 'SALE';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Stack(children: [
+      PageView.builder(
+        controller: _ctrl,
+        itemCount: widget.products.length,
+        onPageChanged: (i) => setState(() => _current = i),
+        itemBuilder: (_, i) {
+          final p = widget.products[i];
+          final imageStr  = p['image'] as String? ?? '';
+          final firstImg  = imageStr.split(',').first.trim();
+          final price     = (p['price'] as num?)?.toDouble() ?? 0;
+          final salePrice = (p['sale_price'] as num?)?.toDouble();
+          final hasPromo  = (p['promotion_type'] as String? ?? '').isNotEmpty;
+
+          return Stack(fit: StackFit.expand, children: [
+            firstImg.isNotEmpty
+              ? (firstImg.startsWith('http')
+                  ? Image.network(firstImg, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(color: const Color(0xFFE9ECEF),
+                        child: const Icon(Icons.storefront, size: 64, color: Color(0xFFCED4DA))))
+                  : Image.network(
+                      'https://vydcnhmgqovketjqvpoe.supabase.co/storage/v1/object/public/product-images/products/$firstImg',
+                      fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => Container(color: const Color(0xFFE9ECEF),
+                        child: const Icon(Icons.storefront, size: 64, color: Color(0xFFCED4DA)))))
+              : Container(color: const Color(0xFFE9ECEF),
+                  child: const Icon(Icons.storefront, size: 64, color: Color(0xFFCED4DA))),
+
+            // Dark gradient at bottom
+            Positioned(bottom: 0, left: 0, right: 0,
+              child: Container(
+                height: 110,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.bottomCenter, end: Alignment.topCenter,
+                    colors: [Colors.black.withOpacity(0.75), Colors.transparent]),
+                ),
+              ),
+            ),
+
+            // Promo badge
+            if (hasPromo)
+              Positioned(top: 10, right: 10,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [Color(0xFFE74C3C), Color(0xFFc0392b)]),
+                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.4), blurRadius: 6)],
+                  ),
+                  child: Text(_promoBadge(p),
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 0.5)),
+                ),
+              ),
+
+            // Product info
+            Positioned(bottom: 12, left: 10, right: 10,
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(p['name'] as String? ?? '',
+                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 11),
+                  maxLines: 1, overflow: TextOverflow.ellipsis),
+                const SizedBox(height: 4),
+                Row(children: [
+                  if (salePrice != null) ...[
+                    Text('₱${price.toStringAsFixed(0)}',
+                      style: const TextStyle(color: Colors.white54, fontSize: 10,
+                        decoration: TextDecoration.lineThrough, decorationColor: Colors.white54)),
+                    const SizedBox(width: 6),
+                    Text('₱${salePrice.toStringAsFixed(0)}',
+                      style: const TextStyle(color: _goldLight, fontWeight: FontWeight.w900, fontSize: 14)),
+                  ] else
+                    Text('₱${price.toStringAsFixed(0)}',
+                      style: const TextStyle(color: _goldLight, fontWeight: FontWeight.w900, fontSize: 14)),
+                ]),
+              ]),
+            ),
+          ]);
+        },
+      ),
+
+      // Dot indicators
+      if (widget.products.length > 1)
+        Positioned(bottom: 6, right: 8,
+          child: Row(mainAxisSize: MainAxisSize.min,
+            children: List.generate(widget.products.length, (i) => AnimatedContainer(
+              duration: const Duration(milliseconds: 300),
+              margin: const EdgeInsets.symmetric(horizontal: 2),
+              width: _current == i ? 16 : 6, height: 6,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(3),
+                color: _current == i ? _gold : Colors.white38,
+              ),
+            )),
+          ),
+        ),
+    ]);
+  }
 }

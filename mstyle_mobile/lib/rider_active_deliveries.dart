@@ -264,8 +264,8 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
 
   // ── Update status directly in Supabase ──────────────────────────────────────
   Future<void> _updateStatus(Map<String, dynamic> order, String newStatus) async {
-    // When marking as Delivered (Completed), require proof of delivery photo first
-    if (newStatus == 'Completed') {
+    // When marking as Delivered, open camera directly for proof of delivery
+    if (newStatus == 'Delivered') {
       await _handleProofOfDelivery(order);
       return;
     }
@@ -302,117 +302,22 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
 
   // ── Proof of Delivery flow ───────────────────────────────────────────────────
   Future<void> _handleProofOfDelivery(Map<String, dynamic> order) async {
+    // Step 1: Open camera directly
     File? proofFile;
-
-    // Show bottom sheet to pick photo source
-    final source = await showModalBottomSheet<ImageSource>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (_) => Container(
-        padding: const EdgeInsets.fromLTRB(20, 20, 20, 32),
-        decoration: const BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          Center(child: Container(
-            width: 40, height: 4,
-            decoration: BoxDecoration(color: _border, borderRadius: BorderRadius.circular(2)),
-          )),
-          const SizedBox(height: 16),
-          Row(children: const [
-            Icon(Icons.camera_alt_outlined, color: _gold, size: 22),
-            SizedBox(width: 10),
-            Text('Proof of Delivery',
-              style: TextStyle(color: _accent, fontSize: 17, fontWeight: FontWeight.w800)),
-          ]),
-          const SizedBox(height: 6),
-          Text('Order #${order['id']} — ${order['name'] ?? ''}',
-            style: const TextStyle(color: _textLight, fontSize: 13)),
-          const SizedBox(height: 6),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.amber.withOpacity(0.08),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.amber.withOpacity(0.3)),
-            ),
-            child: const Row(children: [
-              Icon(Icons.info_outline, color: Colors.amber, size: 16),
-              SizedBox(width: 8),
-              Expanded(child: Text(
-                'A photo is required to confirm delivery. Take a clear photo of the delivered package.',
-                style: TextStyle(color: Colors.amber, fontSize: 12, fontWeight: FontWeight.w500),
-              )),
-            ]),
-          ),
-          const SizedBox(height: 20),
-          Row(children: [
-            Expanded(child: GestureDetector(
-              onTap: () => Navigator.pop(context, ImageSource.camera),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  gradient: _premiumGrad,
-                  borderRadius: BorderRadius.circular(14),
-                  boxShadow: [BoxShadow(color: _primary.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))],
-                ),
-                child: const Column(children: [
-                  Icon(Icons.camera_alt, color: _gold, size: 28),
-                  SizedBox(height: 6),
-                  Text('Take Photo', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
-                ]),
-              ),
-            )),
-            const SizedBox(width: 12),
-            Expanded(child: GestureDetector(
-              onTap: () => Navigator.pop(context, ImageSource.gallery),
-              child: Container(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                decoration: BoxDecoration(
-                  color: _bg,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: _border, width: 1.5),
-                ),
-                child: const Column(children: [
-                  Icon(Icons.photo_library_outlined, color: _accent, size: 28),
-                  SizedBox(height: 6),
-                  Text('Choose Photo', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13)),
-                ]),
-              ),
-            )),
-          ]),
-          const SizedBox(height: 12),
-          GestureDetector(
-            onTap: () => Navigator.pop(context, null),
-            child: Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 13),
-              decoration: BoxDecoration(color: _bg, borderRadius: BorderRadius.circular(12), border: Border.all(color: _border)),
-              child: const Center(child: Text('Cancel', style: TextStyle(color: _textLight, fontWeight: FontWeight.w700))),
-            ),
-          ),
-        ]),
-      ),
-    );
-
-    if (source == null) return;
-
-    // Pick image
     try {
       final picker = ImagePicker();
       final picked = await picker.pickImage(
-        source: source,
+        source: ImageSource.camera,
         imageQuality: 80,
         maxWidth: 1200,
         maxHeight: 1200,
       );
-      if (picked == null) return;
+      if (picked == null) return; // rider cancelled camera
       proofFile = File(picked.path);
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-          content: Text('Could not access camera/gallery: $e'),
+          content: Text('Could not open camera: $e'),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ));
@@ -420,7 +325,7 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
       return;
     }
 
-    // Show preview + confirm dialog
+    // Step 2: Show preview — Confirm or Retake
     if (!mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
@@ -430,27 +335,42 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
+            // Header
             Row(children: const [
-              Icon(Icons.check_circle_outline, color: Colors.green, size: 22),
+              Icon(Icons.camera_alt_outlined, color: _gold, size: 22),
               SizedBox(width: 8),
-              Text('Confirm Delivery',
+              Text('Proof of Delivery',
                 style: TextStyle(color: _accent, fontSize: 16, fontWeight: FontWeight.w800)),
             ]),
             const SizedBox(height: 4),
-            Text('Order #${order['id']}',
-              style: const TextStyle(color: _textLight, fontSize: 12)),
+            Text('Order #${order['id']} — ${order['name'] ?? ''}',
+              style: const TextStyle(color: _textLight, fontSize: 12),
+              maxLines: 1, overflow: TextOverflow.ellipsis),
             const SizedBox(height: 14),
+            // Photo preview
             ClipRRect(
               borderRadius: BorderRadius.circular(12),
               child: Image.file(proofFile!, height: 220, width: double.infinity, fit: BoxFit.cover),
             ),
-            const SizedBox(height: 12),
-            const Text(
-              'This photo will be saved as proof of delivery and the order will be marked as Delivered.',
-              style: TextStyle(color: _textLight, fontSize: 12),
-              textAlign: TextAlign.center,
+            const SizedBox(height: 10),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.06),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: Colors.green.withOpacity(0.2)),
+              ),
+              child: const Row(children: [
+                Icon(Icons.info_outline, color: Colors.green, size: 14),
+                SizedBox(width: 6),
+                Expanded(child: Text(
+                  'Confirm to mark this order as Delivered.',
+                  style: TextStyle(color: Colors.green, fontSize: 11, fontWeight: FontWeight.w500),
+                )),
+              ]),
             ),
             const SizedBox(height: 16),
+            // Buttons
             Row(children: [
               Expanded(child: GestureDetector(
                 onTap: () => Navigator.pop(context, false),
@@ -460,7 +380,8 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
                     color: _bg, borderRadius: BorderRadius.circular(10),
                     border: Border.all(color: _border),
                   ),
-                  child: const Center(child: Text('Retake', style: TextStyle(color: _textLight, fontWeight: FontWeight.w700))),
+                  child: const Center(child: Text('Retake',
+                    style: TextStyle(color: _textLight, fontWeight: FontWeight.w700))),
                 ),
               )),
               const SizedBox(width: 10),
@@ -469,9 +390,12 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Colors.green, Color(0xFF27ae60)]),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF27ae60), Color(0xFF2ecc71)]),
                     borderRadius: BorderRadius.circular(10),
-                    boxShadow: [BoxShadow(color: Colors.green.withOpacity(0.3), blurRadius: 8, offset: const Offset(0, 3))],
+                    boxShadow: [BoxShadow(
+                      color: Colors.green.withOpacity(0.3),
+                      blurRadius: 8, offset: const Offset(0, 3))],
                   ),
                   child: const Center(child: Text('Confirm Delivery',
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13))),
@@ -484,19 +408,20 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
     );
 
     if (confirmed != true) {
-      // User wants to retake — recurse
+      // Retake — recurse back to camera
       await _handleProofOfDelivery(order);
       return;
     }
 
-    // Show uploading indicator
+    // Step 3: Upload with spinner
     if (mounted) {
       showDialog(
         context: context,
         barrierDismissible: false,
         builder: (_) => const Center(
           child: Card(
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(16))),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(16))),
             child: Padding(
               padding: EdgeInsets.all(28),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
@@ -510,7 +435,6 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
       );
     }
 
-    // Upload to Supabase Storage
     String? proofImageUrl;
     try {
       final bytes = await proofFile.readAsBytes();
@@ -519,34 +443,32 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
       final timestamp = DateTime.now().millisecondsSinceEpoch;
       final storagePath = 'proof_of_delivery/order_${order['id']}_$timestamp.$ext';
 
-      final uploadUri = Uri.parse(
-        '$supabaseUrl/storage/v1/object/proof-of-delivery/$storagePath',
-      );
-      final uploadResp = await http.post(uploadUri,
+      final uploadResp = await http.post(
+        Uri.parse('$supabaseUrl/storage/v1/object/proof-of-delivery/$storagePath'),
         headers: {
-          'apikey':          supabaseServiceRole,
-          'Authorization':   'Bearer $supabaseServiceRole',
-          'Content-Type':    contentType,
-          'x-upsert':        'true',
+          'apikey':        supabaseServiceRole,
+          'Authorization': 'Bearer $supabaseServiceRole',
+          'Content-Type':  contentType,
+          'x-upsert':      'true',
         },
         body: bytes,
       );
 
       if (uploadResp.statusCode == 200 || uploadResp.statusCode == 201) {
-        proofImageUrl = '$supabaseUrl/storage/v1/object/public/proof-of-delivery/$storagePath';
+        proofImageUrl =
+          '$supabaseUrl/storage/v1/object/public/proof-of-delivery/$storagePath';
         debugPrint('✅ Proof uploaded: $proofImageUrl');
       } else {
-        debugPrint('⚠️ Proof upload failed: ${uploadResp.statusCode} ${uploadResp.body}');
-        // Continue without proof URL — still mark as delivered
+        debugPrint('⚠️ Upload failed: ${uploadResp.statusCode} ${uploadResp.body}');
       }
     } catch (e) {
-      debugPrint('⚠️ Proof upload error: $e');
+      debugPrint('⚠️ Upload error: $e');
     }
 
-    // Dismiss uploading dialog
+    // Dismiss spinner
     if (mounted) Navigator.of(context, rootNavigator: true).pop();
 
-    // Perform the actual status update
+    // Step 4: Auto-mark as Delivered
     await _performStatusUpdate(order, 'Delivered', proofImageUrl: proofImageUrl);
   }
 
@@ -567,7 +489,8 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
     try {
       final updateData = <String, dynamic>{'status': newStatus};
       if (isCompleted) {
-        updateData['delivered_at'] = DateTime.now().toIso8601String();
+        // Store as UTC ISO string so Supabase and display are consistent
+        updateData['delivered_at'] = DateTime.now().toUtc().toIso8601String();
       }
       if (proofImageUrl != null) {
         updateData['proof_of_delivery_url'] = proofImageUrl;
