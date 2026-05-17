@@ -423,13 +423,10 @@
                                     <label class="form-check-label" for="product_{{ product.id }}"
                                         style="cursor: pointer; width: 100%;">
                                         <div class="d-flex align-items-center">
-                                            {% set first_image = product.image.split(',')[0] if product.image else
-                                            'placeholder.png' %}
-                                            <img src="{{ url_for('static', filename='images/uploads/' + first_image) }}"
+                                            <img src="{{ product.image if product.image else '' }}"
                                                 alt="{{ product.name }}" class="product-thumb me-3"
                                                 style="width: 50px; height: 50px; object-fit: cover; border-radius: 8px; border: 1px solid #ddd; flex-shrink: 0; background-color: #f8f9fa;"
-                                                onerror="console.log('Image failed to load:', this.src); this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjRjhGOUZBIi8+CjxwYXRoIGQ9Ik0yNSAxNUMxOS40NzcyIDE1IDE1IDE5LjQ3NzIgMTUgMjVDMTUgMzAuNTIyOCAxOS40NzcyIDM1IDI1IDM1QzMwLjUyMjggMzUgMzUgMzAuNTIyOCAzNSAyNUMzNSAxOS40NzcyIDMwLjUyMjggMTUgMjUgMTVaTTI1IDE3QzI5LjQxODMgMTcgMzMgMjAuNTgxNyAzMyAyNUMzMyAyOS40MTgzIDI5LjQxODMgMzMgMjUgMzNDMjAuNTgxNyAzMyAxNyAyOS40MTgzIDE3IDI1QzE3IDIwLjU4MTcgMjAuNTgxNyAxNyAyNSAxN1oiIGZpbGw9IiM2Qzc1N0QiLz4KPHBhdGggZD0iTTIzIDIzSDI3VjI3SDIzVjIzWiIgZmlsbD0iIzZDNzU3RCIvPgo8L3N2Zz4K'; this.onerror=null;"
-                                                onload="console.log('Image loaded successfully:', this.src);">
+                                                onerror="this.src='data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNTAiIGhlaWdodD0iNTAiIHZpZXdCb3g9IjAgMCA1MCA1MCIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPHJlY3Qgd2lkdGg9IjUwIiBoZWlnaHQ9IjUwIiBmaWxsPSIjRjhGOUZBIi8+CjxwYXRoIGQ9Ik0yNSAxNUMxOS40NzcyIDE1IDE1IDE5LjQ3NzIgMTUgMjVDMTUgMzAuNTIyOCAxOS40NzcyIDM1IDI1IDM1QzMwLjUyMjggMzUgMzUgMzAuNTIyOCAzNSAyNUMzNSAxOS40NzcyIDMwLjUyMjggMTUgMjUgMTVaTTI1IDE3QzI5LjQxODMgMTcgMzMgMjAuNTgxNyAzMyAyNUMzMyAyOS40MTgzIDI5LjQxODMgMzMgMjUgMzNDMjAuNTgxNyAzMyAxNyAyOS40MTgzIDE3IDI1QzE3IDIwLjU4MTcgMjAuNTgxNyAxNyAyNSAxN1oiIGZpbGw9IiM2Qzc1N0QiLz48L3N2Zz4K'; this.onerror=null;">
                                             <div style="flex-grow: 1;">
                                                 <strong style="color: #333;">{{ product.name }}</strong>
                                                 <small class="d-block text-muted">₱{{ "%.2f"|format(product.price) }} -

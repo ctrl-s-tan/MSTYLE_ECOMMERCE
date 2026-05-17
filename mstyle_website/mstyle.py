@@ -2451,11 +2451,23 @@ def search():
         # Distinct categories from results
         categories = sorted({p['category'] for p in all_products if p.get('category')})
 
+        # Enrich products with active promotion data
+        promotional_products = get_promotional_products(limit=200)
+        promo_map = {pp['id']: pp for pp in promotional_products}
+        for prod in products:
+            if prod['id'] in promo_map:
+                pp = promo_map[prod['id']]
+                prod['promotion_type']     = pp.get('promotion_type', '')
+                prod['promotion_discount'] = pp.get('promotion_discount', 0)
+                prod['promotion_code']     = pp.get('promotion_code', '')
+
     except Exception as e:
         print(f'[search] Supabase error: {e}')
+        promotional_products = []
 
     return render_template('search_results.html',
                            products=products,
+                           promotional_products=promotional_products[:4],
                            query=query,
                            user_email=session.get('email', 'User'),
                            category=category,
@@ -2465,6 +2477,7 @@ def search():
                            total_pages=total_pages,
                            total_count=total_count,
                            per_page=per_page,
+                           wishlist_product_ids=_get_wishlist_ids(),
                            user_name=user_name)
 
 @app.route('/api/search-suggestions')
@@ -3585,12 +3598,27 @@ def promotions():
         from datetime import datetime as _datetime
         today = _datetime.now(_pht).date().isoformat()
 
-        # Products for promotion management
-        prod_res = sb_admin.table('products').select('id, name, price, image, quantity, category').eq('seller_email', seller_email).gt('quantity', 0).order('name').execute()
+        # Products for promotion management — include ALL seller products regardless of stock
+        prod_res = sb_admin.table('products').select('id, name, price, image, quantity, category').eq('seller_email', seller_email).eq('is_active', True).order('name').execute()
         products = []
         for p in (prod_res.data or []):
+            raw_image = p.get('image', '') or ''
+            # Get first image and resolve to a web-accessible URL
+            first_img = raw_image.split(',')[0].strip() if raw_image else ''
+            if first_img:
+                if first_img.startswith('http://') or first_img.startswith('https://'):
+                    img_url = first_img
+                elif first_img.startswith('/app/'):
+                    img_url = first_img[4:]  # strip /app prefix
+                elif first_img.startswith('/static/') or first_img.startswith('static/'):
+                    img_url = '/' + first_img.lstrip('/')
+                else:
+                    # Supabase Storage key
+                    img_url = f"https://vydcnhmgqovketjqvpoe.supabase.co/storage/v1/object/public/product-images/products/{first_img.split('/')[-1]}"
+            else:
+                img_url = ''
             products.append({'id': p['id'], 'name': p['name'],
-                'price': float(p.get('price') or 0), 'image': p.get('image',''),
+                'price': float(p.get('price') or 0), 'image': img_url,
                 'quantity': int(p.get('quantity') or 0), 'category': p.get('category','')})
 
         # All promotions for this seller
@@ -5495,52 +5523,59 @@ def edit_product(product_id):
                 .eq('seller_email', seller_email) \
                 .execute()
 
-            print(f"? Product {product_id} updated in Supabase")
+            print(f"✅ Product {product_id} updated in Supabase")
 
-            # -- Update variant_inventory in Supabase (non-fatal) ----------
-            try:
-                variations_list = [v.strip() for v in variations.split(',') if v.strip()]
-                sizes_list      = [s.strip() for s in updated_sizes.split(',') if s.strip()]
-                total_variants  = len(variations_list) * len(sizes_list)
-                stock_per_variant = quantity // total_variants if total_variants > 0 else quantity
+            # -- Update variant_inventory in background (non-blocking) ----
+            import threading
+            def _sync_variants():
+                try:
+                    variations_list = [v.strip() for v in variations.split(',') if v.strip()]
+                    sizes_list      = [s.strip() for s in updated_sizes.split(',') if s.strip()]
+                    total_variants  = len(variations_list) * len(sizes_list)
+                    stock_per_variant = quantity // total_variants if total_variants > 0 else quantity
 
-                for color in variations_list:
-                    for size in sizes_list:
-                        existing = sb_admin.table('variant_inventory') \
-                            .select('id') \
-                            .eq('product_id', product_id) \
-                            .eq('color', color) \
-                            .eq('size', size) \
-                            .limit(1).execute()
+                    for color in variations_list:
+                        for size in sizes_list:
+                            existing = sb_admin.table('variant_inventory') \
+                                .select('id') \
+                                .eq('product_id', product_id) \
+                                .eq('color', color) \
+                                .eq('size', size) \
+                                .limit(1).execute()
 
-                        if existing.data:
-                            sb_admin.table('variant_inventory').update({
-                                'stock_quantity': stock_per_variant,
-                            }).eq('id', existing.data[0]['id']).execute()
-                        else:
-                            sb_admin.table('variant_inventory').insert({
-                                'product_id':          product_id,
-                                'color':               color,
-                                'size':                size,
-                                'stock_quantity':      stock_per_variant,
-                                'low_stock_threshold': low_stock_threshold,
-                            }).execute()
+                            if existing.data:
+                                sb_admin.table('variant_inventory').update({
+                                    'stock_quantity': stock_per_variant,
+                                }).eq('id', existing.data[0]['id']).execute()
+                            else:
+                                sb_admin.table('variant_inventory').insert({
+                                    'product_id':          product_id,
+                                    'color':               color,
+                                    'size':                size,
+                                    'stock_quantity':      stock_per_variant,
+                                    'low_stock_threshold': low_stock_threshold,
+                                }).execute()
 
-                print(f"? Variant inventory updated for product {product_id}")
-            except Exception as vi_err:
-                print(f"?? Variant inventory update failed (non-fatal): {vi_err}")
+                    print(f"✅ Variant inventory synced for product {product_id}")
+                except Exception as vi_err:
+                    print(f"⚠️ Variant inventory sync failed (non-fatal): {vi_err}")
 
-            # -- Stock notifications (non-fatal) ---------------------------
-            try:
-                check_and_notify_stock_levels(
-                    product_id=product_id,
-                    seller_email=seller_email,
-                    new_quantity=quantity,
-                    threshold=low_stock_threshold,
-                    product_name=name,
-                )
-            except Exception:
-                pass
+            threading.Thread(target=_sync_variants, daemon=True).start()
+
+            # -- Stock notifications in background (non-blocking) ----------
+            def _notify_stock():
+                try:
+                    check_and_notify_stock_levels(
+                        product_id=product_id,
+                        seller_email=seller_email,
+                        new_quantity=quantity,
+                        threshold=low_stock_threshold,
+                        product_name=name,
+                    )
+                except Exception:
+                    pass
+
+            threading.Thread(target=_notify_stock, daemon=True).start()
 
             flash('Product updated successfully!', 'success')
             if is_ajax:
@@ -7942,15 +7977,40 @@ def get_approved_user_documents(user_id):
 
         BUCKET = 'user-documents'
         SUPABASE_STORAGE_BASE = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}"
+        APP_BASE_URL = os.environ.get('APP_URL', 'https://mstyleecommerce-production.up.railway.app')
 
-        def signed_url(storage_path):
-            """Generate a signed URL for a Supabase Storage path.
-            Falls back to public URL if signing fails."""
-            if not storage_path:
+        def signed_url(raw_path):
+            """Resolve any stored path format to a web-accessible URL.
+
+            Formats seen in the DB:
+              1. UUID/filename          → Supabase Storage key  → signed URL
+              2. static/images/...     → local relative path   → /static/images/...
+              3. /app/static/images/.. → absolute server path  → /static/images/...
+              4. https://...           → already a full URL    → return as-is
+            """
+            if not raw_path:
                 return None
+
+            p = str(raw_path).strip().replace('\\', '/')
+
+            # Already a full URL
+            if p.startswith('http://') or p.startswith('https://'):
+                return p
+
+            # Absolute server path like /app/static/images/...
+            # Strip the /app prefix so it becomes a web-relative path
+            if p.startswith('/app/'):
+                p = p[4:]  # → /static/images/...
+
+            # Web-relative path like /static/... or static/...
+            if p.startswith('/static/') or p.startswith('static/'):
+                clean = p.lstrip('/')
+                return f"{APP_BASE_URL}/{clean}"
+
+            # Supabase Storage key (UUID prefix or plain filename)
+            # Try signed URL first, fall back to public URL
             try:
-                result = sb_admin.storage.from_(BUCKET).create_signed_url(storage_path, 3600)
-                # supabase-py v1 returns a dict; v2 returns an object with .signed_url
+                result = sb_admin.storage.from_(BUCKET).create_signed_url(p, 3600)
                 if isinstance(result, dict):
                     url = result.get('signedURL') or result.get('signedUrl') or result.get('signed_url')
                 else:
@@ -7958,9 +8018,10 @@ def get_approved_user_documents(user_id):
                 if url:
                     return url
             except Exception as e:
-                print(f'signed_url error for {storage_path}: {e}')
-            # Fallback: try public URL (works if bucket is public)
-            return f"{SUPABASE_STORAGE_BASE}/{storage_path}"
+                print(f'signed_url error for {p}: {e}')
+
+            # Fallback: public URL
+            return f"{SUPABASE_STORAGE_BASE}/{p}"
 
         # Also check rider_vehicles table for OR/CR and NBI paths
         or_cr_path = u.get('or_cr_path')

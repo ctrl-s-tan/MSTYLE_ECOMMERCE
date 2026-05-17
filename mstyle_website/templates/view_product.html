@@ -103,15 +103,6 @@
                         <span class="original-price">₱{{ product.price }}</span>
                         <span class="savings-text">You save ₱{{ "%.2f"|format(product.discount_amount) }}</span>
                     </div>
-                    {% if active_promotion %}
-                    <div class="promotion-info">
-                        <i class="fas fa-tag"></i>
-                        <span class="promotion-name">{{ active_promotion.name }}</span>
-                        {% if active_promotion.end_date %}
-                        <span class="promotion-expires">Expires: {{ active_promotion.end_date.strftime('%b %d, %Y') }}</span>
-                        {% endif %}
-                    </div>
-                    {% endif %}
                     {% else %}
                     <!-- Regular pricing display -->
                     <div class="price-main">
@@ -286,7 +277,7 @@
                             </div>
                             <div class="reviewer-details">
                                 <div class="reviewer-name">{{ review.customer_name }}</div>
-                                <div class="review-date">{{ review.created_at.strftime('%B %d, %Y') }}</div>
+                                <div class="review-date">{{ review.created_at[:10] if review.created_at is string else review.created_at.strftime('%B %d, %Y') }}</div>
                             </div>
                         </div>
                         <div class="review-rating">
@@ -326,7 +317,7 @@
                             <div class="seller-response-icon"><i class="fas fa-store"></i></div>
                             <strong>Seller Response</strong>
                             {% if review.response_date %}
-                            <span class="response-date">{{ review.response_date.strftime('%B %d, %Y') }}</span>
+                            <span class="response-date">{{ review.response_date[:10] if review.response_date is string else review.response_date.strftime('%B %d, %Y') }}</span>
                             {% endif %}
                         </div>
                         <div class="seller-response-text">
