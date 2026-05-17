@@ -47,21 +47,6 @@
                     {% else %}SALE{% endif %}
                 </div>
                 {% endif %}
-                <!-- Product name + price bottom-right -->
-                <div class="mhero-product-info">
-                    <span class="mhero-product-name">{{ product.name[:24] }}{% if product.name|length > 24 %}…{% endif %}</span>
-                    {% if product.promotion_type in ('percentage','fixed') and product.promotion_discount %}
-                    <span class="mhero-product-price">
-                        {% if product.promotion_type == 'percentage' %}
-                        ₱{{ "%.0f"|format(product.price|float * (1 - product.promotion_discount|float/100)) }}
-                        {% else %}
-                        ₱{{ "%.0f"|format(product.price|float - product.promotion_discount|float) }}
-                        {% endif %}
-                    </span>
-                    {% else %}
-                    <span class="mhero-product-price">₱{{ "%.0f"|format(product.price|float) }}</span>
-                    {% endif %}
-                </div>
             </div>
             {% endfor %}
             {% else %}
