@@ -359,6 +359,7 @@
                                                 data-discount-percentage="{{ order.discount_percentage or 0 }}"
                                                 data-discount-amount="{{ order.discount_amount or 0 }}"
                                                 data-total-price="{{ order.total_price }}"
+                                                data-shipping-fee="{{ order.shipping_fee if order.shipping_fee is defined else 50 }}"
                                                 data-order-date="{{ (order.date or '')|e }}"
                                                 data-order-status="{{ (order.status or '')|e }}"
                                                 data-promotion-name="{{ (order.promotion_name or '')|e }}"
@@ -497,26 +498,50 @@
                     <!-- Pricing Information -->
                     <div class="details-section">
                         <h3><i class="bi bi-currency-dollar"></i> Pricing Information</h3>
+
+                        <!-- Unit price row — always shown -->
                         <div class="details-row">
-                            <span class="label">Original Price:</span>
+                            <span class="label">Unit Price:</span>
                             <span class="value" id="modal-original-price"></span>
                         </div>
-                        <div class="details-row">
-                            <span class="label">Promotion:</span>
-                            <span class="value" id="modal-promotion"></span>
+
+                        <!-- Sale price row — only shown when percentage/fixed promo -->
+                        <div class="details-row" id="modal-sale-price-row" style="display:none;">
+                            <span class="label">Sale Price:</span>
+                            <span class="value modal-sale-price-val" id="modal-sale-price" style="color:#e74c3c;font-weight:700;"></span>
                         </div>
+
+                        <!-- Quantity row -->
                         <div class="details-row">
-                            <span class="label">Discount:</span>
-                            <span class="value" id="modal-discount"></span>
+                            <span class="label">Quantity:</span>
+                            <span class="value" id="modal-pricing-qty"></span>
                         </div>
-                        <div class="details-row">
-                            <span class="label">Shipping Fee:</span>
-                            <span class="value" id="modal-shipping-fee"></span>
-                        </div>
+
+                        <!-- Subtotal (price × qty, before shipping) -->
                         <div class="details-row">
                             <span class="label">Subtotal:</span>
                             <span class="value" id="modal-subtotal"></span>
                         </div>
+
+                        <!-- Promotion badge row -->
+                        <div class="details-row" id="modal-promotion-row">
+                            <span class="label">Promotion:</span>
+                            <span class="value" id="modal-promotion"></span>
+                        </div>
+
+                        <!-- Discount row — shown when there's a price discount -->
+                        <div class="details-row" id="modal-discount-row" style="display:none;">
+                            <span class="label">Discount Applied:</span>
+                            <span class="value" id="modal-discount" style="color:#27ae60;font-weight:600;"></span>
+                        </div>
+
+                        <!-- Shipping fee -->
+                        <div class="details-row">
+                            <span class="label">Shipping Fee:</span>
+                            <span class="value" id="modal-shipping-fee"></span>
+                        </div>
+
+                        <!-- Grand total -->
                         <div class="details-row total-row">
                             <span class="label">Total Price:</span>
                             <span class="value" id="modal-total-price"></span>
@@ -576,6 +601,7 @@
             parseFloat(d.discountPercentage),
             parseFloat(d.discountAmount),
             parseFloat(d.totalPrice),
+            parseFloat(d.shippingFee || 50),
             d.orderDate,
             d.orderStatus,
             d.promotionName,
