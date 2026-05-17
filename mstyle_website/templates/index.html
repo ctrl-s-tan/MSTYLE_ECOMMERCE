@@ -77,9 +77,9 @@
         background: linear-gradient(135deg, #1a1a1a, #2c3e50);
     }
     .mhero-bg-carousel { position: absolute; inset: 0; }
-    .mhero-bg-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s ease; }
+    .mhero-bg-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s ease; display: flex; align-items: center; justify-content: flex-end; }
     .mhero-bg-slide.active { opacity: 1; }
-    .mhero-bg-img { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .mhero-bg-img { height: 100%; width: auto; max-width: 60%; object-fit: contain; display: block; margin-right: 0; }
     .mhero-bg-fallback { background: linear-gradient(135deg, #0d1b2a, #1b2a3b); }
     .mhero-overlay {
         position: absolute; inset: 0; z-index: 1;
