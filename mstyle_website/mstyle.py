@@ -3228,71 +3228,181 @@ def seller_dashboard():
 def reports_analytics():
     if 'email' not in session:
         return redirect(url_for('home'))
-    
+
     if session.get('user_type', '').lower() != 'seller':
         flash('Access denied. Seller privileges required.', 'error')
         return redirect(url_for('login'))
 
-    # -- Get seller name from Supabase (works even when MySQL is down) -----
+    seller_email = session['email']
+
+    # -- Seller display name -----------------------------------------------
     seller_name = session.get('first_name', 'Seller')
     try:
-        sb_res = sb_admin.table('users').select('first_name, last_name, business_name').eq('email', session['email']).execute()
+        sb_res = sb_admin.table('users').select('first_name, last_name, business_name').eq('email', seller_email).execute()
         if sb_res.data:
             u = sb_res.data[0]
-            seller_name = u.get('business_name') or f"{u.get('first_name', '')} {u.get('last_name', '')}".strip() or 'Seller'
-    except Exception as sb_err:
-        print(f"?? Supabase name fetch failed in reports_analytics: {sb_err}")
+            seller_name = u.get('business_name') or f"{u.get('first_name','') } {u.get('last_name','')}".strip() or 'Seller'
+    except Exception as e:
+        print(f"[reports_analytics] name fetch error: {e}")
 
-    seller_email = session['email']
+    # -- Defaults ----------------------------------------------------------
+    total_revenue = total_earnings = avg_order_value = 0.0
+    total_orders  = 0
+    top_products  = []
+    order_details = []
+    promotion_performance = []
+    financial_summary     = []
+    status_stats = {k: {'count': 0, 'value': 0.0} for k in
+        ['pending','confirmed','preparing','waiting_for_pickup','for_pickup',
+         'heading_to_seller','shipped','delivered','completed','cancelled','rejected']}
+
     try:
         from datetime import date as _date
         today = _date.today().isoformat()
 
-        # All orders for this seller
-        orders_res = sb_admin.table('orders').select('id, status, total_price, date, quantity, name, received_at, delivered_at, email, product_id').eq('seller_email', seller_email).execute()
+        # ── 1. Fetch all orders for this seller ───────────────────────────
+        orders_res = sb_admin.table('orders') \
+            .select('id, status, total_price, shipping_fee, date, quantity, name, '
+                    'received_at, delivered_at, email, product_id') \
+            .eq('seller_email', seller_email) \
+            .order('date', desc=True) \
+            .execute()
         all_orders = orders_res.data or []
 
-        done_orders = [o for o in all_orders if (o.get('status') or '').lower() in ('completed', 'delivered')]
-        total_revenue = sum(float(o.get('total_price') or 0) for o in done_orders)
-        total_orders  = len(done_orders)
-        avg_order_value = (total_revenue / total_orders) if total_orders else 0.0
-        total_earnings  = total_revenue * 0.95
+        done_statuses = {'completed', 'delivered'}
+        done_orders   = [o for o in all_orders if (o.get('status') or '').lower() in done_statuses]
 
-        # Top products
-        from collections import defaultdict
-        prod_sales = defaultdict(lambda: {'total_sold': 0, 'revenue': 0.0, 'name': ''})
-        for o in done_orders:
-            pid = o.get('product_id') or o.get('name', 'unknown')
-            prod_sales[pid]['total_sold'] += int(o.get('quantity') or 1)
-            prod_sales[pid]['revenue']    += float(o.get('total_price') or 0)
-            prod_sales[pid]['name']        = o.get('name', str(pid))
-        top_products = sorted(
-            [{'name': v['name'], 'product_id': k, 'total_sold': v['total_sold'],
-              'revenue': v['revenue'], 'stock_left': 0, 'avg_rating': 0.0, 'review_count': 0}
-             for k, v in prod_sales.items()],
-            key=lambda x: x['total_sold'], reverse=True
-        )[:5]
+        # ── 2. Batch-fetch promotion_usage for done orders ────────────────
+        done_ids = [o['id'] for o in done_orders if o.get('id')]
+        promo_usage_by_order = {}   # order_id -> {discount_applied, promotion_id, promo_type}
+        if done_ids:
+            try:
+                pu_res = sb_admin.table('promotion_usage') \
+                    .select('order_id, promotion_id, discount_applied') \
+                    .in_('order_id', done_ids) \
+                    .execute()
+                pu_rows = pu_res.data or []
+                if pu_rows:
+                    promo_ids = list({r['promotion_id'] for r in pu_rows if r.get('promotion_id')})
+                    pr_res = sb_admin.table('promotions') \
+                        .select('id, type') \
+                        .in_('id', promo_ids) \
+                        .execute()
+                    promo_type_map = {p['id']: p.get('type','') for p in (pr_res.data or [])}
+                    for pu in pu_rows:
+                        oid = pu.get('order_id')
+                        try: oid = int(oid)
+                        except: pass
+                        promo_usage_by_order[oid] = {
+                            'discount_applied': float(pu.get('discount_applied') or 0),
+                            'promotion_id':     pu.get('promotion_id'),
+                            'promo_type':       promo_type_map.get(pu.get('promotion_id'), ''),
+                        }
+            except Exception as pu_err:
+                print(f"[reports_analytics] promotion_usage fetch error: {pu_err}")
 
-        # Status stats
-        status_stats = {k: {'count': 0, 'value': 0.0} for k in
-            ['pending','confirmed','preparing','ready_for_pickup','out_for_delivery','delivered','completed','cancelled']}
+        # ── 3. Batch-fetch product data (price, stock, name) ──────────────
+        product_ids = list({o.get('product_id') for o in all_orders if o.get('product_id')})
+        product_map = {}   # product_id -> {name, price, quantity, category}
+        if product_ids:
+            try:
+                pr_res = sb_admin.table('products') \
+                    .select('id, name, price, quantity, category') \
+                    .in_('id', product_ids) \
+                    .execute()
+                product_map = {p['id']: p for p in (pr_res.data or [])}
+            except Exception as e:
+                print(f"[reports_analytics] product fetch error: {e}")
+
+        # ── 4. Batch-fetch reviews for ratings ────────────────────────────
+        review_map = {}   # product_id -> {total_rating, count}
+        if product_ids:
+            try:
+                rv_res = sb_admin.table('reviews') \
+                    .select('product_id, rating') \
+                    .in_('product_id', product_ids) \
+                    .execute()
+                from collections import defaultdict
+                _rm = defaultdict(lambda: {'total': 0, 'count': 0})
+                for r in (rv_res.data or []):
+                    pid = r.get('product_id')
+                    _rm[pid]['total'] += int(r.get('rating') or 0)
+                    _rm[pid]['count'] += 1
+                review_map = dict(_rm)
+            except Exception as e:
+                print(f"[reports_analytics] reviews fetch error: {e}")
+
+        # ── 5. Batch-fetch buyer names ────────────────────────────────────
+        buyer_emails = list({o.get('email') for o in all_orders if o.get('email')})
+        buyer_map = {}
+        if buyer_emails:
+            try:
+                ur = sb_admin.table('users') \
+                    .select('email, first_name, last_name') \
+                    .in_('email', buyer_emails) \
+                    .execute()
+                buyer_map = {u['email']: u for u in (ur.data or [])}
+            except Exception as e:
+                print(f"[reports_analytics] buyer fetch error: {e}")
+
+        # ── 6. Status stats ───────────────────────────────────────────────
         for o in all_orders:
             key = (o.get('status') or '').lower().replace(' ', '_')
             if key in status_stats:
                 status_stats[key]['count'] += 1
                 status_stats[key]['value'] += float(o.get('total_price') or 0)
 
-        # Order details
-        buyer_emails = list({o['email'] for o in all_orders if o.get('email')})
-        buyer_map = {}
-        if buyer_emails:
-            ur = sb_admin.table('users').select('email, first_name, last_name').in_('email', buyer_emails).execute()
-            buyer_map = {u['email']: u for u in (ur.data or [])}
+        # ── 7. Summary metrics ────────────────────────────────────────────
+        total_orders  = len(done_orders)
+        total_revenue = sum(float(o.get('total_price') or 0) for o in done_orders)
+        avg_order_value = (total_revenue / total_orders) if total_orders else 0.0
 
+        # Net earnings: total_price - discount - platform_fee(5%)
+        # For free_shipping orders, seller absorbs ₱50 shipping cost
+        _earnings = 0.0
+        for o in done_orders:
+            oid = o.get('id')
+            try: oid = int(oid)
+            except: pass
+            pu_info   = promo_usage_by_order.get(oid, {})
+            disc      = float(pu_info.get('discount_applied', 0))
+            p_type    = pu_info.get('promo_type', '')
+            net       = float(o.get('total_price') or 0) - disc
+            ship_cost = 50.0 if p_type == 'free_shipping' else 0.0
+            _earnings += net - ship_cost - (net * 0.05)
+        total_earnings = round(_earnings, 2)
+
+        # ── 8. Top products ───────────────────────────────────────────────
+        from collections import defaultdict
+        prod_agg = defaultdict(lambda: {'total_sold': 0, 'revenue': 0.0, 'name': ''})
+        for o in done_orders:
+            pid = o.get('product_id')
+            if not pid:
+                continue
+            prod_agg[pid]['total_sold'] += int(o.get('quantity') or 1)
+            prod_agg[pid]['revenue']    += float(o.get('total_price') or 0)
+            prod_agg[pid]['name']        = product_map.get(pid, {}).get('name') or o.get('name', str(pid))
+
+        top_products = []
+        for pid, v in sorted(prod_agg.items(), key=lambda x: x[1]['total_sold'], reverse=True)[:10]:
+            prod   = product_map.get(pid, {})
+            rm     = review_map.get(pid, {'total': 0, 'count': 0})
+            avg_r  = round(rm['total'] / rm['count'], 1) if rm['count'] else 0.0
+            top_products.append({
+                'name':         v['name'],
+                'product_id':   pid,
+                'total_sold':   v['total_sold'],
+                'revenue':      round(v['revenue'], 2),
+                'stock_left':   int(prod.get('quantity') or 0),
+                'avg_rating':   avg_r,
+                'review_count': rm['count'],
+            })
+
+        # ── 9. Order details (all orders, newest first, max 200) ──────────
         order_details = []
-        for o in sorted(all_orders, key=lambda x: x.get('date') or '', reverse=True)[:100]:
-            buyer = buyer_map.get(o.get('email', ''), {})
-            buyer_name = f"{buyer.get('first_name','')} {buyer.get('last_name','')}".strip() or 'N/A'
+        for o in all_orders[:200]:
+            buyer  = buyer_map.get(o.get('email', ''), {})
+            bname  = f"{buyer.get('first_name','')} {buyer.get('last_name','')}".strip() or 'N/A'
             order_details.append({
                 'product_name':    o.get('name', ''),
                 'quantity':        int(o.get('quantity') or 0),
@@ -3300,424 +3410,118 @@ def reports_analytics():
                 'order_date':      o.get('date'),
                 'completion_date': o.get('received_at') or o.get('delivered_at'),
                 'total_amount':    float(o.get('total_price') or 0),
-                'buyer_name':      buyer_name,
+                'buyer_name':      bname,
             })
 
-        # Promotion performance from Supabase
-        promo_res = sb_admin.table('promotions').select('id, name, type, discount_value, start_date, end_date, is_active, current_usage_count').eq('seller_email', seller_email).execute()
+        # ── 10. Promotion performance ─────────────────────────────────────
+        promo_res = sb_admin.table('promotions') \
+            .select('id, name, type, discount_value, start_date, end_date, is_active, current_usage_count') \
+            .eq('seller_email', seller_email) \
+            .order('start_date', desc=True) \
+            .execute()
+
+        # Build revenue_generated per promotion from promotion_usage
+        promo_revenue = defaultdict(float)
+        promo_usage_count = defaultdict(int)
+        for pu in promo_usage_by_order.values():
+            pid_p = pu.get('promotion_id')
+            if pid_p:
+                promo_usage_count[pid_p] += 1
+        # Also fetch all usage (not just done orders) for usage count
+        try:
+            all_pu_res = sb_admin.table('promotion_usage') \
+                .select('promotion_id, discount_applied, order_id') \
+                .execute()
+            # Map order_id -> total_price for revenue calc
+            order_price_map = {o['id']: float(o.get('total_price') or 0) for o in done_orders}
+            for pu in (all_pu_res.data or []):
+                pid_p = pu.get('promotion_id')
+                oid_p = pu.get('order_id')
+                try: oid_p = int(oid_p)
+                except: pass
+                if pid_p and oid_p in order_price_map:
+                    promo_revenue[pid_p] += order_price_map[oid_p]
+        except Exception as e:
+            print(f"[reports_analytics] promo revenue calc error: {e}")
+
         promotion_performance = []
         for p in (promo_res.data or []):
             sd = str(p.get('start_date') or '')[:10]
             ed = str(p.get('end_date') or '')[:10]
             if not p.get('is_active'):
                 pstatus = 'ended'
-            elif ed < today:
+            elif ed and ed < today:
                 pstatus = 'expired'
-            elif sd <= today <= ed:
+            elif sd and sd <= today and (not ed or ed >= today):
                 pstatus = 'active'
             else:
                 pstatus = 'inactive'
+            pid_p = p.get('id')
             promotion_performance.append({
-                'name': p.get('name',''), 'type': p.get('type',''),
-                'discount_value': float(p.get('discount_value') or 0),
-                'start_date': sd, 'end_date': ed,
-                'usage_count': int(p.get('current_usage_count') or 0),
-                'revenue_generated': 0.0, 'status': pstatus,
+                'name':              p.get('name', ''),
+                'type':              p.get('type', ''),
+                'discount_value':    float(p.get('discount_value') or 0),
+                'start_date':        sd,
+                'end_date':          ed,
+                'usage_count':       int(p.get('current_usage_count') or 0),
+                'revenue_generated': round(promo_revenue.get(pid_p, 0.0), 2),
+                'status':            pstatus,
             })
 
-        # Financial summary
+        # ── 11. Financial summary ─────────────────────────────────────────
         financial_summary = []
-        for o in done_orders[:100]:
-            net = float(o.get('total_price') or 0)
+        for o in done_orders[:200]:
+            oid = o.get('id')
+            try: oid = int(oid)
+            except: pass
+            pu_info   = promo_usage_by_order.get(oid, {})
+            disc      = float(pu_info.get('discount_applied', 0))
+            p_type    = pu_info.get('promo_type', '')
+            prod_price = float(product_map.get(o.get('product_id'), {}).get('price') or 0)
+            qty        = int(o.get('quantity') or 1)
+            prod_sales = prod_price * qty if prod_price else float(o.get('total_price') or 0)
+            net_sales  = float(o.get('total_price') or 0)
+            ship_fee   = float(o.get('shipping_fee') or 50)
+            # For free_shipping, seller absorbs the cost (negative for seller)
+            ship_collected = 0.0 if p_type == 'free_shipping' else ship_fee
+            platform_comm  = round(net_sales * 0.05, 2)
+            net_earn       = round(net_sales - (50.0 if p_type == 'free_shipping' else 0) - platform_comm, 2)
             financial_summary.append({
-                'order_id': o['id'], 'product_name': o.get('name',''),
-                'quantity': int(o.get('quantity') or 1),
-                'date_completed': o.get('received_at') or o.get('delivered_at') or o.get('date'),
-                'product_sales': net, 'discounts': 0.0, 'net_sales': net,
-                'shipping_fee_collected': 50.0, 'platform_commission': net * 0.05,
-                'net_earnings': net * 0.95, 'promotion_type': None,
+                'order_id':              oid,
+                'product_name':          o.get('name', ''),
+                'quantity':              qty,
+                'date_completed':        o.get('received_at') or o.get('delivered_at') or o.get('date'),
+                'product_sales':         round(prod_sales, 2),
+                'discounts':             round(disc, 2),
+                'net_sales':             round(net_sales, 2),
+                'shipping_fee_collected': round(ship_collected, 2),
+                'platform_commission':   platform_comm,
+                'net_earnings':          net_earn,
+                'promotion_type':        p_type or None,
             })
 
     except Exception as e:
-        print(f"reports_analytics Supabase error: {e}")
+        print(f"[reports_analytics] error: {e}")
         import traceback; traceback.print_exc()
-        total_revenue = avg_order_value = total_earnings = 0.0
-        total_orders = 0
-        top_products = order_details = promotion_performance = financial_summary = []
-        status_stats = {k: {'count': 0, 'value': 0.0} for k in
-            ['pending','confirmed','preparing','ready_for_pickup','out_for_delivery','delivered','completed','cancelled']}
 
     return render_template('reports_analytics.html',
-                         total_revenue="{:.2f}".format(total_revenue),
-                         total_orders=total_orders,
-                         avg_order_value="{:.2f}".format(avg_order_value),
-                         total_earnings="{:.2f}".format(total_earnings),
-                         top_products=top_products,
-                         status_stats=status_stats,
-                         order_details=order_details,
-                         promotion_performance=promotion_performance,
-                         financial_summary=financial_summary,
-                         user_name=seller_name,
-                         user_email=session.get('email', 'Seller'))
-    cursor.execute("""
-        SELECT 
-            COALESCE(SUM(total_price), 0) as total_revenue,
-            COUNT(*) as total_orders,
-            AVG(total_price) as avg_order_value
-        FROM orders 
-        WHERE seller_email = %s
-        AND status IN ('Delivered', 'Completed')
-    """, (session['email'],))
-    
-    analytics = cursor.fetchone()
-
-    # Get total earnings (from completed/delivered orders only)
-    # For orders with free shipping, subtract the shipping fee from the total
-    cursor.execute("""
-        SELECT o.id, o.product_id, o.total_price, o.date, o.seller_email
-        FROM orders o
-        WHERE o.seller_email = %s 
-        AND o.status IN ('Delivered', 'Completed')
-    """, (session['email'],))
-    
-    completed_orders = cursor.fetchall()
-    
-    # Calculate earnings, subtracting shipping fee for free shipping orders, discounts, and platform commission (5%)
-    total_earnings = 0.0
-    for order in completed_orders:
-        has_free_shipping = False
-        order_value = float(order['total_price'])
-        
-        # Get discount applied for this order
-        cursor.execute("""
-            SELECT COALESCE(discount_applied, 0) as discount
-            FROM promotion_usage
-            WHERE order_id = %s
-        """, (order['id'],))
-        discount_result = cursor.fetchone()
-        discount_applied = float(discount_result['discount']) if discount_result else 0.0
-        
-        # Calculate net sales after discount
-        net_sales = order_value - discount_applied
-        
-        # Check if this order has free shipping promotion
-        if order['product_id']:
-            cursor.execute("""
-                SELECT pr.id
-                FROM promotions pr
-                LEFT JOIN promotion_products pp ON pr.id = pp.promotion_id
-                LEFT JOIN promotion_categories pc ON pr.id = pc.promotion_id
-                LEFT JOIN products p ON (pp.product_id = p.id OR pc.category = p.category)
-                WHERE pr.seller_email = %s
-                AND pr.type = 'free_shipping'
-                AND pr.is_active = 1
-                AND pr.start_date <= %s
-                AND pr.end_date >= %s
-                AND (
-                    pr.product_scope = 'all' 
-                    OR (pr.product_scope = 'specific' AND p.id = %s)
-                    OR (pr.product_scope = 'category' AND p.id = %s)
-                )
-                LIMIT 1
-            """, (order['seller_email'], order['date'].date(), order['date'].date(), order['product_id'], order['product_id']))
-            
-            free_shipping_promo = cursor.fetchone()
-            has_free_shipping = free_shipping_promo is not None
-        
-        # Calculate shipping fee deduction
-        shipping_fee_deduction = 0.0
-        if has_free_shipping:
-            # If free shipping, seller absorbs the shipping cost
-            shipping_fee_deduction = 50  # Standard shipping fee
-        
-        # Calculate platform commission (5% of net sales)
-        platform_commission = net_sales * 0.05
-        
-        # Calculate final earnings: net_sales - shipping_fee_deduction - platform_commission
-        order_earnings = net_sales - shipping_fee_deduction - platform_commission
-        total_earnings += order_earnings
-    
-    earnings_data = {'total_earnings': total_earnings}
-
-    # Get top selling products with stock and rating (only from Delivered and Completed orders)
-    cursor.execute("""
-        SELECT 
-            o.name, 
-            o.product_id,
-            SUM(o.quantity) as total_sold, 
-            SUM(o.total_price) as revenue,
-            p.quantity as stock_left,
-            COALESCE(AVG(r.rating), 0) as avg_rating,
-            COUNT(DISTINCT r.id) as review_count
-        FROM orders o
-        LEFT JOIN products p ON o.product_id = p.id
-        LEFT JOIN reviews r ON p.id = r.product_id
-        WHERE o.seller_email = %s
-        AND o.status IN ('Delivered', 'Completed')
-        GROUP BY o.name, o.product_id, p.quantity
-        ORDER BY total_sold DESC
-        LIMIT 5
-    """, (session['email'],))
-    
-    top_products = cursor.fetchall()
-    
-    # Safely convert top_products values
-    for product in top_products:
-        try:
-            product['revenue'] = float(product['revenue']) if product['revenue'] is not None else 0.0
-            product['total_sold'] = int(product['total_sold']) if product['total_sold'] is not None else 0
-            product['stock_left'] = int(product['stock_left']) if product['stock_left'] is not None else 0
-            product['avg_rating'] = round(float(product['avg_rating']), 1) if product['avg_rating'] and float(product['avg_rating']) > 0 else 0.0
-            product['review_count'] = int(product['review_count']) if product['review_count'] is not None else 0
-        except (ValueError, TypeError):
-            product['revenue'] = 0.0
-            product['total_sold'] = 0
-            product['stock_left'] = 0
-            product['avg_rating'] = 0.0
-            product['review_count'] = 0
-
-    # Get order status breakdown
-    try:
-        cursor.execute("""
-            SELECT 
-                status,
-                COUNT(*) as count,
-                COALESCE(SUM(total_price), 0) as total_value
-            FROM orders
-            WHERE seller_email = %s
-            GROUP BY status
-            ORDER BY count DESC
-        """, (session['email'],))
-        
-        order_status_breakdown = cursor.fetchall()
-    except Exception as e:
-        print(f"Error fetching order status breakdown: {e}")
-        order_status_breakdown = []
-
-    # Get detailed order information for the table
-    try:
-        cursor.execute("""
-            SELECT 
-                o.name as product_name,
-                o.quantity,
-                o.status,
-                o.date as order_date,
-                CASE 
-                    WHEN o.status IN ('Completed', 'Delivered') THEN COALESCE(o.received_at, o.delivered_at)
-                    ELSE NULL
-                END as completion_date,
-                o.total_price as total_amount,
-                CONCAT(COALESCE(u.first_name, ''), ' ', COALESCE(u.last_name, '')) as buyer_name
-            FROM orders o
-            LEFT JOIN users u ON o.email = u.email
-            WHERE o.seller_email = %s
-            ORDER BY o.date DESC
-            LIMIT 100
-        """, (session['email'],))
-        
-        order_details = cursor.fetchall()
-        print(f"DEBUG: Found {len(order_details)} orders for seller {session['email']}")
-        
-        # Convert values safely
-        for order in order_details:
-            try:
-                order['quantity'] = int(order['quantity']) if order['quantity'] is not None else 0
-                order['total_amount'] = float(order['total_amount']) if order['total_amount'] is not None else 0.0
-                # Normalize status to lowercase for consistent display
-                if order['status']:
-                    order['status'] = order['status'].lower()
-                # Clean up buyer name
-                if order['buyer_name']:
-                    order['buyer_name'] = order['buyer_name'].strip()
-                    if order['buyer_name'] == ' ' or order['buyer_name'] == '':
-                        order['buyer_name'] = 'N/A'
-                else:
-                    order['buyer_name'] = 'N/A'
-            except (ValueError, TypeError) as e:
-                print(f"DEBUG: Error converting order values: {e}")
-                order['quantity'] = 0
-                order['total_amount'] = 0.0
-                order['buyer_name'] = 'N/A'
-    except Exception as e:
-        print(f"Error fetching order details: {e}")
-        import traceback
-        traceback.print_exc()
-        order_details = []
-
-    # Get promotion performance data
-    try:
-        cursor.execute("""
-            SELECT 
-                p.name,
-                p.type,
-                p.discount_value,
-                p.start_date,
-                p.end_date,
-                COUNT(DISTINCT CASE 
-                    WHEN o.status IN ('Completed', 'Delivered') AND pu.id IS NOT NULL
-                    THEN pu.id 
-                    ELSE NULL 
-                END) as usage_count,
-                COALESCE(SUM(CASE 
-                    WHEN o.status IN ('Completed', 'Delivered') AND pu.id IS NOT NULL 
-                    THEN o.total_price 
-                    ELSE 0 
-                END), 0) as revenue_generated,
-                CASE 
-                    WHEN p.is_active = 0 THEN 'ended'
-                    WHEN p.end_date < CURDATE() THEN 'expired'
-                    WHEN p.start_date <= CURDATE() AND p.end_date >= CURDATE() THEN 'active'
-                    ELSE 'inactive'
-                END as status
-            FROM promotions p
-            LEFT JOIN promotion_usage pu ON p.id = pu.promotion_id
-            LEFT JOIN orders o ON pu.order_id = o.id
-            WHERE p.seller_email = %s
-            GROUP BY p.id, p.name, p.type, p.discount_value, p.start_date, p.end_date, p.is_active
-            ORDER BY p.start_date DESC
-        """, (session['email'],))
-        
-        promotion_performance = cursor.fetchall()
-        
-        # Convert values safely
-        for promo in promotion_performance:
-            try:
-                promo['discount_value'] = float(promo['discount_value']) if promo['discount_value'] is not None else 0.0
-                promo['usage_count'] = int(promo['usage_count']) if promo['usage_count'] is not None else 0
-                promo['revenue_generated'] = float(promo['revenue_generated']) if promo['revenue_generated'] is not None else 0.0
-            except (ValueError, TypeError):
-                promo['discount_value'] = 0.0
-                promo['usage_count'] = 0
-                promo['revenue_generated'] = 0.0
-    except Exception as e:
-        print(f"Error fetching promotion performance: {e}")
-        promotion_performance = []
-    
-    # Get financial summary data
-    try:
-        cursor.execute("""
-            SELECT 
-                o.id as order_id,
-                CASE 
-                    WHEN o.status IN ('Completed', 'Delivered') THEN COALESCE(o.received_at, o.delivered_at)
-                    ELSE NULL
-                END as date_completed,
-                o.name as product_name,
-                o.quantity as quantity,
-                COALESCE(prod.price, 0) as unit_price,
-                COALESCE(prod.price * o.quantity, o.total_price) as product_sales,
-                CASE 
-                    WHEN p.type = 'free_shipping' THEN 0
-                    WHEN pu.discount_applied IS NOT NULL AND pu.discount_applied > 0 AND p.type != 'free_shipping' THEN pu.discount_applied
-                    WHEN prod.price IS NOT NULL AND (prod.price * o.quantity) > o.total_price 
-                        THEN (prod.price * o.quantity) - o.total_price
-                    ELSE 0
-                END as discounts,
-                o.total_price as net_sales,
-                CASE 
-                    WHEN p.type = 'free_shipping' THEN -50
-                    ELSE 50
-                END as shipping_fee_collected,
-                (o.total_price * 0.05) as platform_commission,
-                (o.total_price - CASE 
-                    WHEN p.type = 'free_shipping' THEN 50
-                    ELSE 0
-                END - (o.total_price * 0.05)) as net_earnings,
-                p.type as promotion_type
-            FROM orders o
-            LEFT JOIN promotion_usage pu ON o.id = pu.order_id
-            LEFT JOIN promotions p ON pu.promotion_id = p.id
-            LEFT JOIN products prod ON o.product_id = prod.id
-            WHERE o.seller_email = %s 
-            AND o.status IN ('Completed', 'Delivered')
-            ORDER BY date_completed DESC
-            LIMIT 100
-        """, (session['email'],))
-        
-        financial_summary = cursor.fetchall()
-        
-        # Convert values safely
-        for item in financial_summary:
-            try:
-                item['product_sales'] = float(item['product_sales']) if item['product_sales'] is not None else 0.0
-                item['discounts'] = float(item['discounts']) if item['discounts'] is not None else 0.0
-                item['net_sales'] = float(item['net_sales']) if item['net_sales'] is not None else 0.0
-                item['shipping_fee_collected'] = float(item['shipping_fee_collected']) if item['shipping_fee_collected'] is not None else 0.0
-                # Calculate platform commission if not present (5% of net sales)
-                if 'platform_commission' in item:
-                    item['platform_commission'] = float(item['platform_commission']) if item['platform_commission'] is not None else 0.0
-                else:
-                    item['platform_commission'] = item['net_sales'] * 0.05
-                item['net_earnings'] = float(item['net_earnings']) if item['net_earnings'] is not None else 0.0
-            except (ValueError, TypeError) as e:
-                print(f"Error converting financial summary values: {e}")
-                item['product_sales'] = 0.0
-                item['discounts'] = 0.0
-                item['net_sales'] = 0.0
-                item['shipping_fee_collected'] = 0.0
-                item['platform_commission'] = 0.0
-                item['net_earnings'] = 0.0
-    except Exception as e:
-        print(f"Error fetching financial summary: {e}")
-        import traceback
-        traceback.print_exc()
-        financial_summary = []
-    
-    # Convert to dictionary for easier access
-    status_stats = {
-        'pending': {'count': 0, 'value': 0.0},
-        'confirmed': {'count': 0, 'value': 0.0},
-        'preparing': {'count': 0, 'value': 0.0},
-        'ready_for_pickup': {'count': 0, 'value': 0.0},
-        'out_for_delivery': {'count': 0, 'value': 0.0},
-        'delivered': {'count': 0, 'value': 0.0},
-        'completed': {'count': 0, 'value': 0.0},
-        'cancelled': {'count': 0, 'value': 0.0}
-    }
-    
-    for status_data in order_status_breakdown:
-        try:
-            status_key = status_data['status'].lower().replace(' ', '_')
-            if status_key in status_stats:
-                status_stats[status_key]['count'] = int(status_data['count'])
-                status_stats[status_key]['value'] = float(status_data['total_value'])
-        except Exception as e:
-            print(f"Error processing status data: {e}")
-            continue
-    
-    cursor.close()
-    connection.close()
-
-    # Safely convert values to avoid TypeError
-    try:
-        total_revenue = float(analytics['total_revenue']) if analytics['total_revenue'] is not None else 0.0
-        avg_order_value = float(analytics['avg_order_value']) if analytics['avg_order_value'] is not None else 0.0
-        total_orders = int(analytics['total_orders']) if analytics['total_orders'] is not None else 0
-        total_earnings = float(earnings_data['total_earnings']) if earnings_data['total_earnings'] is not None else 0.0
-    except (ValueError, TypeError):
-        total_revenue = 0.0
-        avg_order_value = 0.0
-        total_orders = 0
-        total_earnings = 0.0
-
-    return render_template('reports_analytics.html',
-                         total_revenue="{:.2f}".format(total_revenue),
-                         total_orders=total_orders,
-                         avg_order_value="{:.2f}".format(avg_order_value),
-                         total_earnings="{:.2f}".format(total_earnings),
-                         top_products=top_products,
-                         status_stats=status_stats,
-                         order_details=order_details,
-                         promotion_performance=promotion_performance,
-                         financial_summary=financial_summary,
-                         user_name=seller_name,
-                         user_email=session.get('email', 'Seller'))
+                           total_revenue="{:.2f}".format(total_revenue),
+                           total_orders=total_orders,
+                           avg_order_value="{:.2f}".format(avg_order_value),
+                           total_earnings="{:.2f}".format(total_earnings),
+                           top_products=top_products,
+                           status_stats=status_stats,
+                           order_details=order_details,
+                           promotion_performance=promotion_performance,
+                           financial_summary=financial_summary,
+                           user_name=seller_name,
+                           user_email=seller_email)
 
 @app.route('/promotions')
 def promotions():
     if 'email' not in session:
         return redirect(url_for('home'))
-    
+
     if session.get('user_type', '').lower() != 'seller':
         flash('Access denied. Seller privileges required.', 'error')
         return redirect(url_for('login'))
@@ -6178,6 +5982,13 @@ def orders_list():
             o['image_url'] = resolved_url
             o['image']     = ''  # always use image_url
 
+            # Normalise shipping_fee — None → 50, free_shipping promo → 0
+            raw_ship = o.get('shipping_fee')
+            if raw_ship is None:
+                o['shipping_fee'] = 0.0 if promo_type == 'free_shipping' else 50.0
+            else:
+                o['shipping_fee'] = float(raw_ship)
+
             # product_sizes fallback
             o.setdefault('product_sizes', '')
 
@@ -6955,10 +6766,18 @@ def get_seller_order_details(order_id):
 
 @app.route('/update_order_status/<int:order_id>', methods=['POST'])
 def update_order_status(order_id):
-    new_status = request.form['stat']
+    # Support both form POST (legacy) and JSON/AJAX
+    is_ajax = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    if is_ajax:
+        data = request.get_json(silent=True) or {}
+        new_status = data.get('stat') or data.get('status', '')
+    else:
+        new_status = request.form.get('stat', '')
+
     seller_email = session.get('email')
 
-    print(f"?? Updating order {order_id} status to: {new_status}")
+    print(f"?? Updating order {order_id} status to: {new_status} (ajax={is_ajax})")
     print(f"?? Seller: {seller_email}")
 
     # -- PRIMARY: Supabase --------------------------------------------------
@@ -6971,6 +6790,8 @@ def update_order_status(order_id):
             .execute()
 
         if not order_res.data:
+            if is_ajax:
+                return jsonify({'success': False, 'error': 'Order not found or unauthorized'}), 404
             flash('Order not found or you are not authorized to update this order.', 'error')
             return redirect(url_for('orders_list'))
 
@@ -6993,6 +6814,8 @@ def update_order_status(order_id):
 
     except Exception as sb_err:
         print(f"? Supabase update_order_status failed: {sb_err}")
+        if is_ajax:
+            return jsonify({'success': False, 'error': str(sb_err)}), 500
         flash('An error occurred while updating the order status.', 'error')
         return redirect(url_for('orders_list'))
 
@@ -7014,19 +6837,20 @@ def update_order_status(order_id):
             except Exception as e:
                 print(f"?? Rider notification failed: {e}")
 
-    # -- Flash message ------------------------------------------------------
+    # -- Response -----------------------------------------------------------
     status_messages = {
-        'Confirmed':         'Order confirmed! You can now start preparing it.',
-        'Preparing':         'Order is now being prepared. Click "Ready for Pickup" when ready.',
+        'Confirmed':          'Order confirmed! You can now start preparing it.',
+        'Preparing':          'Order is now being prepared. Click "Ready for Pickup" when ready.',
         'Waiting for Pickup': 'Order is ready for pickup. Riders have been notified.',
-        'Rejected':          'Order has been rejected.',
+        'Rejected':           'Order has been rejected.',
     }
-    flash(status_messages.get(new_status,
-          f'Order status updated to {new_status}.'), 'success')
+    msg = status_messages.get(new_status, f'Order status updated to {new_status}.')
 
-    # -- MIRROR: MySQL (best-effort) ----------------------------------------
-    # MySQL mirror removed
+    if is_ajax:
+        return jsonify({'success': True, 'new_status': new_status, 'message': msg,
+                        'customer_email': customer_email})
 
+    flash(msg, 'success')
     return redirect(url_for('orders_list'))
 
 @app.route('/update_order_received_status', methods=['POST'])

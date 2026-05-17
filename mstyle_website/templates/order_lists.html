@@ -280,17 +280,29 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% set subtotal = order.total_price|float %}
-                                    {% set ship = order.shipping_fee|float if order.shipping_fee is defined else 50.0 %}
-                                    {% set grand_total = subtotal + ship %}
+                                    {% set orig_unit = order.original_price|float %}
+                                    {% set qty_v = (order.quantity|int) if order.quantity else 1 %}
+                                    {% set subtotal_gross = orig_unit * qty_v %}
+                                    {% set disc = order.discount_amount|float if order.discount_amount else 0.0 %}
+                                    {% set subtotal_net = subtotal_gross - disc %}
+                                    {% set ship = order.shipping_fee|float %}
+                                    {% set grand_total = subtotal_net + ship %}
                                     <div class="total-price-info">
-                                        <span class="total-amount">₱{{ "%.2f"|format(grand_total) }}</span>
-                                        <div style="font-size:10px;color:#6c757d;margin-top:2px;">
-                                            ₱{{ "%.2f"|format(subtotal) }} +
-                                            {% if ship == 0 %}
-                                            <span style="color:#27ae60;font-weight:600;">Free Ship</span>
+                                        <span class="total-amount" style="font-weight:800;font-size:15px;">
+                                            ₱{{ "%.2f"|format(grand_total) }}
+                                        </span>
+                                        <div style="font-size:10px;color:#6c757d;margin-top:3px;line-height:1.6;">
+                                            {% if disc > 0 %}
+                                                <span style="text-decoration:line-through;color:#aaa;">₱{{ "%.2f"|format(subtotal_gross) }}</span>
+                                                <span style="color:#e74c3c;font-weight:700;"> ₱{{ "%.2f"|format(subtotal_net) }}</span>
                                             {% else %}
-                                            ₱{{ "%.2f"|format(ship) }} ship
+                                                <span>₱{{ "%.2f"|format(subtotal_gross) }}</span>
+                                            {% endif %}
+                                            <span style="margin:0 2px;">+</span>
+                                            {% if ship == 0 %}
+                                                <span style="color:#27ae60;font-weight:700;">Free Ship</span>
+                                            {% else %}
+                                                <span>₱{{ "%.2f"|format(ship) }} ship</span>
                                             {% endif %}
                                         </div>
                                     </div>
