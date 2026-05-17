@@ -942,13 +942,13 @@ class BuyerService {
       if (filtered.isNotEmpty) {
         try {
           final today = DateTime.now().toUtc().toIso8601String().split('T')[0];
-          final promoUri = Uri.parse('$supabaseUrl/rest/v1/promotions').replace(queryParameters: {
-            'select': 'id,type,discount_value,code,product_scope,seller_email',
-            'is_active': 'eq.true',
-            'start_date': 'lte.$today',
-            'end_date':   'gte.$today',
-          });
-          final promoResp = await http.get(promoUri, headers: {
+          // Build URL manually — Uri.replace encodes dots in filter values incorrectly
+          final promoUrl = '$supabaseUrl/rest/v1/promotions'
+              '?select=id,type,discount_value,code,product_scope,seller_email'
+              '&is_active=eq.true'
+              '&start_date=lte.$today'
+              '&end_date=gte.$today';
+          final promoResp = await http.get(Uri.parse(promoUrl), headers: {
             'apikey':        supabaseServiceRole,
             'Authorization': 'Bearer $supabaseServiceRole',
           });
@@ -956,19 +956,82 @@ class BuyerService {
               ? List<Map<String, dynamic>>.from(jsonDecode(promoResp.body) as List)
               : <Map<String, dynamic>>[];
 
-          // Build map: productId → first matching promo (scope=all matches by seller)
+          // Build map: productId → first matching promo
+          // Handles scope=all (match by seller), specific (match by product_id), category (match by category)
           final promoMap = <int, Map<String, dynamic>>{};
-          for (final promo in promos) {
-            final scope = promo['product_scope'] as String? ?? 'all';
-            if (scope == 'all') {
-              for (final p in filtered) {
-                final pid       = p['id'] as int?;
-                final pSeller   = p['seller_email'] as String? ?? '';
-                final pSeller2  = promo['seller_email'] as String? ?? '';
-                if (pid != null && pSeller == pSeller2 && !promoMap.containsKey(pid)) {
-                  promoMap[pid] = promo;
+
+          // For specific/category scopes, fetch linked product_ids and categories
+          final specificPromos = promos.where((p) => (p['product_scope'] as String? ?? '') == 'specific').toList();
+          final categoryPromos = promos.where((p) => (p['product_scope'] as String? ?? '') == 'category').toList();
+
+          // Fetch promotion_products for specific-scope promos
+          final specificPromoIds = specificPromos.map((p) => '${p['id']}').toList();
+          final Map<int, List<int>> promoProductMap = {}; // promoId → [productIds]
+          if (specificPromoIds.isNotEmpty) {
+            try {
+              final ppUrl = '$supabaseUrl/rest/v1/promotion_products'
+                  '?select=promotion_id,product_id'
+                  '&promotion_id=in.(${specificPromoIds.join(',')})';
+              final ppResp = await http.get(Uri.parse(ppUrl), headers: {
+                'apikey': supabaseServiceRole, 'Authorization': 'Bearer $supabaseServiceRole',
+              });
+              if (ppResp.statusCode == 200) {
+                for (final row in List<Map<String, dynamic>>.from(jsonDecode(ppResp.body) as List)) {
+                  final pid = row['promotion_id'] as int?;
+                  final prodId = row['product_id'] as int?;
+                  if (pid != null && prodId != null) {
+                    promoProductMap.putIfAbsent(pid, () => []).add(prodId);
+                  }
                 }
               }
+            } catch (_) {}
+          }
+
+          // Fetch promotion_categories for category-scope promos
+          final categoryPromoIds = categoryPromos.map((p) => '${p['id']}').toList();
+          final Map<int, List<String>> promoCategoryMap = {}; // promoId → [categories]
+          if (categoryPromoIds.isNotEmpty) {
+            try {
+              final pcUrl = '$supabaseUrl/rest/v1/promotion_categories'
+                  '?select=promotion_id,category'
+                  '&promotion_id=in.(${categoryPromoIds.join(',')})';
+              final pcResp = await http.get(Uri.parse(pcUrl), headers: {
+                'apikey': supabaseServiceRole, 'Authorization': 'Bearer $supabaseServiceRole',
+              });
+              if (pcResp.statusCode == 200) {
+                for (final row in List<Map<String, dynamic>>.from(jsonDecode(pcResp.body) as List)) {
+                  final pid = row['promotion_id'] as int?;
+                  final cat = row['category'] as String?;
+                  if (pid != null && cat != null) {
+                    promoCategoryMap.putIfAbsent(pid, () => []).add(cat.toUpperCase());
+                  }
+                }
+              }
+            } catch (_) {}
+          }
+
+          // Match promos to products
+          for (final promo in promos) {
+            final scope      = promo['product_scope'] as String? ?? 'all';
+            final promoId    = promo['id'] as int?;
+            final promoSeller = promo['seller_email'] as String? ?? '';
+
+            for (final p in filtered) {
+              final pid     = p['id'] as int?;
+              if (pid == null || promoMap.containsKey(pid)) continue;
+              final pSeller = p['seller_email'] as String? ?? '';
+              final pCat    = (p['category'] as String? ?? '').toUpperCase();
+
+              bool matches = false;
+              if (scope == 'all' && pSeller == promoSeller) {
+                matches = true;
+              } else if (scope == 'specific' && promoId != null) {
+                matches = promoProductMap[promoId]?.contains(pid) ?? false;
+              } else if (scope == 'category' && promoId != null) {
+                matches = promoCategoryMap[promoId]?.contains(pCat) ?? false;
+              }
+
+              if (matches) promoMap[pid] = promo;
             }
           }
 

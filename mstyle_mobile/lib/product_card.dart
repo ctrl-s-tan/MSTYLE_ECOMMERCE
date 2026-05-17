@@ -168,18 +168,26 @@ class _ProductCardState extends State<ProductCard> {
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 1)),
                 ])),
               )),
-            // Promo badge (top-left, like website)
-            if (hasPromo && inStock)
-              Positioned(top: 8, left: 8,
+            // Promo badge — always show if product has promo (even out of stock)
+            if (hasPromo)
+              Positioned(top: 0, left: 0,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                   decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFFE74C3C), Color(0xFFc0392b)]),
-                    borderRadius: BorderRadius.circular(8),
-                    boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.4), blurRadius: 6, offset: const Offset(0, 2))],
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE74C3C), Color(0xFFc0392b)],
+                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                      bottomRight: Radius.circular(10),
+                    ),
+                    boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.45), blurRadius: 8, offset: const Offset(0, 3))],
                   ),
                   child: Text(promoBadgeLabel,
-                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 0.5)),
+                    style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w900,
+                      fontSize: 10, letterSpacing: 0.6)),
                 ),
               ),
             // Wishlist + Cart buttons
@@ -279,23 +287,11 @@ class _ProductCardState extends State<ProductCard> {
                     decoration: TextDecoration.lineThrough,
                     decorationColor: kTextLight)),
                 Text('₱${salePrice.toStringAsFixed(2)}',
-                  style: const TextStyle(color: Color(0xFFE74C3C), fontWeight: FontWeight.w800, fontSize: 15)),
+                  style: const TextStyle(color: Color(0xFFE74C3C), fontWeight: FontWeight.w900, fontSize: 15)),
               ])
             else
-              Builder(builder: (_) {
-                final sp = (widget.product['sale_price'] as num?)?.toDouble();
-                if (sp != null && sp < price) {
-                  return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text('₱${price.toStringAsFixed(2)}',
-                      style: const TextStyle(color: kTextLight, fontSize: 11,
-                        decoration: TextDecoration.lineThrough)),
-                    Text('₱${sp.toStringAsFixed(2)}',
-                      style: const TextStyle(color: Color(0xFFE74C3C), fontWeight: FontWeight.w800, fontSize: 15)),
-                  ]);
-                }
-                return Text('₱${price.toStringAsFixed(2)}',
-                  style: const TextStyle(color: kAccent, fontWeight: FontWeight.w800, fontSize: 15));
-              }),
+              Text('₱${price.toStringAsFixed(2)}',
+                style: const TextStyle(color: kAccent, fontWeight: FontWeight.w800, fontSize: 15)),
           ]),
         ),
       ]),
