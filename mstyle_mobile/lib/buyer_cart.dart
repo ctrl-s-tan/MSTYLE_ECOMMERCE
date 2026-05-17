@@ -65,7 +65,23 @@ class _BuyerCartPageState extends State<BuyerCartPage> {
   bool get _allSelected => _items.isNotEmpty && _items.every((i) => i['_selected'] == true);
   List<Map<String, dynamic>> get _selectedItems => _items.where((i) => i['_selected'] == true).toList();
   int get _totalItems => _selectedItems.fold(0, (s, i) => s + (i['quantity'] as int? ?? 1));
+
+  /// Returns true if the item is confirmed out of stock (stock == 0, not unknown)
+  bool _isOutOfStock(Map<String, dynamic> item) {
+    final stock = item['_stock'];
+    if (stock == null) return false; // not yet loaded — don't block
+    return (stock as int) == 0;
+  }
+
+  /// Selected items that are NOT out of stock
+  List<Map<String, dynamic>> get _checkoutableItems =>
+      _selectedItems.where((i) => !_isOutOfStock(i)).toList();
+
+  bool get _hasOutOfStockSelected =>
+      _selectedItems.any((i) => _isOutOfStock(i));
+
   double get _totalAmount => _selectedItems.fold(0.0, (s, i) {
+    if (_isOutOfStock(i)) return s; // exclude OOS from total
     final basePrice = double.tryParse(i['price']?.toString() ?? '0') ?? 0;
     final salePrice = (i['sale_price'] as num?)?.toDouble();
     return s + (salePrice ?? basePrice) * (i['quantity'] as int? ?? 1);
@@ -85,11 +101,31 @@ class _BuyerCartPageState extends State<BuyerCartPage> {
       for (final item in data) { item['_selected'] = false; }
       // Enrich with active promotions
       if (data.isNotEmpty) await _enrichWithPromotions(data);
+      // Enrich with current variant stock
+      if (data.isNotEmpty) await _enrichWithStock(data);
       if (mounted) setState(() { _items = data; _loading = false; });
     } catch (e) {
       debugPrint('_loadCart error: $e');
       if (mounted) setState(() => _loading = false);
     }
+  }
+
+  /// Fetches current variant stock for each cart item and writes
+  /// _stock onto the item map. Items with _stock == 0 are out of stock.
+  Future<void> _enrichWithStock(List<Map<String, dynamic>> items) async {
+    await Future.wait(items.map((item) async {
+      try {
+        final pid   = item['product_id'];
+        final productId = pid is int ? pid : int.tryParse('$pid');
+        if (productId == null) { item['_stock'] = 0; return; }
+        final color = (item['variations'] as String? ?? '').trim();
+        final size  = (item['size']       as String? ?? '').trim();
+        final stock = await BuyerService.getVariantStock(productId, color, size);
+        item['_stock'] = stock;
+      } catch (_) {
+        item['_stock'] = -1; // unknown — don't block
+      }
+    }));
   }
 
   /// Fetches active promotions and writes promotion_type, promotion_discount,
@@ -351,25 +387,26 @@ class _BuyerCartPageState extends State<BuyerCartPage> {
   );
 
   Widget _cartItemTile(Map<String, dynamic> item) {
-    final selected = item['_selected'] == true;
-    final name       = item['name'] as String? ?? '';
-    final price      = double.tryParse(item['price']?.toString() ?? '0') ?? 0;
-    final salePrice  = (item['sale_price'] as num?)?.toDouble();
-    final promoType  = item['promotion_type'] as String? ?? '';
+    final selected    = item['_selected'] == true;
+    final name        = item['name'] as String? ?? '';
+    final price       = double.tryParse(item['price']?.toString() ?? '0') ?? 0;
+    final salePrice   = (item['sale_price'] as num?)?.toDouble();
+    final promoType   = item['promotion_type'] as String? ?? '';
     final promoDiscount = (item['promotion_discount'] as num?)?.toDouble() ?? 0;
-    final hasPromo   = promoType.isNotEmpty && (salePrice != null || promoType == 'buy_one_get_one' || promoType == 'free_shipping');
-    final color      = item['variations'] as String?;
-    final size       = item['size'] as String?;
-    final qty        = item['quantity'] as int? ?? 1;
-    final imageRaw   = item['image'] as String?;
-    final pid        = item['product_id'];
+    final hasPromo    = promoType.isNotEmpty && (salePrice != null || promoType == 'buy_one_get_one' || promoType == 'free_shipping');
+    final color       = item['variations'] as String?;
+    final size        = item['size'] as String?;
+    final qty         = item['quantity'] as int? ?? 1;
+    final imageRaw    = item['image'] as String?;
+    final pid         = item['product_id'];
     final sellerEmail = item['seller_email'] as String? ?? '';
     final sellerName  = (item['seller_name'] as String?)?.trim();
     final showSeller  = sellerEmail.isNotEmpty && sellerName != null && sellerName.isNotEmpty;
-    final productId  = pid is int ? pid : int.tryParse('$pid');
-    final imageUrl   = imageRaw != null && imageRaw.trim().isNotEmpty
+    final productId   = pid is int ? pid : int.tryParse('$pid');
+    final imageUrl    = imageRaw != null && imageRaw.trim().isNotEmpty
         ? buildImageUrl(imageRaw.split(',').first.trim())
         : null;
+    final outOfStock  = _isOutOfStock(item);
 
     // Build promo badge label
     String promoBadgeLabel = '';
@@ -384,29 +421,34 @@ class _BuyerCartPageState extends State<BuyerCartPage> {
     return Container(
       margin: const EdgeInsets.fromLTRB(12, 0, 12, 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: outOfStock ? const Color(0xFFFAFAFA) : Colors.white,
         borderRadius: BorderRadius.circular(16),
+        border: outOfStock ? Border.all(color: Colors.red.shade100) : null,
         boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 3))],
       ),
       child: Padding(
         padding: const EdgeInsets.all(14),
         child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           GestureDetector(
-            onTap: () => setState(() => item['_selected'] = !selected),
+            onTap: outOfStock ? null : () => setState(() => item['_selected'] = !selected),
             child: AnimatedContainer(
               duration: const Duration(milliseconds: 200),
               width: 22, height: 22,
               margin: const EdgeInsets.only(top: 2),
               decoration: BoxDecoration(
                 borderRadius: BorderRadius.circular(6),
-                color: selected ? _gold : Colors.white,
-                border: Border.all(color: selected ? _gold : Colors.grey.shade300, width: 2),
+                color: outOfStock ? const Color(0xFFEEEEEE) : (selected ? _gold : Colors.white),
+                border: Border.all(
+                  color: outOfStock ? Colors.red.shade200 : (selected ? _gold : Colors.grey.shade300),
+                  width: 2),
               ),
-              child: selected ? const Icon(Icons.check, color: Colors.white, size: 14) : null,
+              child: outOfStock
+                  ? Icon(Icons.block, color: Colors.red.shade300, size: 12)
+                  : (selected ? const Icon(Icons.check, color: Colors.white, size: 14) : null),
             ),
           ),
           const SizedBox(width: 12),
-          // ── Product image with optional promo badge ──────────────────
+          // ── Product image with optional promo badge + OOS overlay ────
           Stack(children: [
             GestureDetector(
               onTap: productId != null
@@ -424,7 +466,20 @@ class _BuyerCartPageState extends State<BuyerCartPage> {
                     : _imagePlaceholder(),
               ),
             ),
-            if (hasPromo)
+            // Out of stock overlay on image
+            if (outOfStock)
+              Positioned.fill(
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Container(
+                    color: Colors.black.withOpacity(0.5),
+                    child: const Center(child: Text('OUT OF\nSTOCK',
+                      textAlign: TextAlign.center,
+                      style: TextStyle(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 8, letterSpacing: 0.5))),
+                  ),
+                ),
+              ),
+            if (hasPromo && !outOfStock)
               Positioned(
                 top: 0, left: 0,
                 child: Container(
@@ -481,55 +536,75 @@ class _BuyerCartPageState extends State<BuyerCartPage> {
                         )))
                     : null,
                 child: Text(name,
-                  style: const TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 14),
+                  style: TextStyle(
+                    color: outOfStock ? _textLight : _accent,
+                    fontWeight: FontWeight.w700, fontSize: 14),
                   maxLines: 2, overflow: TextOverflow.ellipsis),
               ),
-              const SizedBox(height: 4),
-              // ── Price — show sale price if promo, same as checkout ─────
-              if (hasPromo && salePrice != null && (promoType == 'percentage' || promoType == 'fixed'))
-                Row(children: [
-                  Text('₱${salePrice.toStringAsFixed(2)}',
-                    style: const TextStyle(color: Color(0xFFE74C3C), fontWeight: FontWeight.w900, fontSize: 15)),
-                  const SizedBox(width: 6),
-                  Text('₱${price.toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      color: _textLight, fontSize: 11,
-                      decoration: TextDecoration.lineThrough,
-                      decorationColor: _textLight)),
-                ])
-              else if (hasPromo && promoType == 'free_shipping')
-                Row(children: [
+              // ── Out of stock label ─────────────────────────────────────
+              if (outOfStock) ...[
+                const SizedBox(height: 4),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: Colors.red.shade50,
+                    borderRadius: BorderRadius.circular(6),
+                    border: Border.all(color: Colors.red.shade200),
+                  ),
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    Icon(Icons.cancel_outlined, size: 11, color: Colors.red.shade400),
+                    const SizedBox(width: 4),
+                    Text('Out of Stock', style: TextStyle(color: Colors.red.shade500, fontSize: 10, fontWeight: FontWeight.w700)),
+                  ]),
+                ),
+              ] else ...[
+                const SizedBox(height: 4),
+                // ── Price ────────────────────────────────────────────────
+                if (hasPromo && salePrice != null && (promoType == 'percentage' || promoType == 'fixed'))
+                  Row(children: [
+                    Text('₱${salePrice.toStringAsFixed(2)}',
+                      style: const TextStyle(color: Color(0xFFE74C3C), fontWeight: FontWeight.w900, fontSize: 15)),
+                    const SizedBox(width: 6),
+                    Text('₱${price.toStringAsFixed(2)}',
+                      style: const TextStyle(
+                        color: _textLight, fontSize: 11,
+                        decoration: TextDecoration.lineThrough,
+                        decorationColor: _textLight)),
+                  ])
+                else if (hasPromo && promoType == 'free_shipping')
+                  Row(children: [
+                    Text('₱${price.toStringAsFixed(2)}',
+                      style: const TextStyle(color: _gold, fontWeight: FontWeight.w800, fontSize: 15)),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.green.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.green.shade200),
+                      ),
+                      child: const Text('Free Ship', style: TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.w700)),
+                    ),
+                  ])
+                else if (hasPromo && promoType == 'buy_one_get_one')
+                  Row(children: [
+                    Text('₱${price.toStringAsFixed(2)}',
+                      style: const TextStyle(color: _gold, fontWeight: FontWeight.w800, fontSize: 15)),
+                    const SizedBox(width: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
+                      decoration: BoxDecoration(
+                        color: Colors.orange.shade50,
+                        borderRadius: BorderRadius.circular(6),
+                        border: Border.all(color: Colors.orange.shade200),
+                      ),
+                      child: const Text('BOGO', style: TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.w700)),
+                    ),
+                  ])
+                else
                   Text('₱${price.toStringAsFixed(2)}',
                     style: const TextStyle(color: _gold, fontWeight: FontWeight.w800, fontSize: 15)),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.green.shade50,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.green.shade200),
-                    ),
-                    child: const Text('Free Ship', style: TextStyle(color: Colors.green, fontSize: 9, fontWeight: FontWeight.w700)),
-                  ),
-                ])
-              else if (hasPromo && promoType == 'buy_one_get_one')
-                Row(children: [
-                  Text('₱${price.toStringAsFixed(2)}',
-                    style: const TextStyle(color: _gold, fontWeight: FontWeight.w800, fontSize: 15)),
-                  const SizedBox(width: 6),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: Colors.orange.shade50,
-                      borderRadius: BorderRadius.circular(6),
-                      border: Border.all(color: Colors.orange.shade200),
-                    ),
-                    child: const Text('BOGO', style: TextStyle(color: Colors.orange, fontSize: 9, fontWeight: FontWeight.w700)),
-                  ),
-                ])
-              else
-                Text('₱${price.toStringAsFixed(2)}',
-                  style: const TextStyle(color: _gold, fontWeight: FontWeight.w800, fontSize: 15)),
+              ],
               const SizedBox(height: 6),
               if ((color != null && color.isNotEmpty) || (size != null && size.isNotEmpty))
                 Wrap(spacing: 6, children: [
@@ -537,27 +612,29 @@ class _BuyerCartPageState extends State<BuyerCartPage> {
                     _editableSpecChip(
                       icon: Icons.palette_outlined,
                       label: 'Color: $color',
-                      onTap: () => _showEditSpecModal(item, 'color'),
+                      onTap: outOfStock ? () {} : () => _showEditSpecModal(item, 'color'),
                     ),
                   if (size != null && size.isNotEmpty)
                     _editableSpecChip(
                       icon: Icons.straighten_outlined,
                       label: 'Size: $size',
-                      onTap: () => _showEditSpecModal(item, 'size'),
+                      onTap: outOfStock ? () {} : () => _showEditSpecModal(item, 'size'),
                     ),
                 ]),
-              const SizedBox(height: 10),
-              _CartQtyRow(
-                itemId: item['id'] as int,
-                productId: productId,
-                color: color ?? '',
-                size: size ?? '',
-                initialQty: qty,
-                onChanged: (newQty) async {
-                  await BuyerService.updateCartQuantity(item['id'] as int, newQty);
-                  await _loadCart();
-                },
-              ),
+              if (!outOfStock) ...[
+                const SizedBox(height: 10),
+                _CartQtyRow(
+                  itemId: item['id'] as int,
+                  productId: productId,
+                  color: color ?? '',
+                  size: size ?? '',
+                  initialQty: qty,
+                  onChanged: (newQty) async {
+                    await BuyerService.updateCartQuantity(item['id'] as int, newQty);
+                    await _loadCart();
+                  },
+                ),
+              ],
             ]),
           ),
         ]),
@@ -766,59 +843,83 @@ class _BuyerCartPageState extends State<BuyerCartPage> {
   // ─── Checkout Button ──────────────────────────────────────────────────────
   Widget _checkoutButton() {
     final bottomPad = MediaQuery.of(context).padding.bottom;
-    final enabled = _selectedItems.isNotEmpty;
-    return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPad),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        border: Border(top: BorderSide(color: _border)),
-      ),
-      child: GestureDetector(
-        onTap: enabled ? () {
-          final checkoutItems = _selectedItems.map((item) {
-            final basePrice  = double.tryParse(item['price']?.toString() ?? '0') ?? 0;
-            final salePrice  = (item['sale_price'] as num?)?.toDouble();
-            final promoType  = item['promotion_type'] as String? ?? '';
-            final freeShip   = promoType == 'free_shipping';
-            return CheckoutItem(
-              id:           '${item['id']}',
-              name:         item['name'] as String? ?? '',
-              price:        salePrice ?? basePrice,
-              originalPrice: salePrice != null ? basePrice : null,
-              promoType:    promoType.isNotEmpty ? promoType : null,
-              promoDiscount: (item['promotion_discount'] as num?)?.toDouble(),
-              quantity:     item['quantity'] as int? ?? 1,
-              color:        item['variations'] as String?,
-              size:         item['size'] as String?,
-              freeShipping: freeShip,
-              image:        item['image'] as String?,
-              productId:    item['product_id'] is int
-                  ? item['product_id'] as int
-                  : int.tryParse('${item['product_id']}'),
-            );
-          }).toList();
-          Navigator.push(context, MaterialPageRoute(
-            builder: (_) => BuyerCheckoutPage(userEmail: widget.userEmail, items: checkoutItems),
-          ));
-        } : null,
-        child: Container(
+    final hasSelected = _selectedItems.isNotEmpty;
+    final hasOOS = _hasOutOfStockSelected;
+    // Enabled only when items are selected AND none are out of stock
+    final enabled = hasSelected && !hasOOS;
+
+    return Column(mainAxisSize: MainAxisSize.min, children: [
+      // Warning banner when OOS items are selected
+      if (hasOOS)
+        Container(
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          decoration: BoxDecoration(
-            gradient: enabled ? _premiumGrad : null,
-            color: enabled ? null : const Color(0xFFCED4DA),
-            borderRadius: BorderRadius.circular(14),
-            boxShadow: enabled
-                ? [BoxShadow(color: _primary.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))]
-                : [],
-          ),
-          child: const Center(
-            child: Text('Proceed to Checkout',
-              style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15, letterSpacing: 0.3)),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          color: Colors.red.shade50,
+          child: Row(children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.red.shade400, size: 16),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                'Some selected items are out of stock. Please deselect or remove them to proceed.',
+                style: TextStyle(color: Colors.red.shade600, fontSize: 11, fontWeight: FontWeight.w500),
+              ),
+            ),
+          ]),
+        ),
+      Container(
+        padding: EdgeInsets.fromLTRB(16, 12, 16, 12 + bottomPad),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          border: Border(top: BorderSide(color: _border)),
+        ),
+        child: GestureDetector(
+          onTap: enabled ? () {
+            final checkoutItems = _checkoutableItems.map((item) {
+              final basePrice  = double.tryParse(item['price']?.toString() ?? '0') ?? 0;
+              final salePrice  = (item['sale_price'] as num?)?.toDouble();
+              final promoType  = item['promotion_type'] as String? ?? '';
+              final freeShip   = promoType == 'free_shipping';
+              return CheckoutItem(
+                id:           '${item['id']}',
+                name:         item['name'] as String? ?? '',
+                price:        salePrice ?? basePrice,
+                originalPrice: salePrice != null ? basePrice : null,
+                promoType:    promoType.isNotEmpty ? promoType : null,
+                promoDiscount: (item['promotion_discount'] as num?)?.toDouble(),
+                quantity:     item['quantity'] as int? ?? 1,
+                color:        item['variations'] as String?,
+                size:         item['size'] as String?,
+                freeShipping: freeShip,
+                image:        item['image'] as String?,
+                productId:    item['product_id'] is int
+                    ? item['product_id'] as int
+                    : int.tryParse('${item['product_id']}'),
+              );
+            }).toList();
+            Navigator.push(context, MaterialPageRoute(
+              builder: (_) => BuyerCheckoutPage(userEmail: widget.userEmail, items: checkoutItems),
+            ));
+          } : null,
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 16),
+            decoration: BoxDecoration(
+              gradient: enabled ? _premiumGrad : null,
+              color: enabled ? null : const Color(0xFFCED4DA),
+              borderRadius: BorderRadius.circular(14),
+              boxShadow: enabled
+                  ? [BoxShadow(color: _primary.withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4))]
+                  : [],
+            ),
+            child: Center(
+              child: Text(
+                hasOOS ? 'Cannot Checkout — Items Out of Stock' : 'Proceed to Checkout',
+                style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 15, letterSpacing: 0.3)),
+            ),
           ),
         ),
       ),
-    );
+    ]);
   }
 
   void _showProfile() {

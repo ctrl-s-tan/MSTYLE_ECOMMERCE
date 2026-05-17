@@ -4,6 +4,7 @@ import 'seller_add_product.dart';
 import 'seller_orderlists.dart';
 import 'seller_analytics.dart';
 import 'seller_notifications.dart';
+import 'seller_variant_inventory.dart';
 import 'profile.dart';
 import 'product_image_carousel.dart';
 import 'supabase_client.dart';
@@ -37,7 +38,9 @@ class SellerProduct {
   final bool isActive;
   final bool isFlagged;
   final bool isLowStock;
-  final String? image; // raw comma-separated image string from DB
+  final String? image;
+  final List<String> colors;
+  final List<String> sizes;
 
   const SellerProduct({
     required this.id,
@@ -51,6 +54,8 @@ class SellerProduct {
     this.isFlagged = false,
     this.isLowStock = false,
     this.image,
+    this.colors = const [],
+    this.sizes  = const [],
   });
 
   bool get isOutOfStock => stock <= 0;
@@ -100,26 +105,32 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
     try {
       final data = await supabase
           .from('products')
-          .select('id, name, category, price, quantity, sold, rating, is_active, is_flagged, low_stock_threshold, image')
+          .select('id, name, category, price, quantity, sold, rating, is_active, is_flagged, low_stock_threshold, image, variations, sizes')
           .eq('seller_email', widget.sellerEmail)
           .order('created_at', ascending: false);
       if (mounted) {
         setState(() {
-          _products = (data as List).map((p) => SellerProduct(
-            id:         p['id'] as int,
-            name:       p['name'] as String? ?? '',
-            category:   (p['category'] as String? ?? '').toUpperCase(),
-            price:      (p['price'] as num?)?.toDouble() ?? 0,
-            stock:      (p['quantity'] as num?)?.toInt() ?? 0,
-            sold:       (p['sold'] as num?)?.toInt() ?? 0,
-            rating:     (p['rating'] as num?)?.toDouble() ?? 0,
-            isActive:   p['is_active'] as bool? ?? true,
-            isFlagged:  p['is_flagged'] as bool? ?? false,
-            isLowStock: ((p['quantity'] as num?)?.toInt() ?? 0) > 0 &&
-                        ((p['quantity'] as num?)?.toInt() ?? 0) <=
-                        ((p['low_stock_threshold'] as num?)?.toInt() ?? 5),
-            image:      p['image'] as String?,
-          )).toList();
+          _products = (data as List).map((p) {
+            final colorStr = p['variations'] as String? ?? '';
+            final sizeStr  = p['sizes']      as String? ?? '';
+            return SellerProduct(
+              id:         p['id'] as int,
+              name:       p['name'] as String? ?? '',
+              category:   (p['category'] as String? ?? '').toUpperCase(),
+              price:      (p['price'] as num?)?.toDouble() ?? 0,
+              stock:      (p['quantity'] as num?)?.toInt() ?? 0,
+              sold:       (p['sold'] as num?)?.toInt() ?? 0,
+              rating:     (p['rating'] as num?)?.toDouble() ?? 0,
+              isActive:   p['is_active'] as bool? ?? true,
+              isFlagged:  p['is_flagged'] as bool? ?? false,
+              isLowStock: ((p['quantity'] as num?)?.toInt() ?? 0) > 0 &&
+                          ((p['quantity'] as num?)?.toInt() ?? 0) <=
+                          ((p['low_stock_threshold'] as num?)?.toInt() ?? 5),
+              image:      p['image'] as String?,
+              colors:     colorStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+              sizes:      sizeStr.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList(),
+            );
+          }).toList();
           _loadingProducts = false;
         });
       }
@@ -163,7 +174,6 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      bottomNavigationBar: _bottomNav(),
       floatingActionButton: FloatingActionButton(
         onPressed: () async {
           await Navigator.push(context,
@@ -178,7 +188,6 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
         : CustomScrollView(
           slivers: [
             _appBar(),
-            SliverToBoxAdapter(child: _pageHeader()),
             SliverToBoxAdapter(child: _filterSection()),
             SliverToBoxAdapter(child: _viewToggle()),
             if (_tableView)
@@ -211,39 +220,20 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
     backgroundColor: _primary,
     elevation: 6,
     titleSpacing: 16,
-    automaticallyImplyLeading: false,
-    title: Row(children: [
-      Container(
-        width: 32, height: 32,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: _goldGrad,
-          boxShadow: [BoxShadow(color: _gold.withOpacity(0.3), blurRadius: 6)],
-        ),
-        child: const Icon(Icons.store, color: _primary, size: 18),
-      ),
-      const SizedBox(width: 8),
-      Flexible(
-        child: ShaderMask(
-          shaderCallback: (b) => _goldGrad.createShader(b),
-          child: Text(
-            _businessName.isNotEmpty ? _businessName : widget.sellerEmail.split('@').first,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.5),
-            maxLines: 1, overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ),
-    ]),
+    leading: IconButton(
+      icon: const Icon(Icons.arrow_back, color: Colors.white),
+      onPressed: () => Navigator.pop(context),
+    ),
+    title: ShaderMask(
+      shaderCallback: (b) => _goldGrad.createShader(b),
+      child: const Text('My Products',
+        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+    ),
     actions: [
       IconButton(
         icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
         onPressed: () => Navigator.push(context,
           MaterialPageRoute(builder: (_) => SellerNotificationsPage(sellerEmail: widget.sellerEmail))),
-      ),
-      IconButton(
-        icon: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 22),
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Messages coming soon'), behavior: SnackBarBehavior.floating)),
       ),
       IconButton(
         icon: const Icon(Icons.person_outline, color: Colors.white, size: 22),
@@ -468,6 +458,38 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
             const SizedBox(width: 5),
             _statChip(Icons.star, p.rating.toStringAsFixed(1), _gold),
           ]),
+          if (p.colors.isNotEmpty && p.sizes.isNotEmpty) ...[
+            const SizedBox(height: 8),
+            GestureDetector(
+              onTap: () async {
+                final refreshed = await Navigator.push<bool>(context, MaterialPageRoute(
+                  builder: (_) => SellerVariantInventoryPage(
+                    sellerEmail: widget.sellerEmail,
+                    productId:   p.id,
+                    productName: p.name,
+                    productCategory: p.category,
+                    colors: p.colors,
+                    sizes:  p.sizes,
+                  ),
+                ));
+                if (refreshed == true) _fetchProducts();
+              },
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(vertical: 6),
+                decoration: BoxDecoration(
+                  color: _gold.withOpacity(0.08),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: _gold.withOpacity(0.3)),
+                ),
+                child: const Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  Icon(Icons.tune, size: 11, color: _gold),
+                  SizedBox(width: 4),
+                  Text('Manage Variants', style: TextStyle(color: _gold, fontSize: 10, fontWeight: FontWeight.w700)),
+                ]),
+              ),
+            ),
+          ],
         ]),
       ),
     ]),
@@ -638,8 +660,6 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
             _sheetField('Product Name', nameCtrl, Icons.inventory_2_outlined),
             const SizedBox(height: 12),
             _sheetField('Price (₱)', priceCtrl, Icons.currency_exchange, type: TextInputType.number),
-            const SizedBox(height: 12),
-            _sheetField('Stock Quantity', stockCtrl, Icons.numbers, type: TextInputType.number),
             const SizedBox(height: 20),
             GestureDetector(
               onTap: () async {
@@ -781,6 +801,8 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
       onTap: () {
         if (index == 0) Navigator.pushReplacement(context,
           MaterialPageRoute(builder: (_) => SellerDashboardPage(sellerEmail: widget.sellerEmail)));
+        if (index == 1) Navigator.pushReplacement(context,
+          MaterialPageRoute(builder: (_) => SellerProductsPage(sellerEmail: widget.sellerEmail)));
         if (index == 2) Navigator.pushReplacement(context,
           MaterialPageRoute(builder: (_) => SellerOrderListsPage(sellerEmail: widget.sellerEmail)));
         if (index == 3) Navigator.pushReplacement(context,

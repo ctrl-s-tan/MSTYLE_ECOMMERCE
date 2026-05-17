@@ -52,7 +52,9 @@ class CheckoutItem {
   });
 
   double get subtotal => price * quantity;
-  double get shippingFee => freeShipping ? 0 : 50;
+  // Per-item shipping flag — used only to determine if this item qualifies for free shipping
+  bool get hasFreeShipping => freeShipping;
+  double get shippingFee => freeShipping ? 0 : 50; // kept for legacy; order-level fee used in checkout
   bool get hasPromo => promoType != null && promoType!.isNotEmpty;
 
   String get promoBadgeLabel {
@@ -96,8 +98,193 @@ class _BuyerCheckoutPageState extends State<BuyerCheckoutPage> {
   String _region      = '';
   String _zipCode     = '';
 
+  // ── Zone-Based Shipping Rates (Philippine regions) ────────────────────────
+  // Zone 1 — NCR / Metro Manila                        ₱50
+  // Zone 2 — Luzon (nearby provinces)                  ₱80
+  // Zone 3 — Visayas                                   ₱120
+  // Zone 4 — Mindanao                                  ₱150
+  // Zone 5 — Remote / Island provinces (BARMM, CARAGA) ₱180
+  static const Map<String, double> _zoneRates = {
+    'zone1': 50,
+    'zone2': 80,
+    'zone3': 120,
+    'zone4': 150,
+    'zone5': 180,
+  };
+
+  static const Map<String, String> _zoneLabels = {
+    'zone1': 'Metro Manila',
+    'zone2': 'Luzon',
+    'zone3': 'Visayas',
+    'zone4': 'Mindanao',
+    'zone5': 'Remote / Island',
+  };
+
+  /// Maps a region string (from the user's address) to a shipping zone.
+  /// Matches against region names, numbers, abbreviations, provinces, and major cities.
+  static String _regionToZone(String region) {
+    final r = region.toLowerCase().trim();
+
+    // ── Zone 1: NCR / Metro Manila ──────────────────────────────────────────
+    if (r.contains('ncr') || r.contains('metro manila') ||
+        r.contains('national capital region') ||
+        r.contains('manila') || r.contains('quezon city') ||
+        r.contains('makati') || r.contains('pasig') || r.contains('taguig') ||
+        r.contains('marikina') || r.contains('caloocan') || r.contains('malabon') ||
+        r.contains('navotas') || r.contains('valenzuela') || r.contains('pasay') ||
+        r.contains('parañaque') || r.contains('paranaque') || r.contains('las piñas') ||
+        r.contains('las pinas') || r.contains('muntinlupa') || r.contains('mandaluyong') ||
+        r.contains('san juan') || r.contains('pateros')) return 'zone1';
+
+    // ── Zone 2: Luzon ────────────────────────────────────────────────────────
+    // CAR — Cordillera Administrative Region
+    if (r.contains('cordillera') || r.contains('car') ||
+        r.contains('abra') || r.contains('apayao') || r.contains('benguet') ||
+        r.contains('ifugao') || r.contains('kalinga') || r.contains('mountain province') ||
+        r.contains('baguio')) return 'zone2';
+
+    // Region I — Ilocos
+    if (r.contains('ilocos') || r.contains('region i') || r.contains('region 1') ||
+        r.contains('ilocos norte') || r.contains('ilocos sur') ||
+        r.contains('la union') || r.contains('pangasinan') ||
+        r.contains('laoag') || r.contains('vigan') || r.contains('san fernando') ||
+        r.contains('dagupan')) return 'zone2';
+
+    // Region II — Cagayan Valley
+    if (r.contains('cagayan valley') || r.contains('region ii') || r.contains('region 2') ||
+        r.contains('cagayan') || r.contains('isabela') || r.contains('nueva vizcaya') ||
+        r.contains('quirino') || r.contains('batanes') ||
+        r.contains('tuguegarao') || r.contains('ilagan') || r.contains('bayombong')) return 'zone2';
+
+    // Region III — Central Luzon
+    if (r.contains('central luzon') || r.contains('region iii') || r.contains('region 3') ||
+        r.contains('aurora') || r.contains('bataan') || r.contains('bulacan') ||
+        r.contains('nueva ecija') || r.contains('pampanga') || r.contains('tarlac') ||
+        r.contains('zambales') ||
+        r.contains('balanga') || r.contains('malolos') || r.contains('cabanatuan') ||
+        r.contains('san fernando') || r.contains('tarlac city') || r.contains('olongapo') ||
+        r.contains('angeles')) return 'zone2';
+
+    // Region IV-A — CALABARZON
+    if (r.contains('calabarzon') || r.contains('region iv-a') || r.contains('region iva') ||
+        r.contains('region 4a') || r.contains('region 4-a') ||
+        r.contains('cavite') || r.contains('laguna') || r.contains('batangas') ||
+        r.contains('rizal') || r.contains('quezon') ||
+        r.contains('bacoor') || r.contains('dasmariñas') || r.contains('dasmarinas') ||
+        r.contains('calamba') || r.contains('antipolo') || r.contains('lipa') ||
+        r.contains('lucena')) return 'zone2';
+
+    // Region IV-B — MIMAROPA
+    if (r.contains('mimaropa') || r.contains('region iv-b') || r.contains('region ivb') ||
+        r.contains('region 4b') || r.contains('region 4-b') ||
+        r.contains('marinduque') || r.contains('occidental mindoro') ||
+        r.contains('oriental mindoro') || r.contains('palawan') || r.contains('romblon') ||
+        r.contains('calapan') || r.contains('puerto princesa')) return 'zone2';
+
+    // Region V — Bicol
+    if (r.contains('bicol') || r.contains('region v') || r.contains('region 5') ||
+        r.contains('albay') || r.contains('camarines norte') || r.contains('camarines sur') ||
+        r.contains('catanduanes') || r.contains('masbate') || r.contains('sorsogon') ||
+        r.contains('legazpi') || r.contains('naga') || r.contains('iriga') ||
+        r.contains('masbate city') || r.contains('sorsogon city')) return 'zone2';
+
+    // ── Zone 3: Visayas ──────────────────────────────────────────────────────
+    // Region VI — Western Visayas
+    if (r.contains('western visayas') || r.contains('region vi') || r.contains('region 6') ||
+        r.contains('aklan') || r.contains('antique') || r.contains('capiz') ||
+        r.contains('guimaras') || r.contains('iloilo') || r.contains('negros occidental') ||
+        r.contains('kalibo') || r.contains('roxas city') || r.contains('iloilo city') ||
+        r.contains('bacolod')) return 'zone3';
+
+    // Region VII — Central Visayas
+    if (r.contains('central visayas') || r.contains('region vii') || r.contains('region 7') ||
+        r.contains('bohol') || r.contains('cebu') || r.contains('negros oriental') ||
+        r.contains('siquijor') ||
+        r.contains('tagbilaran') || r.contains('cebu city') || r.contains('mandaue') ||
+        r.contains('lapu-lapu') || r.contains('lapu lapu') || r.contains('dumaguete')) return 'zone3';
+
+    // Region VIII — Eastern Visayas
+    if (r.contains('eastern visayas') || r.contains('region viii') || r.contains('region 8') ||
+        r.contains('biliran') || r.contains('eastern samar') || r.contains('leyte') ||
+        r.contains('northern samar') || r.contains('samar') || r.contains('southern leyte') ||
+        r.contains('tacloban') || r.contains('ormoc') || r.contains('calbayog') ||
+        r.contains('catbalogan') || r.contains('maasin')) return 'zone3';
+
+    // Catch-all Visayas
+    if (r.contains('visayas')) return 'zone3';
+
+    // ── Zone 4: Mindanao ─────────────────────────────────────────────────────
+    // Region IX — Zamboanga Peninsula
+    if (r.contains('zamboanga peninsula') || r.contains('region ix') || r.contains('region 9') ||
+        r.contains('zamboanga del norte') || r.contains('zamboanga del sur') ||
+        r.contains('zamboanga sibugay') || r.contains('city of isabela') ||
+        r.contains('zamboanga city') || r.contains('pagadian') || r.contains('dipolog')) return 'zone4';
+
+    // Region X — Northern Mindanao
+    if (r.contains('northern mindanao') || r.contains('region x') || r.contains('region 10') ||
+        r.contains('bukidnon') || r.contains('camiguin') || r.contains('lanao del norte') ||
+        r.contains('misamis occidental') || r.contains('misamis oriental') ||
+        r.contains('cagayan de oro') || r.contains('iligan') || r.contains('malaybalay') ||
+        r.contains('oroquieta') || r.contains('ozamiz') || r.contains('tangub')) return 'zone4';
+
+    // Region XI — Davao
+    if (r.contains('davao region') || r.contains('region xi') || r.contains('region 11') ||
+        r.contains('davao del norte') || r.contains('davao del sur') ||
+        r.contains('davao occidental') || r.contains('davao oriental') ||
+        r.contains('davao de oro') || r.contains('compostela valley') ||
+        r.contains('davao city') || r.contains('tagum') || r.contains('digos') ||
+        r.contains('mati') || r.contains('panabo')) return 'zone4';
+
+    // Region XII — SOCCSKSARGEN
+    if (r.contains('soccsksargen') || r.contains('region xii') || r.contains('region 12') ||
+        r.contains('cotabato') || r.contains('sarangani') ||
+        r.contains('south cotabato') || r.contains('sultan kudarat') ||
+        r.contains('general santos') || r.contains('koronadal') ||
+        r.contains('kidapawan') || r.contains('tacurong')) return 'zone4';
+
+    // Catch-all Mindanao
+    if (r.contains('mindanao')) return 'zone4';
+
+    // ── Zone 5: Remote / Island (BARMM, CARAGA) ──────────────────────────────
+    // BARMM — Bangsamoro Autonomous Region in Muslim Mindanao
+    if (r.contains('barmm') || r.contains('bangsamoro') || r.contains('armm') ||
+        r.contains('basilan') || r.contains('lanao del sur') ||
+        r.contains('maguindanao') || r.contains('sulu') || r.contains('tawi-tawi') ||
+        r.contains('tawi tawi') || r.contains('cotabato city') ||
+        r.contains('marawi') || r.contains('jolo') || r.contains('bongao')) return 'zone5';
+
+    // CARAGA — Region XIII
+    if (r.contains('caraga') || r.contains('region xiii') || r.contains('region 13') ||
+        r.contains('agusan del norte') || r.contains('agusan del sur') ||
+        r.contains('dinagat islands') || r.contains('surigao del norte') ||
+        r.contains('surigao del sur') ||
+        r.contains('butuan') || r.contains('surigao city') || r.contains('bislig') ||
+        r.contains('cabadbaran') || r.contains('tandag')) return 'zone5';
+
+    // Default — unknown region treated as Luzon rate
+    return 'zone2';
+  }
+
+  double _getZoneShippingFee() {
+    if (_allFreeShipping) return 0;
+    final zone = _regionToZone(_region);
+    return _zoneRates[zone] ?? 80;
+  }
+
+  String _getZoneLabel() {
+    final zone = _regionToZone(_region);
+    return _zoneLabels[zone] ?? 'Standard';
+  }
+
+  /// Returns the zone rate regardless of free shipping (for strikethrough display)
+  double _getZoneRateForDisplay() {
+    final zone = _regionToZone(_region);
+    return _zoneRates[zone] ?? 80;
+  }
+
   double get _subtotal => widget.items.fold(0, (s, i) => s + i.subtotal);
-  double get _shippingFee => widget.items.fold(0, (s, i) => s + i.shippingFee);
+  bool get _allFreeShipping => widget.items.isNotEmpty && widget.items.every((i) => i.freeShipping);
+  double get _shippingFee => _getZoneShippingFee();
   double get _total => _subtotal + _shippingFee;
 
   @override
@@ -201,8 +388,34 @@ class _BuyerCheckoutPageState extends State<BuyerCheckoutPage> {
       const Divider(height: 24),
       _totalRow('Subtotal', '₱${_subtotal.toStringAsFixed(2)}'),
       const SizedBox(height: 6),
-      _totalRow('Shipping Fee',
-        _shippingFee == 0 ? 'Free' : '₱${_shippingFee.toStringAsFixed(2)}'),
+      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          const Text('Shipping Fee', style: TextStyle(color: _textLight, fontSize: 13)),
+          if (_region.isNotEmpty)
+            Text('${_getZoneLabel()} zone',
+              style: const TextStyle(color: _textLight, fontSize: 10, fontStyle: FontStyle.italic)),
+        ]),
+        _allFreeShipping
+          ? Row(mainAxisSize: MainAxisSize.min, children: [
+              Text('₱${_getZoneRateForDisplay().toStringAsFixed(2)}',
+                style: const TextStyle(
+                  color: _textLight, fontSize: 11,
+                  decoration: TextDecoration.lineThrough,
+                  decorationColor: _textLight)),
+              const SizedBox(width: 6),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: Colors.green.shade50,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(color: Colors.green.shade200),
+                ),
+                child: const Text('Free', style: TextStyle(color: Colors.green, fontSize: 10, fontWeight: FontWeight.w700)),
+              ),
+            ])
+          : Text('₱${_shippingFee.toStringAsFixed(2)}',
+              style: const TextStyle(color: _accent, fontWeight: FontWeight.w600, fontSize: 13)),
+      ]),
       const Divider(height: 20),
       Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
         const Text('Total Amount', style: TextStyle(color: _accent, fontWeight: FontWeight.w800, fontSize: 16)),
@@ -681,7 +894,7 @@ class _BuyerCheckoutPageState extends State<BuyerCheckoutPage> {
           email:         widget.userEmail,
           name:          item.name,
           productId:     resolvedProductId,
-          totalPrice:    item.subtotal + item.shippingFee,
+          totalPrice:    item.subtotal + (_shippingFee / widget.items.length),
           quantity:      item.quantity,
           address:       _address,
           sellerEmail:   resolvedSellerEmail,
@@ -689,7 +902,7 @@ class _BuyerCheckoutPageState extends State<BuyerCheckoutPage> {
           color:         item.color,
           size:          item.size,
           image:         item.image,
-          shippingFee:   item.shippingFee,
+          shippingFee:   _shippingFee / widget.items.length,
         );
       }
       if (!mounted) return;
