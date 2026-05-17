@@ -6178,6 +6178,13 @@ def orders_list():
             o['image_url'] = resolved_url
             o['image']     = ''  # always use image_url
 
+            # Normalise shipping_fee — None → 50, free_shipping promo → 0
+            raw_ship = o.get('shipping_fee')
+            if raw_ship is None:
+                o['shipping_fee'] = 0.0 if promo_type == 'free_shipping' else 50.0
+            else:
+                o['shipping_fee'] = float(raw_ship)
+
             # product_sizes fallback
             o.setdefault('product_sizes', '')
 
