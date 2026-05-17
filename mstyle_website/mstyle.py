@@ -6962,10 +6962,18 @@ def get_seller_order_details(order_id):
 
 @app.route('/update_order_status/<int:order_id>', methods=['POST'])
 def update_order_status(order_id):
-    new_status = request.form['stat']
+    # Support both form POST (legacy) and JSON/AJAX
+    is_ajax = request.is_json or request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    if is_ajax:
+        data = request.get_json(silent=True) or {}
+        new_status = data.get('stat') or data.get('status', '')
+    else:
+        new_status = request.form.get('stat', '')
+
     seller_email = session.get('email')
 
-    print(f"?? Updating order {order_id} status to: {new_status}")
+    print(f"?? Updating order {order_id} status to: {new_status} (ajax={is_ajax})")
     print(f"?? Seller: {seller_email}")
 
     # -- PRIMARY: Supabase --------------------------------------------------
@@ -6978,6 +6986,8 @@ def update_order_status(order_id):
             .execute()
 
         if not order_res.data:
+            if is_ajax:
+                return jsonify({'success': False, 'error': 'Order not found or unauthorized'}), 404
             flash('Order not found or you are not authorized to update this order.', 'error')
             return redirect(url_for('orders_list'))
 
@@ -7000,6 +7010,8 @@ def update_order_status(order_id):
 
     except Exception as sb_err:
         print(f"? Supabase update_order_status failed: {sb_err}")
+        if is_ajax:
+            return jsonify({'success': False, 'error': str(sb_err)}), 500
         flash('An error occurred while updating the order status.', 'error')
         return redirect(url_for('orders_list'))
 
@@ -7021,19 +7033,20 @@ def update_order_status(order_id):
             except Exception as e:
                 print(f"?? Rider notification failed: {e}")
 
-    # -- Flash message ------------------------------------------------------
+    # -- Response -----------------------------------------------------------
     status_messages = {
-        'Confirmed':         'Order confirmed! You can now start preparing it.',
-        'Preparing':         'Order is now being prepared. Click "Ready for Pickup" when ready.',
+        'Confirmed':          'Order confirmed! You can now start preparing it.',
+        'Preparing':          'Order is now being prepared. Click "Ready for Pickup" when ready.',
         'Waiting for Pickup': 'Order is ready for pickup. Riders have been notified.',
-        'Rejected':          'Order has been rejected.',
+        'Rejected':           'Order has been rejected.',
     }
-    flash(status_messages.get(new_status,
-          f'Order status updated to {new_status}.'), 'success')
+    msg = status_messages.get(new_status, f'Order status updated to {new_status}.')
 
-    # -- MIRROR: MySQL (best-effort) ----------------------------------------
-    # MySQL mirror removed
+    if is_ajax:
+        return jsonify({'success': True, 'new_status': new_status, 'message': msg,
+                        'customer_email': customer_email})
 
+    flash(msg, 'success')
     return redirect(url_for('orders_list'))
 
 @app.route('/update_order_received_status', methods=['POST'])

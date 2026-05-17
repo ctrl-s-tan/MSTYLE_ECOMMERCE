@@ -1,65 +1,170 @@
 // Order List JavaScript Functions
 
-// Handle Status Update (Confirm/Reject)
+// Status icon/label map
+const STATUS_CONFIG = {
+    'Pending':           { icon: 'bi-hourglass',         cls: 'status-pending' },
+    'Confirmed':         { icon: 'bi-check-circle',      cls: 'status-confirmed' },
+    'Preparing':         { icon: 'bi-tools',             cls: 'status-preparing' },
+    'Waiting for Pickup':{ icon: 'bi-box-seam',          cls: 'status-waiting-for-pickup' },
+    'For Pickup':        { icon: 'bi-person-check',      cls: 'status-for-pickup' },
+    'Heading to Seller': { icon: 'bi-arrow-right-circle',cls: 'status-heading-to-seller' },
+    'Shipped':           { icon: 'bi-truck',             cls: 'status-shipped' },
+    'Delivered':         { icon: 'bi-check-circle-fill', cls: 'status-delivered' },
+    'Rejected':          { icon: 'bi-x-circle-fill',     cls: 'status-rejected' },
+};
+
+// Handle Status Update — AJAX, no page reload
 function handleStatusUpdate(orderId, newStatus, customerEmail, currentStatus, buttonElement) {
-    console.log('🔄 handleStatusUpdate called');
-    console.log('Order ID:', orderId);
-    console.log('New Status:', newStatus);
-    console.log('Customer Email:', customerEmail);
-    console.log('Current Status:', currentStatus);
-    
-    // Create confirmation message
-    let message = `Are you sure you want to update the order status from "${currentStatus}" to "${newStatus}"?\n\n`;
-    
+    // Confirmation dialog
+    let message = `Update order from "${currentStatus}" to "${newStatus}"?`;
     if (newStatus === 'Confirmed') {
-        message += `This will confirm the order. The seller will then prepare it before it becomes available for riders to pick up. The customer (${customerEmail}) will be notified that their order has been confirmed.`;
+        message = `Confirm this order? The customer (${customerEmail}) will be notified.`;
     } else if (newStatus === 'Rejected') {
-        message += `This will reject the order. The customer (${customerEmail}) will be notified that their order has been rejected.`;
+        message = `Reject this order? The customer (${customerEmail}) will be notified.`;
+    } else if (newStatus === 'Preparing') {
+        message = `Start preparing this order?`;
+    } else if (newStatus === 'Waiting for Pickup') {
+        message = `Mark as ready for pickup? Riders will be notified.`;
     }
-    
-    message += '\n\nAn email notification will be sent automatically.';
-    
-    if (!confirm(message)) {
-        console.log('❌ User cancelled the action');
-        return; // User cancelled
-    }
-    
-    console.log('✅ User confirmed the action');
-    
-    // Show loading state
+
+    if (!confirm(message)) return;
+
+    // ── Optimistic UI: show spinner on the button ────────────────────────
     const originalHTML = buttonElement.innerHTML;
-    buttonElement.innerHTML = '<i class="bi bi-hourglass-split"></i>';
+    buttonElement.innerHTML = '<i class="bi bi-arrow-repeat" style="animation:spin 0.7s linear infinite;display:inline-block;"></i>';
     buttonElement.disabled = true;
-    
-    // Store status update info for after page reload
-    const updateInfo = {
-        status: newStatus,
-        customer: customerEmail,
-        timestamp: Date.now()
-    };
-    
-    console.log('💾 Storing to sessionStorage:', updateInfo);
-    sessionStorage.setItem('statusUpdateInfo', JSON.stringify(updateInfo));
-    
-    // Verify it was stored
-    const stored = sessionStorage.getItem('statusUpdateInfo');
-    console.log('✅ Verified sessionStorage:', stored);
-    
-    // Create and submit form
-    const form = document.createElement('form');
-    form.method = 'POST';
-    form.action = `/update_order_status/${orderId}`;
-    
-    const statusInput = document.createElement('input');
-    statusInput.type = 'hidden';
-    statusInput.name = 'stat';
-    statusInput.value = newStatus;
-    
-    form.appendChild(statusInput);
-    document.body.appendChild(form);
-    
-    console.log('📤 Submitting form to:', form.action);
-    form.submit();
+
+    // ── AJAX call ────────────────────────────────────────────────────────
+    fetch(`/update_order_status/${orderId}`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({ stat: newStatus })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (!data.success) {
+            alert('Failed to update status: ' + (data.error || 'Unknown error'));
+            buttonElement.innerHTML = originalHTML;
+            buttonElement.disabled = false;
+            return;
+        }
+
+        // ── Update the row in-place ──────────────────────────────────────
+        const row = buttonElement.closest('tr');
+        if (row) {
+            row.dataset.status = newStatus.toLowerCase();
+
+            // Update status badge
+            const badge = row.querySelector('.status-badge');
+            if (badge) {
+                const cfg = STATUS_CONFIG[newStatus] || { icon: 'bi-circle', cls: '' };
+                badge.className = `status-badge status-${newStatus.toLowerCase().replace(/\s+/g, '-')}`;
+                badge.innerHTML = `<i class="bi ${cfg.icon}"></i> ${newStatus}`;
+            }
+
+            // Replace the action buttons cell
+            const actionCell = row.querySelector('.action-buttons');
+            if (actionCell) {
+                actionCell.innerHTML = _buildActionButtons(orderId, newStatus, customerEmail, row);
+            }
+        }
+
+        // ── Show success toast ───────────────────────────────────────────
+        _showToast(data.message || `Status updated to ${newStatus}`, 'success');
+
+        // ── Show success modal for Confirmed / Rejected ──────────────────
+        if (newStatus === 'Confirmed' || newStatus === 'Rejected') {
+            showSuccessModal(newStatus, customerEmail);
+        }
+    })
+    .catch(err => {
+        console.error('Status update error:', err);
+        alert('An error occurred. Please try again.');
+        buttonElement.innerHTML = originalHTML;
+        buttonElement.disabled = false;
+    });
+}
+
+// Build the action buttons HTML for a given status (mirrors the Jinja template logic)
+function _buildActionButtons(orderId, status, email, row) {
+    // Keep the view-details button data from the existing row
+    const existingViewBtn = row ? row.querySelector('.view-details-btn') : null;
+    const viewBtnOuter = existingViewBtn ? existingViewBtn.outerHTML : '';
+
+    let actionGroupHTML = '';
+
+    if (status === 'Pending') {
+        actionGroupHTML = `
+            <div class="action-buttons-group">
+                <button type="button" class="action-btn-icon confirm-btn-icon" title="Confirm Order"
+                    onclick="handleStatusUpdate(${orderId}, 'Confirmed', '${email}', '${status}', this)"
+                    data-order-id="${orderId}">
+                    <i class="bi bi-check-circle"></i>
+                </button>
+                <button type="button" class="action-btn-icon reject-btn-icon" title="Reject Order"
+                    onclick="handleStatusUpdate(${orderId}, 'Rejected', '${email}', '${status}', this)"
+                    data-order-id="${orderId}">
+                    <i class="bi bi-x-circle"></i>
+                </button>
+            </div>`;
+    } else if (status === 'Confirmed') {
+        actionGroupHTML = `
+            <div class="action-buttons-group">
+                <button type="button" class="action-btn-icon confirm-btn-icon" title="Start Preparing Order"
+                    onclick="handleStatusUpdate(${orderId}, 'Preparing', '${email}', '${status}', this)"
+                    data-order-id="${orderId}"
+                    style="background:linear-gradient(135deg,#2c3e50,#34495e);color:white;padding:6px 12px;width:auto;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;">
+                    <i class="bi bi-tools"></i> Start Preparing
+                </button>
+            </div>`;
+    } else if (status === 'Preparing') {
+        actionGroupHTML = `
+            <div class="action-buttons-group">
+                <button type="button" class="action-btn-icon confirm-btn-icon" title="Mark as Ready for Pickup"
+                    onclick="handleStatusUpdate(${orderId}, 'Waiting for Pickup', '${email}', '${status}', this)"
+                    data-order-id="${orderId}"
+                    style="background:linear-gradient(135deg,#d4af37,#f4d03f);color:#1a1a1a;padding:6px 12px;width:auto;border-radius:8px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;">
+                    <i class="bi bi-box-seam"></i> Ready for Pickup
+                </button>
+            </div>`;
+    }
+
+    return actionGroupHTML + viewBtnOuter;
+}
+
+// Simple toast notification
+function _showToast(message, type = 'success') {
+    const container = document.getElementById('toast-container') || document.body;
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.style.cssText = `
+        position:fixed;top:20px;right:20px;z-index:9999;
+        background:${type === 'success' ? '#28a745' : '#dc3545'};
+        color:#fff;padding:12px 20px;border-radius:10px;
+        font-size:14px;font-weight:600;
+        box-shadow:0 4px 16px rgba(0,0,0,0.2);
+        display:flex;align-items:center;gap:8px;
+        animation:slideInRight 0.3s ease;
+        max-width:360px;
+    `;
+    toast.innerHTML = `<i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-circle'}"></i> ${message}`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transition = 'opacity 0.4s';
+        setTimeout(() => toast.remove(), 400);
+    }, 3500);
+}
+
+// Spin keyframe (injected once)
+if (!document.getElementById('_spin_style')) {
+    const s = document.createElement('style');
+    s.id = '_spin_style';
+    s.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}} @keyframes slideInRight{from{transform:translateX(120%);opacity:0}to{transform:translateX(0);opacity:1}}';
+    document.head.appendChild(s);
 }
 
 // Show Success Modal
