@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'buyer_cart.dart';
@@ -741,19 +742,41 @@ class _BuyerViewProductPageState extends State<BuyerViewProductPage> {
                 final parsed = int.tryParse(val);
                 if (parsed == null) return;
                 final clamped = parsed.clamp(1, max > 0 ? max : 9999);
+                // If typed value exceeds max, immediately correct the field
+                if (clamped != parsed) {
+                  _qtyCtrl.text = '$clamped';
+                  _qtyCtrl.selection = TextSelection.collapsed(offset: _qtyCtrl.text.length);
+                }
                 if (clamped != _quantity) {
                   setState(() => _quantity = clamped);
-                  if (clamped != parsed) {
-                    // Correct the field if out of range
-                    _qtyCtrl.text = '$clamped';
-                    _qtyCtrl.selection = TextSelection.collapsed(offset: _qtyCtrl.text.length);
-                  }
                 }
               },
               onSubmitted: (val) {
                 final parsed = int.tryParse(val) ?? 1;
                 _setQuantity(parsed.clamp(1, max > 0 ? max : 9999));
               },
+              inputFormatters: [
+                // Block any input that would result in a number > max
+                TextInputFormatter.withFunction((oldValue, newValue) {
+                  if (newValue.text.isEmpty) return newValue;
+                  final parsed = int.tryParse(newValue.text);
+                  if (parsed == null) return oldValue;
+                  if (max > 0 && parsed > max) {
+                    // Reject — keep old value and show max
+                    return TextEditingValue(
+                      text: '$max',
+                      selection: TextSelection.collapsed(offset: '$max'.length),
+                    );
+                  }
+                  if (parsed < 1) {
+                    return TextEditingValue(
+                      text: '1',
+                      selection: const TextSelection.collapsed(offset: 1),
+                    );
+                  }
+                  return newValue;
+                }),
+              ],
             ),
           ),
 

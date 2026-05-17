@@ -3,9 +3,10 @@ import 'dart:async';
 import 'buyer_homepage.dart';
 import 'buyer_service.dart';
 import 'product_image_carousel.dart' show buildImageUrl;
-import 'supabase_client.dart' show supabase;
+import 'supabase_client.dart' show supabase, supabaseAdminSelect, supabaseAdminSelectIn;
 import 'buyer_vieworder_details.dart';
 import 'buyer_reviews.dart' show showReviewBottomSheet;
+import 'buyer_view_shop.dart';
 
 const Color _primary   = Color(0xFF1a1a1a);
 const Color _accent    = Color(0xFF2c3e50);
@@ -165,10 +166,53 @@ class _BuyerOrdersPageState extends State<BuyerOrdersPage> {
 
       if (mounted) setState(() { _orders = data; _loading = false; });
 
+      // Batch-fetch seller names for all unique seller emails
+      await _enrichSellerNames(data);
+
       // Fetch which completed orders already have a review
       _loadReviewedOrders();
     } catch (e) {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _enrichSellerNames(List<Map<String, dynamic>> orders) async {
+    try {
+      final sellerEmails = orders
+          .map((o) => o['seller_email'] as String?)
+          .whereType<String>()
+          .where((e) => e.isNotEmpty)
+          .toSet()
+          .toList();
+      if (sellerEmails.isEmpty) return;
+
+      final sellerRows = await supabaseAdminSelectIn(
+        table: 'users',
+        select: 'email,business_name,first_name,last_name',
+        column: 'email',
+        values: sellerEmails,
+      );
+
+      final sellerMap = <String, String>{};
+      for (final s in sellerRows) {
+        final email = s['email'] as String? ?? '';
+        final biz   = (s['business_name'] as String? ?? '').trim();
+        final first = (s['first_name']    as String? ?? '').trim();
+        final last  = (s['last_name']     as String? ?? '').trim();
+        final name  = biz.isNotEmpty ? biz : '$first $last'.trim();
+        if (email.isNotEmpty && name.isNotEmpty) sellerMap[email] = name;
+      }
+
+      if (mounted) setState(() {
+        for (final order in _orders) {
+          final se = order['seller_email'] as String? ?? '';
+          if (se.isNotEmpty && sellerMap.containsKey(se)) {
+            order['seller_name'] = sellerMap[se];
+          }
+        }
+      });
+    } catch (e) {
+      debugPrint('_enrichSellerNames error: $e');
     }
   }
 
@@ -372,7 +416,36 @@ class _BuyerOrdersPageState extends State<BuyerOrdersPage> {
               ]),
               const SizedBox(width: 12),
               Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                // Status badge top-right
+                // ── Seller name (clickable) ────────────────────────────
+                Builder(builder: (ctx) {
+                  final sellerEmail = order['seller_email'] as String? ?? '';
+                  final sellerName  = (order['seller_name'] as String?)?.trim();
+                  final showSeller  = sellerEmail.isNotEmpty && sellerName != null && sellerName.isNotEmpty;
+                  if (!showSeller) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 4),
+                    child: GestureDetector(
+                      onTap: () => Navigator.push(context, MaterialPageRoute(
+                        builder: (_) => BuyerViewShopPage(
+                          userEmail: widget.userEmail,
+                          sellerEmail: sellerEmail,
+                        ),
+                      )),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.storefront_outlined, size: 10, color: _textLight),
+                        const SizedBox(width: 3),
+                        Flexible(
+                          child: Text(
+                            sellerName!,
+                            style: const TextStyle(color: _textLight, fontSize: 11, fontWeight: FontWeight.w600),
+                            maxLines: 1, overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ]),
+                    ),
+                  );
+                }),
+                // Status badge + product name row
                 Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
                   Expanded(
                     child: Text(name,

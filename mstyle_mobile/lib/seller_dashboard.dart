@@ -184,7 +184,6 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
       body: CustomScrollView(
         slivers: [
           _appBar(),
-          SliverToBoxAdapter(child: _dashboardHeader()),
           SliverToBoxAdapter(child: _statsGrid()),
           SliverToBoxAdapter(child: _salesChart()),
           SliverToBoxAdapter(child: _orderStatusChart()),

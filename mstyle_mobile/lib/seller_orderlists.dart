@@ -5,6 +5,7 @@ import 'seller_products.dart';
 import 'seller_analytics.dart';
 import 'seller_notifications.dart';
 import 'profile.dart';
+import 'product_image_carousel.dart' show buildImageUrl;
 import 'supabase_client.dart';
 
 const Color _primary   = Color(0xFF1a1a1a);
@@ -40,6 +41,7 @@ class SellerOrder {
   final String date;
   final String status;
   final String? riderName;
+  final String? image;
 
   const SellerOrder({
     required this.id,
@@ -56,6 +58,7 @@ class SellerOrder {
     required this.date,
     required this.status,
     this.riderName,
+    this.image,
   });
 }
 
@@ -123,6 +126,7 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
               quantity:      (o['quantity'] as num?)?.toInt() ?? 1,
               originalPrice: (o['total_price'] as num?)?.toDouble() ?? 0,
               totalPrice:    (o['total_price'] as num?)?.toDouble() ?? 0,
+              image:         o['image'] as String?,
               date:          o['date'] != null
                   ? DateTime.parse(o['date']).toLocal().toString().split(' ')[0]
                   : '',
@@ -168,6 +172,7 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
             quantity:      (o['quantity'] as num?)?.toInt() ?? 1,
             originalPrice: (o['total_price'] as num?)?.toDouble() ?? 0,
             totalPrice:    (o['total_price'] as num?)?.toDouble() ?? 0,
+            image:         o['image'] as String?,
             date:          o['date'] != null
                 ? DateTime.parse(o['date']).toLocal().toString().split(' ')[0]
                 : '',
@@ -207,13 +212,11 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bg,
-      bottomNavigationBar: _bottomNav(),
       body: _loadingOrders
         ? const Center(child: CircularProgressIndicator(color: _gold))
         : CustomScrollView(
           slivers: [
             _appBar(),
-            SliverToBoxAdapter(child: _pageHeader()),
             SliverToBoxAdapter(child: _filterSection()),
             if (_filtered.isEmpty)
               SliverFillRemaining(child: _emptyState())
@@ -236,38 +239,19 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
     backgroundColor: _primary,
     elevation: 6,
     titleSpacing: 16,
-    automaticallyImplyLeading: false,
-    title: Row(children: [
-      Container(
-        width: 32, height: 32,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: _goldGrad,
-          boxShadow: [BoxShadow(color: _gold.withOpacity(0.3), blurRadius: 6)],
-        ),
-        child: const Icon(Icons.store, color: _primary, size: 18),
-      ),
-      const SizedBox(width: 8),
-      Flexible(
-        child: ShaderMask(
-          shaderCallback: (b) => _goldGrad.createShader(b),
-          child: Text(
-            _businessName.isNotEmpty ? _businessName : widget.sellerEmail.split('@').first,
-            style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w800, letterSpacing: 0.5),
-            maxLines: 1, overflow: TextOverflow.ellipsis,
-          ),
-        ),
-      ),
-    ]),
+    leading: IconButton(
+      icon: const Icon(Icons.arrow_back, color: Colors.white),
+      onPressed: () => Navigator.pop(context),
+    ),
+    title: ShaderMask(
+      shaderCallback: (b) => _goldGrad.createShader(b),
+      child: const Text('Order List',
+        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+    ),
     actions: [
       IconButton(icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
         onPressed: () => Navigator.push(context,
           MaterialPageRoute(builder: (_) => SellerNotificationsPage(sellerEmail: widget.sellerEmail)))),
-      IconButton(
-        icon: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 22),
-        onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Messages coming soon'), behavior: SnackBarBehavior.floating)),
-      ),
       IconButton(
         icon: const Icon(Icons.person_outline, color: Colors.white, size: 22),
         onPressed: () => Navigator.push(context,
@@ -411,15 +395,21 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
           // Product row
           Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Container(
-              width: 52, height: 52,
-              decoration: BoxDecoration(
+            Builder(builder: (_) {
+              final rawImg = order.image ?? '';
+              final firstImg = rawImg.split(',').first.trim();
+              final imageUrl = buildImageUrl(firstImg.isNotEmpty ? firstImg : null);
+              return ClipRRect(
                 borderRadius: BorderRadius.circular(10),
-                gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight,
-                  colors: [Color(0xFFECEFF1), Color(0xFFE9ECEF)]),
-              ),
-              child: const Center(child: Icon(Icons.image_outlined, color: Color(0xFFADB5BD), size: 24)),
-            ),
+                child: imageUrl != null
+                  ? Image.network(
+                      imageUrl,
+                      width: 52, height: 52, fit: BoxFit.cover,
+                      errorBuilder: (_, __, ___) => _imagePlaceholder(),
+                    )
+                  : _imagePlaceholder(),
+              );
+            }),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(order.productName, style: const TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13),
@@ -467,6 +457,17 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
         ]),
       ),
     ]),
+  );
+
+  Widget _imagePlaceholder() => Container(
+    width: 52, height: 52,
+    decoration: BoxDecoration(
+      borderRadius: BorderRadius.circular(10),
+      gradient: const LinearGradient(
+        begin: Alignment.topLeft, end: Alignment.bottomRight,
+        colors: [Color(0xFFECEFF1), Color(0xFFE9ECEF)]),
+    ),
+    child: const Center(child: Icon(Icons.image_outlined, color: Color(0xFFADB5BD), size: 24)),
   );
 
   Widget _specChip(IconData icon, String label) => Container(
