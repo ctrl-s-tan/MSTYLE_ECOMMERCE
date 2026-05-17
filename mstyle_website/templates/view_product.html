@@ -103,15 +103,6 @@
                         <span class="original-price">₱{{ product.price }}</span>
                         <span class="savings-text">You save ₱{{ "%.2f"|format(product.discount_amount) }}</span>
                     </div>
-                    {% if active_promotion %}
-                    <div class="promotion-info">
-                        <i class="fas fa-tag"></i>
-                        <span class="promotion-name">{{ active_promotion.name }}</span>
-                        {% if active_promotion.end_date %}
-                        <span class="promotion-expires">Expires: {{ active_promotion.end_date[:10] }}</span>
-                        {% endif %}
-                    </div>
-                    {% endif %}
                     {% else %}
                     <!-- Regular pricing display -->
                     <div class="price-main">
