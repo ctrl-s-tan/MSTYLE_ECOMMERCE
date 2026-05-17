@@ -3,6 +3,10 @@ document.addEventListener('DOMContentLoaded', function() {
     // Initialize product cards with data attributes
     initializeProductCards();
     
+    // Update initial results count
+    const initialCount = document.querySelectorAll('.pc-card').length;
+    updateResultsCount(initialCount);
+    
     // Get all filter buttons and dropdowns
     const filterBtns = document.querySelectorAll('.filter-btn');
     const dropdownMenus = document.querySelectorAll('.dropdown-menu');
@@ -78,69 +82,8 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 function initializeProductCards() {
-    const productCards = document.querySelectorAll('.product-card');
-    console.log('=== FILTER INITIALIZATION TEST ===');
-    console.log('Total product cards found:', productCards.length);
-    
-    // Detailed logging for each product
-    const categories = new Set();
-    const testData = [];
-    
-    productCards.forEach((card, index) => {
-        const productData = {
-            index: index + 1,
-            category: card.dataset.category || 'MISSING',
-            price: card.dataset.price || 'MISSING',
-            name: card.dataset.name || 'MISSING',
-            id: card.dataset.id || 'MISSING'
-        };
-        
-        testData.push(productData);
-        
-        if (card.dataset.category) {
-            categories.add(card.dataset.category);
-        }
-        
-        // Log first 5 products in detail
-        if (index < 5) {
-            console.log(`Product ${index + 1}:`, productData);
-        }
-    });
-    
-    console.log('\n=== SUMMARY ===');
-    console.log('Available categories (should be UPPERCASE):', Array.from(categories).join(', '));
-    console.log('Total unique categories:', categories.size);
-    console.log('Expected categories: SUITS, BLAZERS');
-    
-    // Count products per category
-    const categoryCounts = {};
-    testData.forEach(product => {
-        const cat = product.category;
-        categoryCounts[cat] = (categoryCounts[cat] || 0) + 1;
-    });
-    console.log('Products per category:', categoryCounts);
-    
-    // Check for missing data
-    const missingCategory = testData.filter(p => p.category === 'MISSING').length;
-    const missingPrice = testData.filter(p => p.price === 'MISSING').length;
-    const missingName = testData.filter(p => p.name === 'MISSING').length;
-    const missingId = testData.filter(p => p.id === 'MISSING').length;
-    
-    if (missingCategory > 0 || missingPrice > 0 || missingName > 0 || missingId > 0) {
-        console.warn('⚠️ MISSING DATA DETECTED:');
-        if (missingCategory > 0) console.warn(`  - ${missingCategory} products missing category`);
-        if (missingPrice > 0) console.warn(`  - ${missingPrice} products missing price`);
-        if (missingName > 0) console.warn(`  - ${missingName} products missing name`);
-        if (missingId > 0) console.warn(`  - ${missingId} products missing id`);
-    } else {
-        console.log('✅ All products have complete data attributes');
-    }
-    
-    console.log('=== END TEST ===\n');
-    
-    // Store test data globally for manual inspection
-    window.filterTestData = testData;
-    console.log('💡 TIP: Type "window.filterTestData" in console to see all product data');
+    const productCards = document.querySelectorAll('.pc-card');
+    console.log('Filter init: found', productCards.length, 'product cards');
 }
 
 function closeAllDropdowns() {
@@ -153,104 +96,55 @@ function closeAllDropdowns() {
 }
 
 function applyFilter(filterType, value) {
-    console.log('=== APPLYING FILTER ===');
-    console.log('Filter Type:', filterType);
-    console.log('Filter Value:', value);
-    
-    // Get all product cards
-    const productCards = document.querySelectorAll('.product-card');
+    const productCards = document.querySelectorAll('.pc-card');
     let visibleCount = 0;
-    
-    // Get current filters
+
     const currentFilters = getCurrentFilters();
     currentFilters[filterType] = value;
-    
-    console.log('Current filters:', currentFilters);
-    console.log('Total product cards:', productCards.length);
-    
-    // Apply filters to products
-    productCards.forEach((card, index) => {
+
+    productCards.forEach(card => {
         let shouldShow = true;
-        
+
         // Category filter
         if (currentFilters.category && currentFilters.category !== 'all') {
-            const productCategory = card.dataset.category;
-            const filterCategory = currentFilters.category;
-            const matches = productCategory === filterCategory;
-            
-            if (index < 3) { // Log first 3 products for debugging
-                console.log(`Product ${index + 1}:`, {
-                    category: productCategory,
-                    filterValue: filterCategory,
-                    matches: matches
-                });
-            }
-            
-            if (!matches) {
-                shouldShow = false;
-            }
+            const productCategory = (card.dataset.category || '').toUpperCase();
+            const filterCategory  = currentFilters.category.toUpperCase();
+            if (productCategory !== filterCategory) shouldShow = false;
         }
-        
-        // Sort filter (handled separately)
-        if (filterType === 'sort') {
-            // Sorting will be handled after filtering
-        }
-        
-        // Show/hide card
-        if (shouldShow) {
-            card.style.display = '';
-            visibleCount++;
-        } else {
-            card.style.display = 'none';
-        }
+
+        card.style.display = shouldShow ? '' : 'none';
+        if (shouldShow) visibleCount++;
     });
-    
-    console.log('Visible products after filter:', visibleCount);
-    console.log('=== FILTER COMPLETE ===');
-    
-    // Apply sorting if needed
-    if (currentFilters.sort) {
+
+    // Apply sorting
+    if (currentFilters.sort && currentFilters.sort !== 'default') {
         sortProducts(currentFilters.sort);
     }
-    
-    // Update results count
+
     updateResultsCount(visibleCount);
-    
-    // Update active filters display
     updateActiveFilters(currentFilters);
-    
-    // Show/hide empty state
     showEmptyState(visibleCount === 0);
 }
 
 function sortProducts(sortType) {
     const productGrid = document.querySelector('.product-grid');
     if (!productGrid) return;
-    
-    const productCards = Array.from(productGrid.querySelectorAll('.product-card'));
-    const visibleCards = productCards.filter(card => card.style.display !== 'none');
-    
-    visibleCards.sort((a, b) => {
-        switch(sortType) {
-            case 'price-low':
-                return parseFloat(a.dataset.price || 0) - parseFloat(b.dataset.price || 0);
-            case 'price-high':
-                return parseFloat(b.dataset.price || 0) - parseFloat(a.dataset.price || 0);
-            case 'name-az':
-                return (a.dataset.name || '').localeCompare(b.dataset.name || '');
-            case 'name-za':
-                return (b.dataset.name || '').localeCompare(a.dataset.name || '');
-            case 'newest':
-                return parseFloat(b.dataset.id || 0) - parseFloat(a.dataset.id || 0);
-            default:
-                return 0;
+
+    const cards = Array.from(productGrid.querySelectorAll('.pc-card'))
+        .filter(c => c.style.display !== 'none');
+
+    cards.sort((a, b) => {
+        switch (sortType) {
+            case 'price-low':  return parseFloat(a.dataset.price || 0) - parseFloat(b.dataset.price || 0);
+            case 'price-high': return parseFloat(b.dataset.price || 0) - parseFloat(a.dataset.price || 0);
+            case 'name-az':    return (a.dataset.name || '').localeCompare(b.dataset.name || '');
+            case 'name-za':    return (b.dataset.name || '').localeCompare(a.dataset.name || '');
+            case 'newest':     return parseFloat(b.dataset.id || 0) - parseFloat(a.dataset.id || 0);
+            default:           return 0;
         }
     });
-    
-    // Reorder cards in DOM
-    visibleCards.forEach(card => {
-        productGrid.appendChild(card);
-    });
+
+    cards.forEach(card => productGrid.appendChild(card));
 }
 
 function getCurrentFilters() {
@@ -343,58 +237,45 @@ function clearAllFilters() {
     document.querySelectorAll('.dropdown-menu').forEach(dropdown => {
         const items = dropdown.querySelectorAll('.dropdown-item');
         items.forEach(item => item.classList.remove('active'));
-        
+
         const defaultItem = dropdown.querySelector('[data-value="all"], [data-value="default"]');
         if (defaultItem) {
             defaultItem.classList.add('active');
             const filterBtn = dropdown.previousElementSibling;
-            const btnText = filterBtn.querySelector('.btn-text');
-            if (btnText) {
-                btnText.textContent = defaultItem.textContent.trim();
-            }
+            const btnText = filterBtn && filterBtn.querySelector('.btn-text');
+            if (btnText) btnText.textContent = defaultItem.textContent.trim();
         }
     });
-    
+
     // Show all products
-    document.querySelectorAll('.product-card').forEach(card => {
+    document.querySelectorAll('.pc-card').forEach(card => {
         card.style.display = '';
     });
-    
-    // Update results count
-    const totalProducts = document.querySelectorAll('.product-card').length;
+
+    const totalProducts = document.querySelectorAll('.pc-card').length;
     updateResultsCount(totalProducts);
-    
-    // Clear active filters display
     updateActiveFilters({});
-    
-    // Hide empty state
     showEmptyState(false);
 }
 
 function showEmptyState(show) {
     const productGrid = document.querySelector('.product-grid');
     if (!productGrid) return;
-    
-    // Remove existing empty state if any
-    const existingEmptyState = productGrid.querySelector('.filter-empty-state');
-    if (existingEmptyState) {
-        existingEmptyState.remove();
-    }
-    
+
+    const existing = productGrid.querySelector('.filter-empty-state');
+    if (existing) existing.remove();
+
     if (show) {
-        // Create and show empty state
         const emptyState = document.createElement('div');
         emptyState.className = 'filter-empty-state';
+        emptyState.style.cssText = 'grid-column:1/-1;text-align:center;padding:3rem 1rem;color:#6c757d;';
         emptyState.innerHTML = `
-            <div class="empty-state-icon">
-                <i class="fas fa-search"></i>
-            </div>
-            <h3>No Products Found</h3>
-            <p>We couldn't find any products matching your filters.</p>
-            <button class="btn-clear-filters" onclick="clearAllFilters()">
-                <i class="fas fa-redo"></i> Clear All Filters
-            </button>
-        `;
+            <i class="fas fa-search" style="font-size:3rem;color:#dee2e6;display:block;margin-bottom:1rem;"></i>
+            <h3 style="color:#2c3e50;margin-bottom:.5rem;">No Products Found</h3>
+            <p>No products match your current filters.</p>
+            <button onclick="clearAllFilters()" style="margin-top:1rem;padding:.6rem 1.4rem;background:linear-gradient(135deg,#1a1a1a,#2c3e50);color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:600;">
+                <i class="fas fa-redo"></i> Clear Filters
+            </button>`;
         productGrid.appendChild(emptyState);
     }
 }
