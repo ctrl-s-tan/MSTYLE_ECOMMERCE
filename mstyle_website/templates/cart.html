@@ -50,6 +50,7 @@
                     </div>
                     <div class="item-content">
                         {% set view_url = url_for('view_product', product_id=item.product_id) if item.product_id else '#' %}
+                        <div class="item-image-wrap" style="position:relative;flex-shrink:0;">
                         {% if item.first_image_url %}
                         <a href="{{ view_url }}" title="View product">
                         <img src="{{ item.first_image_url }}"
@@ -72,6 +73,19 @@
                             <span>No Image</span>
                         </div>
                         {% endif %}
+                        {% if item.promo_label %}
+                        <span style="
+                            position:absolute;top:6px;left:6px;
+                            background:linear-gradient(135deg,#d4af37,#f4d03f);
+                            color:#1a1a1a;font-size:9px;font-weight:900;
+                            letter-spacing:0.6px;padding:3px 8px;
+                            border-radius:10px;
+                            box-shadow:0 2px 6px rgba(212,175,55,0.45);
+                            pointer-events:none;z-index:2;
+                            white-space:nowrap;
+                        ">{{ item.promo_label }}</span>
+                        {% endif %}
+                        </div>
                         <div class="item-details">
                             {% if item.seller_name %}
                             <div style="font-size:11px;color:#6c757d;margin-bottom:2px;display:flex;align-items:center;gap:4px;">

@@ -8794,6 +8794,30 @@ def cart():
             elif cart_image:
                 first_image_url = f"https://vydcnhmgqovketjqvpoe.supabase.co/storage/v1/object/public/product-images/products/{cart_image.split('/')[-1]}"
 
+            # Fetch active promotion for this product (non-fatal)
+            promo_type = ''
+            promo_discount = 0
+            promo_label = ''
+            if pid and item.get('seller_email'):
+                try:
+                    promo = get_active_promotions_for_product(
+                        str(pid), item['seller_email'],
+                        prod_img_map.get(pid, {}).get('category', '')
+                    )
+                    if promo:
+                        promo_type = promo.get('type', '')
+                        promo_discount = float(promo.get('discount_value') or 0)
+                        if promo_type == 'percentage':
+                            promo_label = f"{int(promo_discount)}% OFF"
+                        elif promo_type == 'fixed':
+                            promo_label = f"₱{int(promo_discount)} OFF"
+                        elif promo_type == 'buy_one_get_one':
+                            promo_label = 'BOGO'
+                        elif promo_type == 'free_shipping':
+                            promo_label = 'FREE SHIP'
+                except Exception:
+                    pass
+
             cart_items.append({
                 'id': item['id'], 'name': item.get('name',''),
                 'price': float(item.get('price') or 0),
@@ -8805,6 +8829,9 @@ def cart():
                 'image_url': first_image_url,
                 'first_image_url': first_image_url,
                 'all_images': prod_img_map.get(pid, {}).get('image', '') if pid else '',
+                'promo_type': promo_type,
+                'promo_discount': promo_discount,
+                'promo_label': promo_label,
             })
     except Exception as e:
         print(f"cart Supabase error: {e}")
