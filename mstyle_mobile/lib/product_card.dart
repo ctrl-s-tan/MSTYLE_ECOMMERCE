@@ -114,12 +114,26 @@ class _ProductCardState extends State<ProductCard> {
   Widget build(BuildContext context) {
     final name      = widget.product['name'] as String? ?? '';
     final price     = (widget.product['price'] as num?)?.toDouble() ?? 0;
+    final salePrice = (widget.product['sale_price'] as num?)?.toDouble();
+    final promoType = widget.product['promotion_type'] as String? ?? '';
+    final promoDiscount = (widget.product['promotion_discount'] as num?)?.toDouble() ?? 0;
+    final hasPromo  = promoType.isNotEmpty && (salePrice != null || promoType == 'buy_one_get_one' || promoType == 'free_shipping');
     final rating    = (widget.product['rating'] as num?)?.toDouble() ?? 0;
     final sold      = (widget.product['sold'] as num?)?.toInt() ?? 0;
     final qty       = (widget.product['quantity'] as num?)?.toInt() ?? 0;
     final id        = widget.product['id'];
     final inStock   = qty > 0;
     final productId = id is int ? id : int.tryParse('$id');
+
+    // Build promo badge label
+    String promoBadgeLabel = '';
+    if (hasPromo) {
+      if (promoType == 'percentage') promoBadgeLabel = '${promoDiscount.toInt()}% OFF';
+      else if (promoType == 'fixed') promoBadgeLabel = '₱${promoDiscount.toInt()} OFF';
+      else if (promoType == 'buy_one_get_one') promoBadgeLabel = 'BOGO';
+      else if (promoType == 'free_shipping') promoBadgeLabel = 'FREE SHIP';
+      else promoBadgeLabel = 'SALE';
+    }
 
     return Container(
       decoration: BoxDecoration(
@@ -154,6 +168,28 @@ class _ProductCardState extends State<ProductCard> {
                     style: TextStyle(color: Colors.white, fontWeight: FontWeight.w800, fontSize: 9, letterSpacing: 1)),
                 ])),
               )),
+            // Promo badge — always show if product has promo (even out of stock)
+            if (hasPromo)
+              Positioned(top: 0, left: 0,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFFE74C3C), Color(0xFFc0392b)],
+                      begin: Alignment.topLeft, end: Alignment.bottomRight,
+                    ),
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                      bottomRight: Radius.circular(10),
+                    ),
+                    boxShadow: [BoxShadow(color: Colors.red.withOpacity(0.45), blurRadius: 8, offset: const Offset(0, 3))],
+                  ),
+                  child: Text(promoBadgeLabel,
+                    style: const TextStyle(
+                      color: Colors.white, fontWeight: FontWeight.w900,
+                      fontSize: 10, letterSpacing: 0.6)),
+                ),
+              ),
             // Wishlist + Cart buttons
             if (inStock)
               Positioned(bottom: 8, right: 8,
@@ -242,22 +278,20 @@ class _ProductCardState extends State<ProductCard> {
               Text('$sold sold', style: const TextStyle(color: kTextLight, fontSize: 10)),
             ]),
             const SizedBox(height: 6),
-            // Sale price support
-            Builder(builder: (_) {
-              final salePrice = (widget.product['sale_price'] as num?)?.toDouble();
-              if (salePrice != null && salePrice < price) {
-                return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text('₱${price.toStringAsFixed(2)}',
-                    style: const TextStyle(color: kTextLight, fontSize: 11,
-                      decoration: TextDecoration.lineThrough)),
-                  Text('₱${salePrice.toStringAsFixed(2)}',
-                    style: const TextStyle(color: Color(0xFFE74C3C),
-                      fontWeight: FontWeight.w800, fontSize: 15)),
-                ]);
-              }
-              return Text('₱${price.toStringAsFixed(2)}',
-                style: const TextStyle(color: kAccent, fontWeight: FontWeight.w800, fontSize: 15));
-            }),
+            // Price — show sale price with strikethrough original if promo
+            if (hasPromo && salePrice != null && (promoType == 'percentage' || promoType == 'fixed'))
+              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text('₱${price.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    color: kTextLight, fontSize: 11,
+                    decoration: TextDecoration.lineThrough,
+                    decorationColor: kTextLight)),
+                Text('₱${salePrice.toStringAsFixed(2)}',
+                  style: const TextStyle(color: Color(0xFFE74C3C), fontWeight: FontWeight.w900, fontSize: 15)),
+              ])
+            else
+              Text('₱${price.toStringAsFixed(2)}',
+                style: const TextStyle(color: kAccent, fontWeight: FontWeight.w800, fontSize: 15)),
           ]),
         ),
       ]),
