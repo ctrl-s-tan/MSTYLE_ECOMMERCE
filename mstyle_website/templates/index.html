@@ -96,10 +96,10 @@
             rgba(26,26,26,0.10) 100%);
     }
     .mhero-content {
-        position: absolute; left: 0; top: 0; bottom: 0;
-        width: 55%; padding: 0 32px;
-        display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
-        z-index: 2;
+        position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        width: 90%; max-width: 600px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        text-align: center; z-index: 2; padding: 0 20px;
     }
     .mhero-badge {
         display: inline-block;
@@ -125,7 +125,7 @@
     }
     .mhero-sub {
         color: rgba(255,255,255,0.6); font-size: 13px; line-height: 1.6;
-        margin: 0 0 24px; max-width: 340px;
+        margin: 0 0 24px; max-width: 520px;
     }
     .mhero-btns { display: flex; gap: 12px; flex-wrap: wrap; }
     .mhero-btn-primary {
@@ -168,14 +168,24 @@
     }
     @media (max-width: 768px) {
         .mhero { height: 360px; }
-        .mhero-content { width: 70%; padding: 0 20px 40px; }
+        .mhero-content {
+        position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        width: 90%; max-width: 600px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        text-align: center; z-index: 2; padding: 0 20px;
+    }
         .mhero-highlight { font-size: 26px; }
         .mhero-sub { font-size: 12px; }
         .mhero-bg-img { height: 100%; width: auto; max-width: 55%; object-fit: contain; object-position: center center; display: block; }
     }
     @media (max-width: 480px) {
         .mhero { height: 300px; }
-        .mhero-content { width: 85%; padding: 0 16px 36px; }
+        .mhero-content {
+        position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+        width: 90%; max-width: 600px;
+        display: flex; flex-direction: column; align-items: center; justify-content: center;
+        text-align: center; z-index: 2; padding: 0 20px;
+    }
         .mhero-highlight { font-size: 20px; }
         .mhero-btn-primary, .mhero-btn-secondary { font-size: 12px; padding: 9px 16px; }
         .mhero-bg-img { height: 100%; width: auto; max-width: 55%; object-fit: contain; object-position: center center; display: block; }
