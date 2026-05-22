@@ -88,6 +88,13 @@
 
                 <!-- Details -->
                 <div class="order-details-section">
+                    <!-- Seller shop name (clickable) -->
+                    {% if order.seller_business_name or order.seller_email %}
+                    <a href="{{ url_for('view_shop', seller_email=order.seller_email) }}" class="order-seller-link" onclick="event.stopPropagation();">
+                        <i class="bi bi-shop"></i>
+                        {{ order.seller_business_name if order.seller_business_name else order.seller_full_name if order.seller_full_name else order.seller_email }}
+                    </a>
+                    {% endif %}
                     <div class="order-name-status-row">
                         <h3 class="product-name">{{ order['name'] }}</h3>
                         <span class="status-badge status-{{ order.status|lower|replace(' ','_') }}">
@@ -127,7 +134,7 @@
                 </div>
             </div>
 
-            <!-- ── Bottom bar: price + cancel ── -->
+            <!-- ── Bottom bar: price + actions ── -->
             <div class="order-bottom">
                 <div class="price-section">
                     <span class="price-label">Total</span>
@@ -143,6 +150,21 @@
                     {% if order.status == 'Pending' %}
                     <button type="button" class="btn-cancel-inline" onclick="event.stopPropagation(); showCancelModal('{{ order.id }}')">
                         <i class="bi bi-x-circle"></i> Cancel
+                    </button>
+                    {% endif %}
+                    {% if order.status == 'Delivered' %}
+                    <button type="button" class="btn-confirm-receipt" onclick="event.stopPropagation(); confirmReceipt('{{ order.id }}')">
+                        <i class="bi bi-check-circle"></i> Confirm Receipt
+                    </button>
+                    {% endif %}
+                    {% if order.status == 'Completed' and not order.has_review %}
+                    <button type="button" class="btn-review-inline" onclick="event.stopPropagation(); showReviewModal('{{ order.id }}', '{{ order.name|e }}', '{{ order.image_url if order.image_url else order.image }}')">
+                        <i class="bi bi-star"></i> Review
+                    </button>
+                    {% endif %}
+                    {% if order.status in ['Delivered', 'Completed'] %}
+                    <button type="button" class="btn-report-inline" onclick="event.stopPropagation(); showReportModal('{{ order.id }}', '{{ order.name|e }}', '{{ order.image_url if order.image_url else order.image }}')">
+                        <i class="bi bi-flag"></i> Report
                     </button>
                     {% endif %}
                     {% if order.status != 'Cancelled' %}

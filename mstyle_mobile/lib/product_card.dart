@@ -227,7 +227,7 @@ class _ProductCardState extends State<ProductCard> {
             Positioned(bottom: 8, left: 8,
               child: GestureDetector(
                 onTap: () {
-                  if (_isGuest) { _doLogin(context); return; }
+                  // Allow viewing product details even for guests (empty userEmail)
                   Navigator.push(context, MaterialPageRoute(
                     builder: (_) => BuyerViewProductPage(
                       userEmail: widget.userEmail,

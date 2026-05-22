@@ -75,6 +75,7 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
   String _sortBy = 'newest';
   String _search = '';
   bool _tableView = false;
+  bool _isSearching = false;
   String _businessName = '';
   List<SellerProduct> _products = [];
   bool _loadingProducts = true;
@@ -188,24 +189,19 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
         : CustomScrollView(
           slivers: [
             _appBar(),
-            SliverToBoxAdapter(child: _filterSection()),
-            SliverToBoxAdapter(child: _viewToggle()),
-            if (_tableView)
-              SliverToBoxAdapter(child: _tableViewWidget())
-            else
-              SliverPadding(
-                padding: const EdgeInsets.fromLTRB(12, 0, 12, 80),
-                sliver: SliverGrid(
-                  delegate: SliverChildBuilderDelegate(
-                    (_, i) => _productCard(_filtered[i]),
-                    childCount: _filtered.length,
-                  ),
-                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                    crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12,
-                    childAspectRatio: 0.72,
-                  ),
+            SliverPadding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 80),
+              sliver: SliverGrid(
+                delegate: SliverChildBuilderDelegate(
+                  (_, i) => _productCard(_filtered[i]),
+                  childCount: _filtered.length,
+                ),
+                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12,
+                  childAspectRatio: 0.72,
                 ),
               ),
+            ),
             if (_filtered.isEmpty)
               SliverFillRemaining(child: _emptyState()),
             const SliverToBoxAdapter(child: SizedBox(height: 16)),
@@ -224,21 +220,32 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
       icon: const Icon(Icons.arrow_back, color: Colors.white),
       onPressed: () => Navigator.pop(context),
     ),
-    title: ShaderMask(
-      shaderCallback: (b) => _goldGrad.createShader(b),
-      child: const Text('My Products',
-        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
-    ),
+    title: _isSearching
+      ? TextField(
+          controller: _searchCtrl,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          onChanged: (v) => setState(() => _search = v),
+          decoration: InputDecoration(
+            hintText: 'Search products...',
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
+            border: InputBorder.none,
+          ),
+        )
+      : ShaderMask(
+          shaderCallback: (b) => _goldGrad.createShader(b),
+          child: const Text('My Products',
+            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+        ),
     actions: [
       IconButton(
-        icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
-        onPressed: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => SellerNotificationsPage(sellerEmail: widget.sellerEmail))),
-      ),
-      IconButton(
-        icon: const Icon(Icons.person_outline, color: Colors.white, size: 22),
-        onPressed: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => ProfilePage(userEmail: widget.sellerEmail))),
+        icon: Icon(_isSearching ? Icons.close : Icons.search, color: Colors.white, size: 22),
+        onPressed: () {
+          setState(() {
+            if (_isSearching) { _search = ''; _searchCtrl.clear(); }
+            _isSearching = !_isSearching;
+          });
+        },
       ),
     ],
   );
@@ -267,45 +274,8 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
   // ─── Filter Section ───────────────────────────────────────────────────────
   Widget _filterSection() => Container(
     color: Colors.white,
-    padding: const EdgeInsets.all(14),
+    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        const Icon(Icons.tune, color: _gold, size: 16),
-        const SizedBox(width: 6),
-        const Text('Filter & Search', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13)),
-        const Spacer(),
-        if (_filterStatus.isNotEmpty || _filterCategory.isNotEmpty || _search.isNotEmpty)
-          GestureDetector(
-            onTap: () => setState(() { _filterStatus = ''; _filterCategory = ''; _search = ''; _searchCtrl.clear(); }),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.close, size: 12, color: Colors.red.shade400),
-                const SizedBox(width: 4),
-                Text('Clear', style: TextStyle(color: Colors.red.shade400, fontSize: 11, fontWeight: FontWeight.w600)),
-              ]),
-            ),
-          ),
-      ]),
-      const SizedBox(height: 12),
-      // Search
-      TextField(
-        controller: _searchCtrl,
-        style: const TextStyle(color: _accent, fontSize: 13),
-        onChanged: (v) => setState(() => _search = v),
-        decoration: InputDecoration(
-          hintText: 'Search by product name...',
-          hintStyle: const TextStyle(color: _textLight, fontSize: 13),
-          prefixIcon: const Icon(Icons.search, color: _textLight, size: 18),
-          filled: true, fillColor: _bg,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _border)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _gold, width: 2)),
-        ),
-      ),
-      const SizedBox(height: 10),
       Row(children: [
         Expanded(child: _dropdown('Status', _filterStatus, {
           '': 'All Status', 'active': 'Active', 'inactive': 'Inactive',
@@ -332,6 +302,22 @@ class _SellerProductsPageState extends State<SellerProductsPage> {
         const SizedBox(width: 5),
         Text('Showing ${_filtered.length} product${_filtered.length != 1 ? 's' : ''}',
           style: const TextStyle(color: _textLight, fontSize: 12)),
+        if (_filterStatus.isNotEmpty || _filterCategory.isNotEmpty) ...[
+          const Spacer(),
+          GestureDetector(
+            onTap: () => setState(() { _filterStatus = ''; _filterCategory = ''; }),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.close, size: 12, color: Colors.red.shade400),
+                const SizedBox(width: 4),
+                Text('Clear', style: TextStyle(color: Colors.red.shade400, fontSize: 11, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ),
+        ],
       ]),
     ]),
   );

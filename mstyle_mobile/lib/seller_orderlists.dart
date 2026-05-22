@@ -89,6 +89,8 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
   bool _loadingOrders = true;
   final _searchCtrl = TextEditingController();
   StreamSubscription<List<Map<String, dynamic>>>? _ordersSub;
+  Map<String, String> _buyerNames = {};
+  bool _isSearching = false;
 
   @override
   void initState() {
@@ -112,28 +114,27 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
         .stream(primaryKey: ['id'])
         .eq('seller_email', widget.sellerEmail)
         .order('date', ascending: false)
-        .listen((rows) {
+        .listen((rows) async {
           if (!mounted) return;
-          setState(() {
-            _orders = rows.map((o) => SellerOrder(
-              id:            (o['id'] as num).toInt(),
-              customerName:  o['email'] as String? ?? '',
-              customerEmail: o['email'] as String? ?? '',
-              address:       o['address'] as String? ?? '',
-              productName:   o['name'] as String? ?? '',
-              variation:     o['variations'] as String?,
-              size:          o['size'] as String?,
-              quantity:      (o['quantity'] as num?)?.toInt() ?? 1,
-              originalPrice: (o['total_price'] as num?)?.toDouble() ?? 0,
-              totalPrice:    (o['total_price'] as num?)?.toDouble() ?? 0,
-              image:         o['image'] as String?,
-              date:          o['date'] != null
-                  ? DateTime.parse(o['date']).toLocal().toString().split(' ')[0]
-                  : '',
-              status:        o['status'] as String? ?? 'Pending',
-            )).toList();
-            _loadingOrders = false;
-          });
+          final orders = rows.map((o) => SellerOrder(
+            id:            (o['id'] as num).toInt(),
+            customerName:  o['email'] as String? ?? '',
+            customerEmail: o['email'] as String? ?? '',
+            address:       o['address'] as String? ?? '',
+            productName:   o['name'] as String? ?? '',
+            variation:     o['variations'] as String?,
+            size:          o['size'] as String?,
+            quantity:      (o['quantity'] as num?)?.toInt() ?? 1,
+            originalPrice: (o['total_price'] as num?)?.toDouble() ?? 0,
+            totalPrice:    (o['total_price'] as num?)?.toDouble() ?? 0,
+            image:         o['image'] as String?,
+            date:          o['date'] != null
+                ? DateTime.parse(o['date']).toLocal().toString().split(' ')[0]
+                : '',
+            status:        o['status'] as String? ?? 'Pending',
+          )).toList();
+          setState(() { _orders = orders; _loadingOrders = false; });
+          await _fetchBuyerNames(orders);
         }, onError: (e) {
           debugPrint('seller orders stream error: $e');
         });
@@ -160,30 +161,54 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
           .eq('seller_email', widget.sellerEmail)
           .order('date', ascending: false);
       if (mounted) {
-        setState(() {
-          _orders = (data as List).map((o) => SellerOrder(
-            id:            (o['id'] as num).toInt(),
-            customerName:  o['email'] as String? ?? '',
-            customerEmail: o['email'] as String? ?? '',
-            address:       o['address'] as String? ?? '',
-            productName:   o['name'] as String? ?? '',
-            variation:     o['variations'] as String?,
-            size:          o['size'] as String?,
-            quantity:      (o['quantity'] as num?)?.toInt() ?? 1,
-            originalPrice: (o['total_price'] as num?)?.toDouble() ?? 0,
-            totalPrice:    (o['total_price'] as num?)?.toDouble() ?? 0,
-            image:         o['image'] as String?,
-            date:          o['date'] != null
-                ? DateTime.parse(o['date']).toLocal().toString().split(' ')[0]
-                : '',
-            status:        o['status'] as String? ?? 'Pending',
-          )).toList();
-          _loadingOrders = false;
-        });
+        final orders = (data as List).map((o) => SellerOrder(
+          id:            (o['id'] as num).toInt(),
+          customerName:  o['email'] as String? ?? '',
+          customerEmail: o['email'] as String? ?? '',
+          address:       o['address'] as String? ?? '',
+          productName:   o['name'] as String? ?? '',
+          variation:     o['variations'] as String?,
+          size:          o['size'] as String?,
+          quantity:      (o['quantity'] as num?)?.toInt() ?? 1,
+          originalPrice: (o['total_price'] as num?)?.toDouble() ?? 0,
+          totalPrice:    (o['total_price'] as num?)?.toDouble() ?? 0,
+          image:         o['image'] as String?,
+          date:          o['date'] != null
+              ? DateTime.parse(o['date']).toLocal().toString().split(' ')[0]
+              : '',
+          status:        o['status'] as String? ?? 'Pending',
+        )).toList();
+        setState(() { _orders = orders; _loadingOrders = false; });
+        await _fetchBuyerNames(orders);
       }
     } catch (_) {
       if (mounted) setState(() => _loadingOrders = false);
     }
+  }
+
+  /// Fetch buyer full names from users table for all unique buyer emails
+  Future<void> _fetchBuyerNames(List<SellerOrder> orders) async {
+    final emails = orders.map((o) => o.customerEmail).where((e) => e.isNotEmpty).toSet().toList();
+    // Only fetch emails we don't already have
+    final missing = emails.where((e) => !_buyerNames.containsKey(e)).toList();
+    if (missing.isEmpty) return;
+    try {
+      final rows = await supabaseAdminSelectIn(
+        table: 'users',
+        select: 'email,first_name,last_name',
+        column: 'email',
+        values: missing,
+      );
+      final map = <String, String>{};
+      for (final r in rows) {
+        final email = r['email'] as String? ?? '';
+        final first = (r['first_name'] as String? ?? '').trim();
+        final last  = (r['last_name'] as String? ?? '').trim();
+        final name  = '$first $last'.trim();
+        if (email.isNotEmpty) map[email] = name.isNotEmpty ? name : email;
+      }
+      if (mounted) setState(() => _buyerNames.addAll(map));
+    } catch (_) {}
   }
 
   List<SellerOrder> get _filtered {
@@ -217,7 +242,6 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
         : CustomScrollView(
           slivers: [
             _appBar(),
-            SliverToBoxAdapter(child: _filterSection()),
             if (_filtered.isEmpty)
               SliverFillRemaining(child: _emptyState())
             else
@@ -243,19 +267,32 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
       icon: const Icon(Icons.arrow_back, color: Colors.white),
       onPressed: () => Navigator.pop(context),
     ),
-    title: ShaderMask(
-      shaderCallback: (b) => _goldGrad.createShader(b),
-      child: const Text('Order List',
-        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
-    ),
+    title: _isSearching
+      ? TextField(
+          controller: _searchCtrl,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          onChanged: (v) => setState(() => _search = v),
+          decoration: InputDecoration(
+            hintText: 'Search orders...',
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
+            border: InputBorder.none,
+          ),
+        )
+      : ShaderMask(
+          shaderCallback: (b) => _goldGrad.createShader(b),
+          child: const Text('Order List',
+            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+        ),
     actions: [
-      IconButton(icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
-        onPressed: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => SellerNotificationsPage(sellerEmail: widget.sellerEmail)))),
       IconButton(
-        icon: const Icon(Icons.person_outline, color: Colors.white, size: 22),
-        onPressed: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => ProfilePage(userEmail: widget.sellerEmail))),
+        icon: Icon(_isSearching ? Icons.close : Icons.search, color: Colors.white, size: 22),
+        onPressed: () {
+          setState(() {
+            if (_isSearching) { _search = ''; _searchCtrl.clear(); }
+            _isSearching = !_isSearching;
+          });
+        },
       ),
     ],
   );
@@ -283,48 +320,8 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
   // ─── Filter Section ───────────────────────────────────────────────────────
   Widget _filterSection() => Container(
     color: Colors.white,
-    padding: const EdgeInsets.all(14),
+    padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-      Row(children: [
-        const Icon(Icons.tune, color: _gold, size: 16),
-        const SizedBox(width: 6),
-        const Text('Filter & Search Orders', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13)),
-        const Spacer(),
-        if (_filterStatus.isNotEmpty || _search.isNotEmpty)
-          GestureDetector(
-            onTap: () => setState(() { _filterStatus = ''; _search = ''; _searchCtrl.clear(); }),
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.shade200)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                Icon(Icons.close, size: 12, color: Colors.red.shade400),
-                const SizedBox(width: 4),
-                Text('Clear', style: TextStyle(color: Colors.red.shade400, fontSize: 11, fontWeight: FontWeight.w600)),
-              ]),
-            ),
-          ),
-      ]),
-      const SizedBox(height: 12),
-      TextField(
-        controller: _searchCtrl,
-        style: const TextStyle(color: _accent, fontSize: 13),
-        onChanged: (v) => setState(() => _search = v),
-        decoration: InputDecoration(
-          hintText: 'Search by customer or product...',
-          hintStyle: const TextStyle(color: _textLight, fontSize: 13),
-          prefixIcon: const Icon(Icons.search, color: _textLight, size: 18),
-          suffixIcon: _search.isNotEmpty
-            ? IconButton(icon: const Icon(Icons.close, size: 16, color: _textLight),
-                onPressed: () => setState(() { _search = ''; _searchCtrl.clear(); }))
-            : null,
-          filled: true, fillColor: _bg,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _border)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _gold, width: 2)),
-        ),
-      ),
-      const SizedBox(height: 10),
       Row(children: [
         Expanded(child: _dropdown('Status', _filterStatus, {
           '': 'All Status', 'pending': 'Pending', 'confirmed': 'Confirmed',
@@ -339,6 +336,23 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
           'price-desc': 'Price: High to Low', 'price-asc': 'Price: Low to High',
         }, (v) => setState(() => _sortBy = v ?? 'date-desc'))),
       ]),
+      if (_filterStatus.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(top: 8),
+          child: GestureDetector(
+            onTap: () => setState(() => _filterStatus = ''),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(color: Colors.red.shade50, borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.red.shade200)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                Icon(Icons.close, size: 12, color: Colors.red.shade400),
+                const SizedBox(width: 4),
+                Text('Clear Filter', style: TextStyle(color: Colors.red.shade400, fontSize: 11, fontWeight: FontWeight.w600)),
+              ]),
+            ),
+          ),
+        ),
     ]),
   );
 
@@ -383,7 +397,8 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
           ),
           const SizedBox(width: 10),
           Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text(order.customerName, style: const TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13)),
+            Text(_buyerNames[order.customerEmail] ?? order.customerEmail.split('@').first,
+              style: const TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13)),
             Text(order.customerEmail, style: const TextStyle(color: _textLight, fontSize: 11)),
           ])),
           _statusBadge(order.status),
@@ -589,7 +604,7 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
           const SizedBox(width: 8),
           Text('$newStatus Order', style: const TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 16)),
         ]),
-        content: Text('Are you sure you want to $newStatus order #${order.id} for ${order.customerName}?',
+        content: Text('Are you sure you want to $newStatus order #${order.id} for ${_buyerNames[order.customerEmail] ?? order.customerEmail.split('@').first}?',
           style: const TextStyle(color: _textLight, fontSize: 13)),
         actions: [
           TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
@@ -661,7 +676,7 @@ class _SellerOrderListsPageState extends State<SellerOrderListsPage> {
             // Content
             Expanded(child: ListView(controller: ctrl, padding: const EdgeInsets.fromLTRB(20, 0, 20, 20), children: [
               _detailSection('Customer Information', Icons.person_outline, [
-                _detailRow('Name', order.customerName),
+                _detailRow('Name', _buyerNames[order.customerEmail] ?? order.customerEmail.split('@').first),
                 _detailRow('Email', order.customerEmail),
                 _detailRow('Address', order.address),
               ]),

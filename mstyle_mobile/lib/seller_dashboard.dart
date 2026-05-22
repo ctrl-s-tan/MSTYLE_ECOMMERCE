@@ -6,6 +6,7 @@ import 'seller_add_product.dart';
 import 'seller_orderlists.dart';
 import 'seller_analytics.dart';
 import 'seller_notifications.dart';
+import 'seller_messages.dart';
 import 'profile.dart';
 import 'supabase_client.dart';
 
@@ -228,10 +229,6 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
         icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
         onPressed: () => Navigator.push(context,
           MaterialPageRoute(builder: (_) => SellerNotificationsPage(sellerEmail: widget.sellerEmail))),
-      ),
-      IconButton(
-        icon: const Icon(Icons.chat_bubble_outline, color: Colors.white, size: 22),
-        onPressed: _showMessages,
       ),
       IconButton(
         icon: const Icon(Icons.person_outline, color: Colors.white, size: 22),
@@ -458,6 +455,7 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
           _navItem(1, Icons.inventory_2_outlined, Icons.inventory_2, 'Products'),
           _navItem(2, Icons.list_alt_outlined, Icons.list_alt, 'Orders'),
           _navItem(3, Icons.bar_chart_outlined, Icons.bar_chart, 'Analytics'),
+          _navItem(4, Icons.chat_bubble_outline, Icons.chat_bubble, 'Messages'),
         ]),
       ),
     ),
@@ -468,13 +466,19 @@ class _SellerDashboardPageState extends State<SellerDashboardPage> {
     return Expanded(
       child: GestureDetector(
         onTap: () {
+          if (index == 0) {
+            setState(() => _navIndex = 0);
+            return;
+          }
           setState(() => _navIndex = index);
-          if (index == 1) Navigator.push(context,
-            MaterialPageRoute(builder: (_) => SellerProductsPage(sellerEmail: widget.sellerEmail)));
-          if (index == 2) Navigator.push(context,
-            MaterialPageRoute(builder: (_) => SellerOrderListsPage(sellerEmail: widget.sellerEmail)));
-          if (index == 3) Navigator.push(context,
-            MaterialPageRoute(builder: (_) => SellerAnalyticsPage(sellerEmail: widget.sellerEmail)));
+          Widget page;
+          if (index == 1) page = SellerProductsPage(sellerEmail: widget.sellerEmail);
+          else if (index == 2) page = SellerOrderListsPage(sellerEmail: widget.sellerEmail);
+          else if (index == 3) page = SellerAnalyticsPage(sellerEmail: widget.sellerEmail);
+          else page = SellerMessagesPage(sellerEmail: widget.sellerEmail);
+          Navigator.push(context, MaterialPageRoute(builder: (_) => page)).then((_) {
+            if (mounted) setState(() => _navIndex = 0);
+          });
         },
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 6),
