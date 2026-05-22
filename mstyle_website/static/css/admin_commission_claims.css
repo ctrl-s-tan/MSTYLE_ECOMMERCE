@@ -45,16 +45,46 @@
 .stat-value { font-size: 1.6rem; font-weight: 800; color: #2c3e50; line-height: 1; margin-bottom: .3rem; }
 .stat-label { font-size: .75rem; color: #718096; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
 
+/* ── Card headers — match other admin pages ── */
+.card {
+    border: 1px solid rgba(212,175,55,.1);
+    border-radius: 16px;
+    box-shadow: 0 8px 25px rgba(0,0,0,.08);
+    overflow: hidden;
+}
+.card-header {
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    color: #fff;
+    padding: 14px 20px;
+    border-bottom: none;
+    position: relative;
+    overflow: hidden;
+}
+.card-header::after {
+    content: '';
+    position: absolute;
+    bottom: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, #d4af37 0%, #f4d03f 100%);
+}
+.card-header h5 { color: #fff; margin: 0; font-size: .95rem; font-weight: 700; }
+.card-header h5 i { color: #d4af37; margin-right: 8px; }
+.card-header .badge-count {
+    background: rgba(255,255,255,.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.2);
+}
+
 /* ── Calendar ── */
 .calendar-nav { display: flex; align-items: center; gap: .75rem; }
 .btn-cal-nav {
-    background: none; border: 1px solid #dde2ea; border-radius: 8px;
-    width: 32px; height: 32px; cursor: pointer; color: #2c3e50;
+    background: rgba(255,255,255,.15); border: 1px solid rgba(255,255,255,.3);
+    border-radius: 8px; width: 32px; height: 32px; cursor: pointer; color: #fff;
     display: flex; align-items: center; justify-content: center;
-    transition: all .2s;
+    transition: all .2s; font-size: .85rem;
 }
-.btn-cal-nav:hover { background: #2c3e50; color: #fff; border-color: #2c3e50; }
-.cal-month-label { font-size: 1rem; font-weight: 700; color: #2c3e50; min-width: 160px; text-align: center; }
+.btn-cal-nav:hover { background: #d4af37; color: #1a2744; border-color: #d4af37; }
+.cal-month-label { font-size: .95rem; font-weight: 700; color: #fff; min-width: 160px; text-align: center; }
 
 .cal-legend { display: flex; align-items: center; gap: 1.5rem; margin-bottom: 1rem; font-size: .8rem; color: #718096; }
 .cal-dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; }
