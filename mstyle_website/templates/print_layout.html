@@ -1,223 +1,123 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MStyle &mdash; Admin Analytics Report</title>
-    <style>
-    /* ── Reset ── */
-    *, *::before, *::after { margin:0; padding:0; box-sizing:border-box; }
-    body {
-        font-family: 'Segoe UI', Arial, sans-serif;
-        font-size: 9pt;
-        color: #1a2744;
-        background: #fff;
-        -webkit-print-color-adjust: exact;
-        print-color-adjust: exact;
-    }
-
-    /* ── Page wrapper ── */
-    .rp { width: 100%; max-width: 260mm; margin: 0 auto; padding: 0 0 8mm; }
-
-    /* ── Header ── */
-    .rh { width: 100%; border-bottom: 3px solid #1a2744; padding-bottom: 6px; margin-bottom: 10px; }
-    .rh-top { width: 100%; }
-    .rh-logo-cell { vertical-align: bottom; padding-bottom: 2px; }
-    .rh-logo-text { font-size: 22pt; font-weight: 900; color: #1a2744; letter-spacing: 1px; line-height: 1; }
-    .rh-sub { font-size: 8pt; color: #4a5568; margin-top: 1px; }
-    .rh-meta-cell { text-align: right; vertical-align: top; font-size: 7.5pt; color: #1a2744; }
-    .rh-meta-cell b { font-weight: 700; }
-    .rh-report-title { font-size: 11pt; font-weight: 700; color: #1a2744; margin-top: 4px; }
-    .rh-report-type  { font-size: 8pt; color: #4a5568; margin-top: 1px; }
-
-    /* ── KPI Summary Box ── */
-    .kpi-box {
-        width: 100%;
-        border: 1px solid #c8cdd8;
-        border-top: 3px solid #c9a227;
-        margin-bottom: 14px;
-        background: #fff;
-    }
-    .kpi-box-title {
-        font-size: 9pt;
-        font-weight: 700;
-        color: #1a2744;
-        padding: 6px 10px 5px;
-        border-bottom: 1px solid #e2e6ed;
-    }
-    .kpi-row { width: 100%; border-collapse: collapse; }
-    .kpi-cell {
-        padding: 8px 12px;
-        border-right: 1px solid #e2e6ed;
-        vertical-align: top;
-        width: 20%;
-    }
-    .kpi-cell:last-child { border-right: none; }
-    .kpi-cell-label { font-size: 7pt; color: #718096; margin-bottom: 3px; }
-    .kpi-cell-value { font-size: 13pt; font-weight: 800; color: #1a2744; line-height: 1; }
-
-    /* ── Section ── */
-    .sec {
-        width: 100%;
-        border: 1px solid #c8cdd8;
-        border-top: 2.5px solid #1a2744;
-        margin-bottom: 14px;
-        page-break-inside: avoid;
-        break-inside: avoid;
-    }
-    .sec-title {
-        font-size: 8.5pt;
-        font-weight: 700;
-        color: #1a2744;
-        text-transform: uppercase;
-        letter-spacing: .3px;
-        padding: 6px 10px;
-        border-bottom: 1px solid #c8cdd8;
-        background: #f5f7fa;
-    }
-    .sec-count {
-        font-size: 7pt;
-        color: #718096;
-        font-weight: 400;
-        text-transform: none;
-        letter-spacing: 0;
-        margin-left: 6px;
-    }
-
-    /* ── Data Table ── */
-    .dt { width: 100%; border-collapse: collapse; font-size: 7.5pt; }
-    .dt thead tr { background: #f5f7fa; border-bottom: 1.5px solid #1a2744; }
-    .dt thead th {
-        padding: 5px 8px;
-        font-size: 7pt;
-        font-weight: 700;
-        color: #1a2744;
-        text-transform: uppercase;
-        letter-spacing: .4px;
-        text-align: left;
-        border-right: 1px solid #dde2ea;
-        white-space: nowrap;
-    }
-    .dt thead th:last-child { border-right: none; }
-    .dt thead th.r { text-align: right; }
-    .dt thead th.c { text-align: center; }
-    .dt tbody tr { border-bottom: 1px solid #edf0f5; }
-    .dt tbody tr.alt { background: #fafbfd; }
-    .dt tbody td {
-        padding: 4px 8px;
-        color: #1e2533;
-        vertical-align: middle;
-        border-right: 1px solid #edf0f5;
-        line-height: 1.3;
-    }
-    .dt tbody td:last-child { border-right: none; }
-    .dt tbody td.r { text-align: right; font-variant-numeric: tabular-nums; }
-    .dt tbody td.c { text-align: center; }
-    .dt tbody td.n { color: #718096; font-size: 7pt; font-weight: 600; text-align: center; }
-    .dt tbody td b { font-weight: 600; color: #1a2744; }
-
-    /* ── Totals row ── */
-    .tot-row { background: #f0f3f8; border-top: 1.5px solid #1a2744; }
-    .tot-cell {
-        padding: 6px 10px;
-        text-align: center;
-        border-right: 1px solid #c8cdd8;
-        vertical-align: top;
-    }
-    .tot-cell:last-child { border-right: none; }
-    .tot-label { font-size: 6.5pt; color: #718096; text-transform: uppercase; letter-spacing: .4px; margin-bottom: 2px; }
-    .tot-value { font-size: 9.5pt; font-weight: 800; color: #1a2744; line-height: 1; }
-
-    /* ── Pills ── */
-    .p-g { display:inline-block; padding:1px 5px; border-radius:2px; font-size:6.5pt; font-weight:700; background:#e6f4ed; color:#1a7f4b; border:1px solid #b7dfc9; }
-    .p-a { display:inline-block; padding:1px 5px; border-radius:2px; font-size:6.5pt; font-weight:700; background:#fef3dc; color:#92600a; border:1px solid #f5d98a; }
-    .p-r { display:inline-block; padding:1px 5px; border-radius:2px; font-size:6.5pt; font-weight:700; background:#fde8e8; color:#b91c1c; border:1px solid #f5b8b8; }
-    .p-b { display:inline-block; padding:1px 5px; border-radius:2px; font-size:6.5pt; font-weight:700; background:#e8effe; color:#1d4ed8; border:1px solid #b8ccf8; }
-    .p-x { display:inline-block; padding:1px 5px; border-radius:2px; font-size:6.5pt; font-weight:700; background:#f1f3f5; color:#4b5563; border:1px solid #d1d5db; }
-
-    /* ── Footer ── */
-    .doc-footer {
-        width: 100%;
-        border-top: 1.5px solid #c8cdd8;
-        padding-top: 5px;
-        margin-top: 6px;
-        font-size: 7pt;
-        color: #718096;
-    }
-    .doc-footer td:last-child { text-align: right; }
-
-    /* ── Print ── */
-    @media print {
-        @page { size: A4 landscape; margin: 8mm 10mm; }
-        body { background: white !important; }
-        .rp { max-width: 100%; padding: 0; }
-        .sec { page-break-inside: avoid; break-inside: avoid; }
-        * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-    }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MStyle &mdash; Admin Analytics Report</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:9pt;color:#1a2744;background:#e8eaf0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+@media print{
+  @page{size:A4 landscape;margin:8mm 10mm;}
+  body{background:#fff!important;}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  .no-print{display:none!important;}
+}
+@media screen{body{padding:10mm 0 20mm;}}
+</style>
 </head>
 <body>
-<div class="rp">
 
-    <!-- HEADER -->
-    <div class="rh">
-        <table class="rh-top" cellpadding="0" cellspacing="0">
-            <tr>
-                <td class="rh-logo-cell">
-                    <div class="rh-logo-text">M'STYLE</div>
-                    <div class="rh-sub">E-Commerce Platform</div>
-                </td>
-                <td class="rh-meta-cell">
-                    <div><b>Generated:</b> <span id="coverDate">—</span></div>
-                    <div><b>Report Type:</b> <span id="coverReportType">Complete Analytics Report</span></div>
-                </td>
-            </tr>
-        </table>
-        <div class="rh-report-title">Admin Analytics Report</div>
-    </div>
+<table id="reportRoot" cellpadding="0" cellspacing="0" style="width:260mm;margin:0 auto;background:#fff;border:1px solid #c8cdd8;box-shadow:0 4px 24px rgba(0,0,0,.15);">
 
-    <!-- KPI SUMMARY -->
-    <div class="kpi-box">
-        <div class="kpi-box-title">Summary Statistics</div>
-        <table class="kpi-row" cellpadding="0" cellspacing="0">
-            <tr>
-                <td class="kpi-cell">
-                    <div class="kpi-cell-label">Total Orders:</div>
-                    <div class="kpi-cell-value" id="printTotalOrders">0</div>
-                </td>
-                <td class="kpi-cell">
-                    <div class="kpi-cell-label">Platform Commission:</div>
-                    <div class="kpi-cell-value" id="printPlatformCommission">&#8369;0.00</div>
-                </td>
-                <td class="kpi-cell">
-                    <div class="kpi-cell-label">Total Revenue:</div>
-                    <div class="kpi-cell-value" id="printTotalRevenue">&#8369;0.00</div>
-                </td>
-                <td class="kpi-cell">
-                    <div class="kpi-cell-label">Total Users:</div>
-                    <div class="kpi-cell-value" id="printTotalUsers">0</div>
-                </td>
-                <td class="kpi-cell">
-                    <div class="kpi-cell-label">Total Products:</div>
-                    <div class="kpi-cell-value" id="printTotalProducts">0</div>
-                </td>
-            </tr>
-        </table>
-    </div>
-
-    <!-- DATA SECTIONS -->
-    <div id="printContent"></div>
-
-    <!-- FOOTER -->
-    <table class="doc-footer" cellpadding="0" cellspacing="0">
+  <!-- ═══ HEADER ═══ -->
+  <tr>
+    <td style="padding:0;">
+      <!-- Gold top bar -->
+      <div style="height:4px;background:#c9a227;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div>
+      <!-- Navy header body -->
+      <table cellpadding="0" cellspacing="0" style="width:100%;background:#1a2744;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
         <tr>
-            <td>MStyle E-Commerce Platform &mdash; Admin Analytics Report</td>
-            <td style="text-align:center; color:#c9a227; font-weight:700; font-size:6.5pt; letter-spacing:.3px;">CONFIDENTIAL &mdash; INTERNAL USE ONLY</td>
-            <td id="docFooterDate" style="text-align:right;">—</td>
+          <!-- Left: brand + title -->
+          <td style="padding:14px 20px 10px;vertical-align:top;">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="vertical-align:middle;padding-right:10px;">
+                  <div style="width:36px;height:36px;background:#c9a227;border-radius:6px;text-align:center;line-height:36px;font-size:17pt;font-weight:900;color:#1a2744;-webkit-print-color-adjust:exact;print-color-adjust:exact;">M</div>
+                </td>
+                <td style="vertical-align:middle;">
+                  <div style="font-size:15pt;font-weight:900;color:#fff;letter-spacing:2px;text-transform:uppercase;line-height:1;">M'STYLE</div>
+                  <div style="font-size:7pt;color:rgba(255,255,255,.6);letter-spacing:.4px;margin-top:1px;">E-Commerce Platform</div>
+                </td>
+              </tr>
+            </table>
+            <div style="width:36px;height:2px;background:#c9a227;margin:8px 0 6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div>
+            <div style="font-size:11pt;font-weight:700;color:#fff;letter-spacing:.2px;">Admin Analytics Report</div>
+            <div id="coverReportType" style="font-size:8pt;color:#e8c547;margin-top:2px;">Complete Analytics Report</div>
+          </td>
+          <!-- Right: meta -->
+          <td style="padding:14px 20px 10px;vertical-align:top;text-align:right;">
+            <table cellpadding="0" cellspacing="0" style="margin-left:auto;">
+              <tr>
+                <td style="font-size:6.5pt;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding-right:8px;padding-bottom:4px;white-space:nowrap;">Generated</td>
+                <td id="coverDate" style="font-size:8pt;color:#fff;font-weight:500;padding-bottom:4px;">—</td>
+              </tr>
+              <tr>
+                <td style="font-size:6.5pt;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding-right:8px;padding-bottom:4px;white-space:nowrap;">Prepared By</td>
+                <td style="font-size:8pt;color:#fff;font-weight:500;padding-bottom:4px;">Admin</td>
+              </tr>
+              <tr>
+                <td style="font-size:6.5pt;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding-right:8px;">Classification</td>
+                <td style="font-size:8pt;color:#fff;font-weight:500;">
+                  <span style="background:#c9a227;color:#1a2744;font-size:6.5pt;font-weight:800;padding:1px 6px;border-radius:2px;letter-spacing:.5px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">CONFIDENTIAL</span>
+                </td>
+              </tr>
+            </table>
+          </td>
         </tr>
-    </table>
+        <!-- KPI strip -->
+        <tr>
+          <td colspan="2" style="border-top:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.2);-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+            <table cellpadding="0" cellspacing="0" style="width:100%;">
+              <tr>
+                <td style="padding:10px 14px;text-align:center;border-right:1px solid rgba(255,255,255,.1);">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Total Orders</div>
+                  <div id="printTotalOrders" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">0</div>
+                </td>
+                <td style="padding:10px 14px;text-align:center;border-right:1px solid rgba(255,255,255,.1);">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Total Revenue</div>
+                  <div id="printTotalRevenue" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">&#8369;0.00</div>
+                </td>
+                <td style="padding:10px 14px;text-align:center;border-right:1px solid rgba(255,255,255,.1);">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Platform Commission</div>
+                  <div id="printPlatformCommission" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">&#8369;0.00</div>
+                </td>
+                <td style="padding:10px 14px;text-align:center;border-right:1px solid rgba(255,255,255,.1);">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Total Users</div>
+                  <div id="printTotalUsers" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">0</div>
+                </td>
+                <td style="padding:10px 14px;text-align:center;">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Total Products</div>
+                  <div id="printTotalProducts" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">0</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
 
-</div>
+  <!-- ═══ CONTENT ═══ -->
+  <tr>
+    <td id="printContent" style="padding:16px 20px 8px;"></td>
+  </tr>
+
+  <!-- ═══ FOOTER ═══ -->
+  <tr>
+    <td style="border-top:1.5px solid #c8cdd8;background:#f5f7fa;padding:7px 20px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      <table cellpadding="0" cellspacing="0" style="width:100%;">
+        <tr>
+          <td style="font-size:7pt;color:#1a2744;font-weight:600;">MStyle E-Commerce Platform &mdash; Admin Analytics Report</td>
+          <td style="text-align:center;font-size:6.5pt;font-weight:700;color:#92600a;background:#fef3dc;padding:2px 8px;border-radius:3px;border:1px solid #f5d98a;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;">CONFIDENTIAL &mdash; INTERNAL USE ONLY</td>
+          <td id="docFooterDate" style="font-size:7pt;color:#718096;text-align:right;">—</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+</table>
+
 <script src="{{ url_for('static', filename='js/print_layout.js') }}"></script>
 </body>
 </html>
