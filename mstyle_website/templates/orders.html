@@ -94,7 +94,7 @@
                         <i class="bi bi-shop"></i>
                         {{ order.seller_business_name }}
                     </a>
-                    {% elif order.seller_full_name %}
+                    {% elif order.seller_full_name and '@' not in order.seller_full_name %}
                     <a href="{{ url_for('view_shop', seller_email=order.seller_email) }}" class="order-seller-link" onclick="event.stopPropagation();">
                         <i class="bi bi-shop"></i>
                         {{ order.seller_full_name }}
