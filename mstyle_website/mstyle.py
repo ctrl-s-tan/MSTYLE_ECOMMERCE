@@ -1033,26 +1033,34 @@ def send_approval_email(email, first_name):
         return False
 
 def send_rejection_email(email, first_name, rejection_reason):
-    """Send rejection notification email to user"""
+    """Send rejection notification email to user (HTML)"""
     try:
         msg = Message(
-            'Account Registration Rejected - MStyle',
+            'Account Registration Update — MStyle',
             sender=app.config['MAIL_DEFAULT_SENDER'],
             recipients=[email]
         )
-        msg.body = f"""Hello {first_name},
-
-We regret to inform you that your MStyle account registration has been declined.
-
-Reason: {rejection_reason}
-
-If you believe this was an error or would like to reapply, please contact our support team or submit a new registration with the required information.
-
-Thank you for your interest in MStyle
-
-Best regards,
-MStyle Team
-"""
+        msg.html = f"""
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+            <div style="background:linear-gradient(135deg,#1a1a1a,#2c3e50);padding:32px;text-align:center;">
+                <h1 style="color:#d4af37;margin:0;font-size:28px;letter-spacing:2px;">MStyle</h1>
+                <p style="color:rgba(255,255,255,0.7);margin:8px 0 0;font-size:13px;">Premium Men's Fashion</p>
+            </div>
+            <div style="padding:32px;">
+                <h2 style="color:#1a1a1a;margin:0 0 16px;">Registration Update</h2>
+                <p style="color:#555;line-height:1.6;">Hello <strong>{first_name}</strong>,</p>
+                <p style="color:#555;line-height:1.6;">We regret to inform you that your MStyle account registration has been <strong style="color:#dc3545;">declined</strong>.</p>
+                <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:10px;padding:16px 20px;margin:20px 0;">
+                    <p style="color:#b91c1c;margin:0;font-size:14px;"><strong>Reason:</strong> {rejection_reason}</p>
+                </div>
+                <p style="color:#555;line-height:1.6;">If you believe this was an error or would like to reapply, please contact our support team or submit a new registration with the required information.</p>
+                <p style="color:#555;line-height:1.6;">Thank you for your interest in MStyle.</p>
+            </div>
+            <div style="background:#f8f9fa;padding:20px;text-align:center;border-top:1px solid #eee;">
+                <p style="color:#aaa;font-size:12px;margin:0;">© MStyle — Premium Men's Fashion</p>
+            </div>
+        </div>"""
+        msg.body = f"Hello {first_name},\n\nYour MStyle account registration has been declined.\n\nReason: {rejection_reason}\n\nIf you believe this was an error, please contact our support team.\n\nBest regards,\nMStyle Team"
         mail.send(msg)
         print(f"Rejection email sent to {email}")
         return True
@@ -1104,29 +1112,39 @@ def send_seller_approval_email(email, first_name, business_name):
         return False
 
 def send_seller_rejection_email(email, first_name, business_name, rejection_reason):
-    """Send rejection notification email to seller"""
+    """Send rejection notification email to seller (HTML)"""
     try:
         msg = Message(
-            'Seller Application Rejected - MStyle',
+            'Seller Application Update — MStyle',
             sender=app.config['MAIL_DEFAULT_SENDER'],
             recipients=[email]
         )
-        msg.body = f"""Hello {first_name},
-
-We regret to inform you that your seller application for "{business_name}" has been declined.
-
-Reason: {rejection_reason}
-
-We encourage you to:
-- Review the requirements and ensure all documents are clear and valid
-- Reapply with updated information
-- Contact our support team if you have any questions
-
-Thank you for your interest in becoming a MStyle seller. We look forward to reviewing your future applications.
-
-Best regards,
-MStyle Team
-"""
+        msg.html = f"""
+        <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 20px rgba(0,0,0,0.1);">
+            <div style="background:linear-gradient(135deg,#1a1a1a,#2c3e50);padding:32px;text-align:center;">
+                <h1 style="color:#d4af37;margin:0;font-size:28px;letter-spacing:2px;">MStyle</h1>
+                <p style="color:rgba(255,255,255,0.7);margin:8px 0 0;font-size:13px;">Premium Men's Fashion</p>
+            </div>
+            <div style="padding:32px;">
+                <h2 style="color:#1a1a1a;margin:0 0 16px;">Seller Application Update</h2>
+                <p style="color:#555;line-height:1.6;">Hello <strong>{first_name}</strong>,</p>
+                <p style="color:#555;line-height:1.6;">We regret to inform you that your seller application for <strong>"{business_name}"</strong> has been <strong style="color:#dc3545;">declined</strong>.</p>
+                <div style="background:#fff5f5;border:1px solid #fecaca;border-radius:10px;padding:16px 20px;margin:20px 0;">
+                    <p style="color:#b91c1c;margin:0;font-size:14px;"><strong>Reason:</strong> {rejection_reason}</p>
+                </div>
+                <p style="color:#555;line-height:1.6;">We encourage you to:</p>
+                <ul style="color:#555;line-height:2;">
+                    <li>Review the requirements and ensure all documents are clear and valid</li>
+                    <li>Reapply with updated information</li>
+                    <li>Contact our support team if you have any questions</li>
+                </ul>
+                <p style="color:#555;line-height:1.6;">Thank you for your interest in becoming a MStyle seller. We look forward to reviewing your future applications.</p>
+            </div>
+            <div style="background:#f8f9fa;padding:20px;text-align:center;border-top:1px solid #eee;">
+                <p style="color:#aaa;font-size:12px;margin:0;">© MStyle — Premium Men's Fashion</p>
+            </div>
+        </div>"""
+        msg.body = f"Hello {first_name},\n\nYour seller application for \"{business_name}\" has been declined.\n\nReason: {rejection_reason}\n\nPlease contact our support team if you have questions.\n\nBest regards,\nMStyle Team"
         mail.send(msg)
         print(f"Seller rejection email sent to {email}")
         return True
@@ -7780,8 +7798,12 @@ def approve_user(user_id):
                 if not unban_ok:
                     print(f"approve_user: WARNING — could not unban uid={uid} after 3 attempts")
             sb_admin.table('pending_users').delete().eq('id', supabase_record_id).execute()
-            try: send_approval_email(u['email'], u.get('first_name',''))
-            except Exception: pass
+            import threading
+            threading.Thread(
+                target=send_approval_email,
+                args=(u['email'], u.get('first_name','')),
+                daemon=True
+            ).start()
             msg = f"{u.get('first_name','')} {u.get('last_name','')} approved successfully"
             return jsonify({'success': True, 'message': msg, 'unban_ok': unban_ok}) if is_ajax else (flash(msg,'success'), redirect(url_for('pending_users')))[1]
         except Exception as e:
@@ -7851,6 +7873,49 @@ def pending_sellers_dashboard():
     return render_template('pending_sellers.html', sellers=sellers)
 
 
+@app.route('/reject_user/<string:user_id>', methods=['POST'])
+def reject_user(user_id):
+    """Reject a pending user registration and notify them via email."""
+    if 'user_id' not in session or session.get('user_type') != 'Admin':
+        return jsonify({'success': False, 'error': 'Access denied'}), 403
+    try:
+        data = request.get_json() or {}
+        rejection_reason = (data.get('rejection_reason') or 'Application rejected by admin').strip()
+        record_id = user_id[3:] if str(user_id).startswith('sb_') else user_id
+
+        res = sb_admin.table('pending_users') \
+            .select('email, first_name, last_name, supabase_uid') \
+            .eq('id', str(record_id)).limit(1).execute()
+        if not res.data:
+            return jsonify({'success': False, 'error': 'User not found'})
+
+        user = res.data[0]
+        uid  = user.get('supabase_uid')
+
+        # Mark as rejected in pending_users
+        sb_admin.table('pending_users').update({'status': 'rejected'}).eq('id', str(record_id)).execute()
+
+        # Keep auth account banned so they cannot log in
+        if uid:
+            try:
+                sb_admin.auth.admin.update_user_by_id(uid, {'ban_duration': '876600h'})
+            except Exception as be:
+                print(f"[reject_user] ban warning: {be}")
+
+        # Send rejection email in background thread
+        import threading
+        threading.Thread(
+            target=send_rejection_email,
+            args=(user['email'], user.get('first_name', ''), rejection_reason),
+            daemon=True
+        ).start()
+
+        return jsonify({'success': True, 'message': f"{user.get('first_name','')} {user.get('last_name','')} rejected"})
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @app.route('/reject_seller/<string:seller_id>', methods=['POST'])
 def reject_seller(seller_id):
     if 'user_id' not in session or session.get('user_type') != 'Admin':
@@ -7864,8 +7929,12 @@ def reject_seller(seller_id):
             return jsonify({'success': False, 'error': 'Seller not found'})
         seller = res.data[0]
         sb_admin.table('pending_sellers').update({'status': 'rejected'}).eq('id', str(record_id)).execute()
-        try: send_seller_rejection_email(seller['email'], seller.get('first_name',''), seller.get('business_name',''), rejection_reason)
-        except Exception: pass
+        import threading
+        threading.Thread(
+            target=send_seller_rejection_email,
+            args=(seller['email'], seller.get('first_name',''), seller.get('business_name',''), rejection_reason),
+            daemon=True
+        ).start()
         return jsonify({'success': True, 'message': f"{seller.get('first_name','')} rejected"})
     except Exception as e:
         return jsonify({'success': False, 'error': str(e)})
