@@ -9923,7 +9923,9 @@ def orders():
             # Seller info
             seller = seller_map.get(o.get('seller_email', ''), {})
             o['seller_business_name']  = seller.get('business_name') or ''
-            o['seller_full_name']      = f"{seller.get('first_name','') or ''} {seller.get('last_name','') or ''}".strip()
+            _sfn = f"{seller.get('first_name','') or ''} {seller.get('last_name','') or ''}".strip()
+            # Don't use email-like strings as display name
+            o['seller_full_name'] = '' if '@' in _sfn else _sfn
             o['seller_profile_picture'] = seller.get('profile_picture') or ''
 
             # Rider id (use rider_email as identifier for chat)
