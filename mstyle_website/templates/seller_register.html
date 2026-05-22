@@ -314,6 +314,7 @@
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
                 Go to Login
             </a>
+            <p id="redirect-countdown" style="color:rgba(255,255,255,0.35);font-size:0.8rem;margin-top:16px;">Redirecting in <span id="countdown-num">4</span>s...</p>
         </div>
     </div>
 
@@ -591,6 +592,14 @@
                     screen.style.justifyContent = 'center';
                     screen.style.flexDirection = 'column';
                     document.body.style.overflow = 'hidden';
+                    // Countdown + auto-redirect to login after 4 seconds
+                    let secs = 4;
+                    const numEl = document.getElementById('countdown-num');
+                    const timer = setInterval(() => {
+                        secs--;
+                        if (numEl) numEl.textContent = secs;
+                        if (secs <= 0) { clearInterval(timer); window.location.href = '/login'; }
+                    }, 1000);
                 } else {
                     showError('form-error', data.error || 'Submission failed. Please try again.');
                     submitBtn.querySelector('.btn-text').style.display    = '';

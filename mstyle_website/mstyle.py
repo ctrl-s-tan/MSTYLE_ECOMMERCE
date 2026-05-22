@@ -2329,6 +2329,10 @@ def seller_register():
                 except Exception as be:
                     print(f"[seller_register] ban warning: {be}")
 
+            # -- Guard: uid must exist to insert into pending_sellers ------
+            if not uid:
+                return _err('Session expired. Please restart the registration process.')
+
             # -- Insert into pending_sellers --------------------------------
             sb_admin.table('pending_sellers').upsert({
                 'supabase_uid':         uid,
@@ -2349,7 +2353,7 @@ def seller_register():
                 'bir_path':             bir_path,
                 'business_permit_path': business_permit_path,
                 'status':               'pending',
-            }).execute()
+            }, on_conflict='supabase_uid').execute()
             print(f"[seller_register] pending_sellers upserted for {email}")
 
             # -- Clean up OTP storage --------------------------------------
