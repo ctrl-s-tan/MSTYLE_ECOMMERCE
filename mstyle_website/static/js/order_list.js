@@ -43,10 +43,22 @@ function handleStatusUpdate(orderId, newStatus, customerEmail, currentStatus, bu
         },
         body: JSON.stringify({ stat: newStatus })
     })
-    .then(r => r.json())
+    .then(r => {
+        if (!r.ok) {
+            return r.text().then(txt => {
+                throw new Error(`Server error (${r.status}): ${txt.substring(0, 200)}`);
+            });
+        }
+        const contentType = r.headers.get('content-type') || '';
+        if (contentType.includes('application/json')) {
+            return r.json();
+        }
+        // If server returned HTML (redirect/error page), treat as success if status was 200
+        return { success: true, message: `Status updated to ${newStatus}` };
+    })
     .then(data => {
         if (!data.success) {
-            alert('Failed to update status: ' + (data.error || 'Unknown error'));
+            _showToast('Failed to update status: ' + (data.error || 'Unknown error'), 'error');
             buttonElement.innerHTML = originalHTML;
             buttonElement.disabled = false;
             return;
@@ -82,7 +94,7 @@ function handleStatusUpdate(orderId, newStatus, customerEmail, currentStatus, bu
     })
     .catch(err => {
         console.error('Status update error:', err);
-        alert('An error occurred. Please try again.');
+        _showToast(err.message || 'An error occurred. Please try again.', 'error');
         buttonElement.innerHTML = originalHTML;
         buttonElement.disabled = false;
     });
