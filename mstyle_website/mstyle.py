@@ -2221,6 +2221,8 @@ def privacy_policy():
 @app.route('/seller_register', methods=['GET', 'POST'])
 def seller_register():
     if request.method == 'POST':
+        # Support both JSON (AJAX) and multipart/form-data
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         try:
             # -- Collect form data -----------------------------------------
             first_name      = (request.form.get('first_name') or '').strip()
@@ -2235,112 +2237,134 @@ def seller_register():
             zip_code        = (request.form.get('zip_code') or '').strip()
             business_type   = (request.form.get('business_type') or '').strip()
             email           = (request.form.get('email') or '').strip()
-            otp             = request.form.get('otp')
             password        = request.form.get('password', '')
             confirm_password = request.form.get('confirm_password', '')
+
+            def _err(msg):
+                if is_ajax:
+                    return jsonify({'success': False, 'error': msg}), 400
+                return render_template('seller_register.html', error=msg)
 
             # -- Validate OTP was verified ---------------------------------
             stored = otp_storage.get(email)
             if not stored or not stored.get('verified'):
-                flash('Email verification required or session expired.', 'error')
-                return render_template('seller_register.html', error='Email verification required.')
+                return _err('Email verification required or session expired.')
 
             # -- Validate passwords ----------------------------------------
             if not password or not confirm_password:
-                return render_template('seller_register.html', error='Password and confirm password are required.')
+                return _err('Password and confirm password are required.')
             if password != confirm_password:
-                return render_template('seller_register.html', error='Passwords do not match.')
-            if len(password) < 6 or len(password) > 8:
-                return render_template('seller_register.html', error='Password must be between 6-8 characters.')
+                return _err('Passwords do not match.')
+            if len(password) < 6:
+                return _err('Password must be at least 6 characters.')
 
-            address = f"{house_no_street}, {barangay}, {municipality}, {province}, {region} {zip_code}"
+            # -- Upload documents to Supabase Storage ----------------------
+            BUCKET = 'user-documents'
 
-            # -- File uploads (local storage) ------------------------------
-            def save_uploaded_file(file, folder):
-                if file and file.filename:
-                    ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
-                    filename = f"{ts}_{secure_filename(file.filename)}"
-                    dest     = os.path.join(app.config['UPLOAD_FOLDER'], folder)
+            def upload_to_supabase(file_obj, field_name):
+                """Upload a file to Supabase Storage and return the storage path."""
+                if not file_obj or not file_obj.filename:
+                    return None
+                ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename = f"seller_docs/{ts}_{secure_filename(file_obj.filename)}"
+                content  = file_obj.read()
+                mime     = file_obj.content_type or 'application/octet-stream'
+                try:
+                    sb_admin.storage.from_(BUCKET).upload(
+                        filename, content,
+                        file_options={'content-type': mime, 'upsert': 'true'}
+                    )
+                    # Return the full public URL
+                    url = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{filename}"
+                    print(f"[seller_register] uploaded {field_name} → {url}")
+                    return url
+                except Exception as up_err:
+                    print(f"[seller_register] upload failed for {field_name}: {up_err}")
+                    # Fallback: save locally
+                    dest = os.path.join(app.config['UPLOAD_FOLDER'], 'seller_docs')
                     os.makedirs(dest, exist_ok=True)
-                    path = os.path.join(dest, filename)
-                    file.save(path)
-                    return path
-                return None
+                    local_path = os.path.join(dest, os.path.basename(filename))
+                    file_obj.stream.seek(0)
+                    file_obj.save(local_path)
+                    return local_path
 
             valid_id_path = dti_path = bir_path = business_permit_path = None
 
             if business_type == 'individual':
                 f = request.files.get('valid_id')
                 if not f or not f.filename:
-                    return render_template('seller_register.html', error='Valid ID is required for individual sellers.')
-                valid_id_path = save_uploaded_file(f, 'seller_docs')
+                    return _err('Valid Government ID is required for individual sellers.')
+                valid_id_path = upload_to_supabase(f, 'valid_id')
             elif business_type == 'business':
-                for field, key in [('valid_id_business', 'valid_id'), ('dti', 'dti'), ('bir', 'bir'), ('business_permit', 'business_permit')]:
+                required = [
+                    ('valid_id_business', 'Valid Government ID'),
+                    ('dti',              'DTI Certificate'),
+                    ('bir',              'BIR Certificate'),
+                    ('business_permit',  'Business Permit'),
+                ]
+                for field, label in required:
                     f = request.files.get(field)
                     if not f or not f.filename:
-                        return render_template('seller_register.html', error=f'{field.replace("_", " ").title()} is required.')
-                valid_id_path        = save_uploaded_file(request.files.get('valid_id_business'), 'seller_docs')
-                dti_path             = save_uploaded_file(request.files.get('dti'), 'seller_docs')
-                bir_path             = save_uploaded_file(request.files.get('bir'), 'seller_docs')
-                business_permit_path = save_uploaded_file(request.files.get('business_permit'), 'seller_docs')
+                        return _err(f'{label} is required.')
+                valid_id_path        = upload_to_supabase(request.files.get('valid_id_business'), 'valid_id')
+                dti_path             = upload_to_supabase(request.files.get('dti'),              'dti')
+                bir_path             = upload_to_supabase(request.files.get('bir'),              'bir')
+                business_permit_path = upload_to_supabase(request.files.get('business_permit'), 'business_permit')
+            else:
+                return _err('Please select a business type.')
 
-            # -- Update Supabase auth password -----------------------------
+            # -- Set Supabase auth password --------------------------------
             uid = stored.get('uid')
             if uid:
                 try:
-                    sb.auth.admin.update_user_by_id(uid, {'password': password})
-                    print(f"Supabase password set for seller {email}")
+                    sb_admin.auth.admin.update_user_by_id(uid, {'password': password})
+                    print(f"[seller_register] password set for {email}")
                 except Exception as pe:
-                    print(f"Warning: could not set Supabase password for seller: {pe}")
+                    print(f"[seller_register] password set warning: {pe}")
 
-            # -- Ban the auth account until admin approves -----------------
+            # -- Ban account until admin approves --------------------------
             if uid:
                 try:
                     sb_admin.auth.admin.update_user_by_id(uid, {'ban_duration': '876600h'})
-                    print(f"Supabase auth account banned (pending approval) for seller {email}")
                 except Exception as be:
-                    print(f"Warning: could not ban seller auth account: {be}")
+                    print(f"[seller_register] ban warning: {be}")
 
-            # -- Do NOT insert into Supabase users table yet ---------------
-            # Profile will be inserted into Supabase users table only when admin approves.
+            # -- Insert into pending_sellers --------------------------------
+            sb_admin.table('pending_sellers').upsert({
+                'supabase_uid':         uid,
+                'email':                email,
+                'first_name':           first_name,
+                'last_name':            last_name,
+                'business_name':        business_name,
+                'business_type':        business_type,
+                'phone':                phone_number,
+                'house_street':         house_no_street,
+                'region':               region,
+                'province':             province,
+                'city':                 municipality,
+                'barangay':             barangay,
+                'zip_code':             zip_code,
+                'valid_id_path':        valid_id_path,
+                'dti_path':             dti_path,
+                'bir_path':             bir_path,
+                'business_permit_path': business_permit_path,
+                'status':               'pending',
+            }).execute()
+            print(f"[seller_register] pending_sellers upserted for {email}")
 
-            # -- Insert into Supabase pending_sellers (primary � works without MySQL) --
-            try:
-                sb_admin.table('pending_sellers').upsert({
-                    'supabase_uid':        uid,
-                    'email':               email,
-                    'first_name':          first_name,
-                    'last_name':           last_name,
-                    'business_name':       business_name,
-                    'business_type':       business_type,
-                    'phone':               phone_number,
-                    'house_street':        house_no_street,
-                    'region':              region,
-                    'province':            province,
-                    'city':                municipality,
-                    'barangay':            barangay,
-                    'zip_code':            zip_code,
-                    'valid_id_path':       valid_id_path,
-                    'dti_path':            dti_path,
-                    'bir_path':            bir_path,
-                    'business_permit_path': business_permit_path,
-                    'status':              'pending',
-                }).execute()
-                print(f"Inserted into Supabase pending_sellers for {email}")
-            except Exception as sb_err:
-                print(f"Warning: Supabase pending_sellers insert failed: {sb_err}")
-
-            # MySQL mirror removed
-
-            # Clean up OTP storage
+            # -- Clean up OTP storage --------------------------------------
             otp_storage.pop(email, None)
+
+            if is_ajax:
+                return jsonify({'success': True, 'message': 'Application submitted successfully!'})
 
             flash('Your seller application has been submitted! We will review it within 2-3 business days.', 'success')
             return redirect(url_for('login'))
 
         except Exception as e:
             import traceback; traceback.print_exc()
-            flash(f'An error occurred: {e}', 'error')
+            if is_ajax:
+                return jsonify({'success': False, 'error': f'An error occurred: {e}'}), 500
             return render_template('seller_register.html', error=f'An error occurred: {e}')
 
     # GET

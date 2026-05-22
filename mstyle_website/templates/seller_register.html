@@ -292,7 +292,7 @@
                         </div>
                     </div>
 
-                    <button type="submit" class="auth-button" onclick="return validateForm(event)">
+                    <button type="button" class="auth-button" onclick="submitApplication(event)">
                         <span class="btn-text">SUBMIT APPLICATION</span>
                         <span class="btn-spinner" style="display:none"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" class="spin"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg></span>
                     </button>
@@ -300,6 +300,22 @@
             </div><!-- /form-card -->
         </div><!-- /seller-content -->
     </div><!-- /seller-page -->
+
+    <!-- ── Success Screen (hidden until submission) ── -->
+    <div id="success-screen" style="display:none; position:fixed; inset:0; background:linear-gradient(135deg,#1a1a1a,#2c3e50); z-index:9999; align-items:center; justify-content:center; text-align:center; padding:40px;">
+        <div style="background:rgba(255,255,255,0.05); border:1px solid rgba(212,175,55,0.3); border-radius:24px; padding:48px 40px; max-width:480px; width:100%;">
+            <div style="width:80px;height:80px;background:linear-gradient(135deg,#d4af37,#f4d03f);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 24px;">
+                <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="#1a1a1a" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+            </div>
+            <h2 style="color:#d4af37;font-size:1.6rem;font-weight:800;margin:0 0 12px;">Application Submitted!</h2>
+            <p style="color:rgba(255,255,255,0.8);font-size:1rem;line-height:1.6;margin:0 0 8px;">Your seller application has been received.</p>
+            <p style="color:rgba(255,255,255,0.55);font-size:0.9rem;line-height:1.6;margin:0 0 32px;">We will review your documents and notify you within <strong style="color:#d4af37;">2–3 business days</strong>.</p>
+            <a href="/login" style="display:inline-flex;align-items:center;gap:8px;background:linear-gradient(135deg,#d4af37,#f4d03f);color:#1a1a1a;padding:14px 32px;border-radius:30px;font-weight:700;font-size:0.95rem;text-decoration:none;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+                Go to Login
+            </a>
+        </div>
+    </div>
 
     <script>
         let userEmail = '';
@@ -543,6 +559,50 @@
                 }
             }
             return true;
+        }
+
+        // ── AJAX form submission ──────────────────────────────────────────
+        async function submitApplication(event) {
+            if (!validateForm(event)) return;
+
+            const form    = document.getElementById('step3');
+            const formData = new FormData(form);
+            const submitBtn = form.querySelector('.auth-button');
+
+            // Show spinner
+            submitBtn.querySelector('.btn-text').style.display    = 'none';
+            submitBtn.querySelector('.btn-spinner').style.display = 'flex';
+            submitBtn.disabled = true;
+            hideError('form-error');
+
+            try {
+                const res  = await fetch('/seller_register', {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: formData
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    // Show full-screen success overlay
+                    const screen = document.getElementById('success-screen');
+                    screen.style.display = 'flex';
+                    screen.style.alignItems = 'center';
+                    screen.style.justifyContent = 'center';
+                    screen.style.flexDirection = 'column';
+                    document.body.style.overflow = 'hidden';
+                } else {
+                    showError('form-error', data.error || 'Submission failed. Please try again.');
+                    submitBtn.querySelector('.btn-text').style.display    = '';
+                    submitBtn.querySelector('.btn-spinner').style.display = 'none';
+                    submitBtn.disabled = false;
+                }
+            } catch (err) {
+                showError('form-error', 'A network error occurred. Please try again.');
+                submitBtn.querySelector('.btn-text').style.display    = '';
+                submitBtn.querySelector('.btn-spinner').style.display = 'none';
+                submitBtn.disabled = false;
+            }
         }
     </script>
 </body>
