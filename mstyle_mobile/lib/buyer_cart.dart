@@ -58,7 +58,8 @@ class BuyerCartPage extends StatefulWidget {
   State<BuyerCartPage> createState() => _BuyerCartPageState();
 }
 
-class _BuyerCartPageState extends State<BuyerCartPage> {
+class _BuyerCartPageState extends State<BuyerCartPage>
+    with WidgetsBindingObserver {
   bool _loading = true;
   List<Map<String, dynamic>> _items = [];
 
@@ -90,11 +91,25 @@ class _BuyerCartPageState extends State<BuyerCartPage> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadCart();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Auto-refresh when app resumes (e.g. user added item from website)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _loadCart();
+  }
+
   Future<void> _loadCart() async {
-    setState(() => _loading = true);
+    // Full-screen spinner only on first load; silent refresh otherwise
+    if (_items.isEmpty) setState(() => _loading = true);
     try {
       final data = await BuyerService.getCartItems(widget.userEmail);
       // Add local selection flag
@@ -277,26 +292,30 @@ class _BuyerCartPageState extends State<BuyerCartPage> {
         ? const Center(child: CircularProgressIndicator(color: _gold))
         : Stack(
             children: [
-              CustomScrollView(
-                slivers: [
-                  _appBar(),
-                  if (_items.isEmpty)
-                    SliverFillRemaining(child: _emptyCart())
-                  else ...[
-                    SliverToBoxAdapter(child: _controls()),
-                    SliverList(
-                      delegate: SliverChildBuilderDelegate(
-                        (_, i) => _cartItemTile(_items[i]),
-                        childCount: _items.length,
+              RefreshIndicator(
+                color: _gold,
+                onRefresh: _loadCart,
+                child: CustomScrollView(
+                  slivers: [
+                    _appBar(),
+                    if (_items.isEmpty)
+                      SliverFillRemaining(child: _emptyCart())
+                    else ...[
+                      SliverToBoxAdapter(child: _controls()),
+                      SliverList(
+                        delegate: SliverChildBuilderDelegate(
+                          (_, i) => _cartItemTile(_items[i]),
+                          childCount: _items.length,
+                        ),
                       ),
-                    ),
-                    const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                      const SliverToBoxAdapter(child: SizedBox(height: 16)),
+                    ],
+                    SliverToBoxAdapter(child: _orderSummary()),
+                    // padding so content isn't hidden behind the pinned button
+                    const SliverToBoxAdapter(child: SizedBox(height: 88)),
                   ],
-                  SliverToBoxAdapter(child: _orderSummary()),
-                  // padding so content isn't hidden behind the pinned button
-                  const SliverToBoxAdapter(child: SizedBox(height: 88)),
-                ],
-              ),
+                ), // CustomScrollView
+              ), // RefreshIndicator
               Positioned(
                 left: 0, right: 0, bottom: 0,
                 child: _checkoutButton(),

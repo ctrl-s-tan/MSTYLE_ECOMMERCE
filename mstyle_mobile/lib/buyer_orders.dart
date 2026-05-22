@@ -66,25 +66,33 @@ class BuyerOrdersPage extends StatefulWidget {
   State<BuyerOrdersPage> createState() => _BuyerOrdersPageState();
 }
 
-class _BuyerOrdersPageState extends State<BuyerOrdersPage> {
+class _BuyerOrdersPageState extends State<BuyerOrdersPage>
+    with WidgetsBindingObserver {
   OrderStatus _filter = OrderStatus.all;
   bool _loading = true;
   List<Map<String, dynamic>> _orders = [];
   StreamSubscription<List<Map<String, dynamic>>>? _ordersSub;
-  // Tracks which order IDs already have a review submitted
   final Set<dynamic> _reviewedOrderIds = {};
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadOrders();
     _subscribeToOrders();
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _ordersSub?.cancel();
     super.dispose();
+  }
+
+  /// Auto-refresh when app resumes (catches new orders placed from the website)
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _loadOrders();
   }
 
   // ── Supabase Realtime subscription ────────────────────────────────────────
