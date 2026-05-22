@@ -165,6 +165,29 @@ class _ReviewBottomSheetState extends State<_ReviewBottomSheet> {
     setState(() => _submitting = true);
 
     try {
+      // Check if review already exists for this order (prevent duplicates)
+      final existing = await supabase
+          .from('reviews')
+          .select('id')
+          .eq('order_id', _orderId)
+          .eq('customer_email', widget.userEmail)
+          .limit(1)
+          .maybeSingle();
+      if (existing != null) {
+        if (mounted) {
+          Navigator.pop(context);
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('You have already reviewed this order.'),
+              backgroundColor: Colors.orange.shade700,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            ),
+          );
+        }
+        return;
+      }
+
       final imageUrls = await _uploadImages();
 
       // Warn if some images failed to upload but don't block submission
