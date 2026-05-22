@@ -42,6 +42,11 @@ class BuyerViewOrderDetails extends StatelessWidget {
     final imageRaw   = order['image'] as String?;
     final imageUrl   = buildImageUrl(imageRaw?.split(',').first.trim());
     final statusColor = _statusColor(status);
+    final riderEmail  = order['rider_email'] as String? ?? '';
+    final riderName   = order['rider_name'] as String? ?? '';
+    final deliveredAt = order['delivered_at'] as String? ?? order['received_at'] as String? ?? '';
+    final statusLower = status.toLowerCase();
+    final isDeliveredOrCompleted = statusLower == 'delivered' || statusLower == 'completed';
 
     return Scaffold(
       backgroundColor: _bg,
@@ -129,6 +134,29 @@ class BuyerViewOrderDetails extends StatelessWidget {
                   const Divider(height: 16),
                   _priceRow('Total', '₱${totalPrice.toStringAsFixed(2)}',
                     highlight: true),
+                ]),
+
+                const SizedBox(height: 14),
+
+                // ── Order Information ────────────────────────────────────
+                _sectionTitle('Order Information'),
+                _card(children: [
+                  _row(Icons.tag, 'Order ID', '#$orderId'),
+                  const SizedBox(height: 10),
+                  _row(Icons.calendar_today_outlined, 'Order Date', date.length > 10 ? date.substring(0, 10) : date),
+                  const SizedBox(height: 10),
+                  _row(Icons.payment_outlined, 'Payment Method', payment),
+                  if (isDeliveredOrCompleted && deliveredAt.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _row(Icons.event_available_outlined, 'Delivery Date', deliveredAt.length > 10 ? deliveredAt.substring(0, 10) : deliveredAt),
+                  ],
+                  if (isDeliveredOrCompleted && riderName.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _row(Icons.directions_bike_outlined, 'Rider', riderName),
+                  ] else if (isDeliveredOrCompleted && riderEmail.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    _row(Icons.directions_bike_outlined, 'Rider', riderEmail.split('@').first),
+                  ],
                 ]),
 
                 const SizedBox(height: 14),

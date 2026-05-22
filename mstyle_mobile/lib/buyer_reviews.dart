@@ -56,6 +56,7 @@ class _ReviewBottomSheetState extends State<_ReviewBottomSheet> {
   // Each entry holds the XFile and its pre-loaded bytes (works on web + mobile)
   final List<({XFile xfile, Uint8List bytes})> _images = [];
   bool _submitting = false;
+  bool _isAnonymous = false;
 
   static const int _maxImages = 5;
 
@@ -179,6 +180,7 @@ class _ReviewBottomSheetState extends State<_ReviewBottomSheet> {
         rating:        _rating,
         reviewText:    _reviewCtrl.text.trim(),
         reviewImages:  imageUrls,
+        isAnonymous:   _isAnonymous,
       );
 
       if (mounted) {
@@ -378,6 +380,45 @@ class _ReviewBottomSheetState extends State<_ReviewBottomSheet> {
             ),
 
             const SizedBox(height: 24),
+
+            // ── Post Anonymously Toggle ──────────────────────────────────
+            GestureDetector(
+              onTap: () => setState(() => _isAnonymous = !_isAnonymous),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                decoration: BoxDecoration(
+                  color: _isAnonymous ? _primary.withOpacity(0.05) : _bg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: _isAnonymous ? _primary.withOpacity(0.3) : _border),
+                ),
+                child: Row(children: [
+                  Icon(
+                    _isAnonymous ? Icons.visibility_off : Icons.visibility_off_outlined,
+                    size: 18,
+                    color: _isAnonymous ? _primary : _textLight,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Text('Post Anonymously',
+                        style: TextStyle(
+                          color: _isAnonymous ? _primary : _accent,
+                          fontWeight: FontWeight.w600, fontSize: 13)),
+                      const Text('Your name will be hidden from other buyers',
+                        style: TextStyle(color: _textLight, fontSize: 11)),
+                    ]),
+                  ),
+                  Switch(
+                    value: _isAnonymous,
+                    onChanged: (v) => setState(() => _isAnonymous = v),
+                    activeColor: _primary,
+                    activeTrackColor: _gold.withOpacity(0.4),
+                  ),
+                ]),
+              ),
+            ),
+
+            const SizedBox(height: 20),
 
             // ── Submit Button ────────────────────────────────────────────
             SizedBox(
