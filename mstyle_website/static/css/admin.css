@@ -1477,6 +1477,7 @@ body:not(.loaded)::after {
 .stats-grid {
     display: flex;
     flex-wrap: nowrap;
+    justify-content: center;
     gap: 1rem;
     margin-bottom: 2rem;
     padding: 0 2rem;
@@ -1484,8 +1485,8 @@ body:not(.loaded)::after {
 }
 
 .stat-card {
-    flex: 1;
-    min-width: 0;
+    flex: 0 1 180px;
+    min-width: 130px;
     background: rgba(255, 255, 255, 0.95);
     border: 1px solid rgba(212, 175, 55, 0.1);
     border-radius: 16px;

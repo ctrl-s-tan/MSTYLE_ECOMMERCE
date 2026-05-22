@@ -2,9 +2,11 @@
 .stats-summary {
     display: flex;
     flex-wrap: nowrap;
+    justify-content: center;
     gap: 1rem;
     margin-bottom: 2rem;
     overflow-x: auto;
+    padding: 0 2rem;
 }
     gap: 2rem;
     margin-bottom: 2.5rem;
