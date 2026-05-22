@@ -1,4 +1,4 @@
-* {
+﻿* {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
@@ -266,7 +266,7 @@ td {
 }
 
 th {
-    background: linear-gradient(135deg, var(--primary-color), #34495e);
+    background: #2c3e50;
     color: white;
     font-weight: 600;
     white-space: nowrap;
@@ -2189,7 +2189,7 @@ riginal Price and Promotion Columns Styles */
     color: var(--primary-color);
 }
 
-/* ── Pricing modal — promotion-aware styles ─────────────────────────── */
+/* â”€â”€ Pricing modal â€” promotion-aware styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */
 
 /* Sale price (red, shown when percentage/fixed promo) */
 .modal-sale-price-val {
@@ -2198,7 +2198,7 @@ riginal Price and Promotion Columns Styles */
     font-size: 1.05rem;
 }
 
-/* Discount applied row — green */
+/* Discount applied row â€” green */
 #modal-discount {
     color: #27ae60;
     font-weight: 600;
@@ -2786,4 +2786,33 @@ textarea.form-control {
         width: 100%;
         justify-content: center;
     }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   UNIVERSAL TABLE HEADER — matches seller products table design
+═══════════════════════════════════════════════════════════════════ */
+table thead,
+table thead tr {
+    background: #2c3e50 !important;
+    color: white !important;
+}
+
+table thead th,
+table th {
+    background: #2c3e50 !important;
+    color: white !important;
+    padding: 1rem !important;
+    text-align: left !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0.3px !important;
+    border-bottom: 2px solid #d4af37 !important;
+    white-space: nowrap !important;
+}
+
+table thead th i,
+table th i {
+    color: #d4af37 !important;
+    margin-right: 0.4rem !important;
 }

@@ -1,4 +1,4 @@
-/* =========== VARIABLES =========== */
+﻿/* =========== VARIABLES =========== */
 :root {
   /* Primary Colors - Updated to match profile theme */
   --primary-color: #2c3e50;
@@ -1346,7 +1346,7 @@ i[class*="fa-star"][class*="far"] {
 }
 
 .products-table thead {
-  background: linear-gradient(135deg, var(--primary-color), #34495e);
+  background: #2c3e50;
   color: white;
 }
 
@@ -2625,7 +2625,7 @@ ple Images Preview Styles */
 }
 
 .modal .images-preview .images-count::before {
-  content: '📸';
+  content: 'ðŸ“¸';
   font-size: 1.2rem;
 }
 
@@ -3027,10 +3027,10 @@ ple Images Preview Styles */
 
 
 /* ============================================================
-   Products Page — Mobile Responsive (Product Cards)
+   Products Page â€” Mobile Responsive (Product Cards)
    ============================================================ */
 
-/* ── Filter form ── */
+/* â”€â”€ Filter form â”€â”€ */
 @media (max-width: 768px) {
   .products-container {
     padding: 0.75rem;
@@ -3073,7 +3073,7 @@ ple Images Preview Styles */
     padding: 0.75rem 1rem;
   }
 
-  /* ── View toggle + action buttons ── */
+  /* â”€â”€ View toggle + action buttons â”€â”€ */
   .view-toggle-container {
     flex-direction: column;
     align-items: stretch;
@@ -3096,13 +3096,13 @@ ple Images Preview Styles */
     display: none; /* hide text, keep icon on very small */
   }
 
-  /* ── Product grid — 2 columns on mobile ── */
+  /* â”€â”€ Product grid â€” 2 columns on mobile â”€â”€ */
   .product-grid {
     grid-template-columns: repeat(2, 1fr) !important;
     gap: 0.75rem;
   }
 
-  /* ── Product card ── */
+  /* â”€â”€ Product card â”€â”€ */
   .product-card {
     border-radius: 12px;
   }
@@ -3146,7 +3146,7 @@ ple Images Preview Styles */
     font-size: 0.65rem;
   }
 
-  /* Overlay edit/delete buttons — always visible on mobile */
+  /* Overlay edit/delete buttons â€” always visible on mobile */
   .product-overlay-buttons {
     opacity: 1 !important;
     transform: translateX(0) !important;
@@ -3162,7 +3162,7 @@ ple Images Preview Styles */
     font-size: 0.8rem;
   }
 
-  /* ── Product info section ── */
+  /* â”€â”€ Product info section â”€â”€ */
   .product-info {
     padding: 0.75rem;
   }
@@ -3187,7 +3187,7 @@ ple Images Preview Styles */
     margin-bottom: 0.5rem;
   }
 
-  /* Stock / flagged badges — smaller */
+  /* Stock / flagged badges â€” smaller */
   .product-stock-badge,
   .product-flagged-badge,
   .product-inactive-badge {
@@ -3197,7 +3197,7 @@ ple Images Preview Styles */
     margin-top: 0.25rem;
   }
 
-  /* ── Stats row ── */
+  /* â”€â”€ Stats row â”€â”€ */
   .product-stats {
     gap: 0.25rem;
     flex-wrap: wrap;
@@ -3221,7 +3221,7 @@ ple Images Preview Styles */
     font-size: 0.82rem;
   }
 
-  /* Rating stars — smaller */
+  /* Rating stars â€” smaller */
   .rating-stars .bi {
     font-size: 0.65rem;
   }
@@ -3238,7 +3238,7 @@ ple Images Preview Styles */
     font-size: 0.65rem;
   }
 
-  /* ── Empty state ── */
+  /* â”€â”€ Empty state â”€â”€ */
   .empty-state {
     padding: 2rem 1rem;
     grid-column: 1 / -1;
@@ -3253,7 +3253,7 @@ ple Images Preview Styles */
   }
 }
 
-/* ── Very small phones (≤ 400px) — single column ── */
+/* â”€â”€ Very small phones (â‰¤ 400px) â€” single column â”€â”€ */
 @media (max-width: 400px) {
   .product-grid {
     grid-template-columns: 1fr !important;
@@ -3273,7 +3273,7 @@ ple Images Preview Styles */
   }
 }
 
-/* ── Tablet (769px – 1024px) ── */
+/* â”€â”€ Tablet (769px â€“ 1024px) â”€â”€ */
 @media (min-width: 769px) and (max-width: 1024px) {
   .product-grid {
     grid-template-columns: repeat(2, 1fr) !important;
@@ -3288,3 +3288,4 @@ ple Images Preview Styles */
     padding: 1.25rem;
   }
 }
+

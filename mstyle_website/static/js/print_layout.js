@@ -1,352 +1,240 @@
-// Print Layout JavaScript
-document.addEventListener('DOMContentLoaded', function() {
-    // Get data from localStorage (passed from main page)
-    const printData = JSON.parse(localStorage.getItem('printData') || '{}');
-    
+﻿/* MStyle — Print Layout JS v3.0 */
+document.addEventListener('DOMContentLoaded', function () {
+    var printData = JSON.parse(localStorage.getItem('printData') || '{}');
     if (printData && Object.keys(printData).length > 0) {
         renderPrintLayout(printData);
-        
-        // Auto-print after rendering
-        setTimeout(() => {
-            window.print();
-        }, 500);
+        setTimeout(function () { window.print(); }, 600);
     } else {
-        document.getElementById('printContent').innerHTML = '<div class="no-data">No data available for printing</div>';
+        document.getElementById('printContent').innerHTML =
+            '<p style="padding:32px;text-align:center;color:#78909c;font-size:9pt;">No data available for printing.</p>';
     }
 });
 
+function fmtDateTime(d) {
+    return d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric', hour:'2-digit', minute:'2-digit' });
+}
+function fmtDate(d) {
+    return d.toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' });
+}
+function peso(n) {
+    var v = parseFloat(n || 0);
+    return '&#8369;' + v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+function num(n) { return parseInt(n || 0).toLocaleString(); }
+function pill(text, type) { return '<span class="pill pill-' + type + '">' + text + '</span>'; }
+function statusPill(isActive, isFlagged) {
+    if (isFlagged) return pill('Flagged', 'amber');
+    if (!isActive) return pill('Inactive', 'gray');
+    return pill('Active', 'green');
+}
+
+function sectionWrap(icon, title, count, tableHtml, totalsHtml) {
+    return '<div class="data-section">' +
+        '<div class="data-section-header">' +
+            '<span class="data-section-icon">' + icon + '</span>' +
+            '<span class="data-section-title">' + title + '</span>' +
+            '<span class="data-section-count">' + count + ' records</span>' +
+        '</div>' +
+        tableHtml + totalsHtml +
+    '</div>';
+}
+
+function tableHead(cols) {
+    return '<table class="report-table"><thead><tr>' +
+        cols.map(function(c) {
+            return '<th' + (c.r ? ' class="num-col"' : c.c ? ' class="center-col"' : '') + '>' + c.l + '</th>';
+        }).join('') +
+        '</tr></thead><tbody>';
+}
+
+function totalsBar(items) {
+    return '<div class="table-totals">' +
+        items.map(function(t) {
+            return '<div class="totals-item"><div class="totals-label">' + t.label +
+                '</div><div class="totals-value">' + t.value + '</div></div>';
+        }).join('') +
+    '</div>';
+}
+
+/* ── Main ─────────────────────────────────────────────────────────────── */
 function renderPrintLayout(data) {
-    // Set date and report type
-    const today = new Date();
-    document.getElementById('printDate').textContent = today.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
-    
-    document.getElementById('reportType').textContent = data.reportType || 'Complete Analytics Report';
-    
-    // Set summary stats
+    var now = new Date();
+    var dtStr = fmtDateTime(now);
+    var dStr  = fmtDate(now);
+
+    document.getElementById('coverDate').textContent = dtStr;
+    document.getElementById('docFooterDate').textContent = dStr;
+    if (data.reportType) document.getElementById('coverReportType').textContent = data.reportType;
+
     if (data.stats) {
-        document.getElementById('printTotalOrders').textContent = data.stats.totalOrders || '0';
-        document.getElementById('printPlatformCommission').textContent = data.stats.platformCommission || '₱0.00';
-        document.getElementById('printTotalRevenue').textContent = data.stats.totalRevenue || '₱0.00';
-        document.getElementById('printTotalUsers').textContent = data.stats.totalUsers || '0';
-        document.getElementById('printTotalProducts').textContent = data.stats.totalProducts || '0';
+        document.getElementById('printTotalOrders').textContent = num(data.stats.totalOrders);
+        var rev = data.stats.totalRevenue ? data.stats.totalRevenue.toString().replace(/[^0-9.]/g,'') : '0';
+        var com = data.stats.platformCommission ? data.stats.platformCommission.toString().replace(/[^0-9.]/g,'') : '0';
+        document.getElementById('printTotalRevenue').innerHTML       = peso(rev);
+        document.getElementById('printPlatformCommission').innerHTML = peso(com);
+        document.getElementById('printTotalUsers').textContent    = num(data.stats.totalUsers);
+        document.getElementById('printTotalProducts').textContent = num(data.stats.totalProducts);
     }
-    
-    // Render sections
-    const contentDiv = document.getElementById('printContent');
-    let html = '';
-    
-    // Inventory Products
-    if (data.sections.includes('inventory') && data.inventoryProducts && data.inventoryProducts.length > 0) {
-        html += renderInventorySection(data.inventoryProducts);
-    }
-    
-    // Seller Performance
-    if (data.sections.includes('seller') && data.sellerPerformance && data.sellerPerformance.length > 0) {
-        html += renderSellerSection(data.sellerPerformance);
-    }
-    
-    // Rider Analytics
-    if (data.sections.includes('rider') && data.riderAnalytics && data.riderAnalytics.length > 0) {
-        html += renderRiderSection(data.riderAnalytics);
-    }
-    
-    // Buyer Insights
-    if (data.sections.includes('buyer') && data.buyerInsights && data.buyerInsights.length > 0) {
-        html += renderBuyerSection(data.buyerInsights);
-    }
-    
-    // Promo Code Analytics
-    if (data.sections.includes('promo') && data.promoCodeAnalytics && data.promoCodeAnalytics.length > 0) {
-        html += renderPromoSection(data.promoCodeAnalytics);
-    }
-    
-    // Platform Commission
-    if (data.sections.includes('commission') && data.platformCommission && data.platformCommission.length > 0) {
-        html += renderCommissionSection(data.platformCommission);
-    }
-    
-    // Complaints & Issues
-    if (data.sections.includes('issues') && data.complaintsIssues && data.complaintsIssues.length > 0) {
-        html += renderIssuesSection(data.complaintsIssues);
-    }
-    
-    contentDiv.innerHTML = html;
+
+    var html = '';
+    var s = data.sections || [];
+    var has = function(k) { return s.includes(k) || s.includes('all'); };
+
+    if (has('inventory')  && data.inventoryProducts   && data.inventoryProducts.length)   html += renderInventory(data.inventoryProducts);
+    if (has('seller')     && data.sellerPerformance   && data.sellerPerformance.length)   html += renderSellers(data.sellerPerformance);
+    if (has('rider')      && data.riderAnalytics      && data.riderAnalytics.length)      html += renderRiders(data.riderAnalytics);
+    if (has('buyer')      && data.buyerInsights       && data.buyerInsights.length)       html += renderBuyers(data.buyerInsights);
+    if (has('promo')      && data.promoCodeAnalytics  && data.promoCodeAnalytics.length)  html += renderPromos(data.promoCodeAnalytics);
+    if (has('commission') && data.platformCommission  && data.platformCommission.length)  html += renderCommission(data.platformCommission);
+    if (has('issues')     && data.complaintsIssues    && data.complaintsIssues.length)    html += renderIssues(data.complaintsIssues);
+
+    document.getElementById('printContent').innerHTML = html;
 }
 
-function renderInventorySection(products) {
-    let html = '<div class="section">';
-    html += '<h2 class="section-title"><i class="fas fa-boxes"></i> Inventory and Products Analytics</h2>';
-    html += '<table><thead><tr>';
-    html += '<th>No.</th><th>Product Name</th><th>Seller</th><th>Category</th><th>Status</th><th>Units Sold</th><th>Stock</th><th>Rating</th>';
-    html += '</tr></thead><tbody>';
-    
-    products.forEach((product, index) => {
-        const isActive = product.is_active === true || product.is_active === 'true' || product.is_active === 1;
-        const isFlagged = product.is_flagged === true || product.is_flagged === 'true' || product.is_flagged === 1;
-        let status = isFlagged ? '<span class="status-flagged">Flagged</span>' : 
-                     !isActive ? '<span class="status-inactive">Inactive</span>' : 
-                     '<span class="status-active">Active</span>';
-        
-        html += `<tr>
-            <td>${index + 1}</td>
-            <td>${product.product_name}</td>
-            <td>${product.seller_name}</td>
-            <td>${product.category}</td>
-            <td>${status}</td>
-            <td>${product.units_sold || 0}</td>
-            <td>${product.stock || 0}</td>
-            <td>${product.rating || 0}</td>
-        </tr>`;
-    });
-    
-    html += '</tbody></table>';
-    
-    // Totals
-    const totalSold = products.reduce((sum, p) => sum + (p.units_sold || 0), 0);
-    html += '<div class="totals-section">';
-    html += `<div class="total-row"><span>Total Products:</span><span>${products.length}</span></div>`;
-    html += `<div class="total-row grand-total"><span>Total Units Sold:</span><span>${totalSold}</span></div>`;
-    html += '</div>';
-    
-    html += '</div>';
-    return html;
+/* ── Section renderers ────────────────────────────────────────────────── */
+function renderInventory(products) {
+    var cols = [{l:'#',c:1},{l:'Product Name'},{l:'Seller'},{l:'Category'},{l:'Status'},{l:'Units Sold',r:1},{l:'Stock',r:1},{l:'Rating',r:1}];
+    var rows = products.map(function(p, i) {
+        var active  = p.is_active  === true || p.is_active  === 'true' || p.is_active  === 1;
+        var flagged = p.is_flagged === true || p.is_flagged === 'true' || p.is_flagged === 1;
+        return '<tr><td class="row-num center-col">' + (i+1) + '</td>' +
+            '<td><strong>' + (p.product_name||'—') + '</strong></td>' +
+            '<td>' + (p.seller_name||'—') + '</td>' +
+            '<td>' + pill(p.category||'—','blue') + '</td>' +
+            '<td>' + statusPill(active, flagged) + '</td>' +
+            '<td class="num-col">' + num(p.units_sold) + '</td>' +
+            '<td class="num-col">' + num(p.stock) + '</td>' +
+            '<td class="num-col">' + parseFloat(p.rating||0).toFixed(1) + '</td></tr>';
+    }).join('');
+    var totalSold = products.reduce(function(a,p){ return a+(parseInt(p.units_sold)||0); }, 0);
+    return sectionWrap('&#9632;', 'Inventory &amp; Products Analytics', products.length,
+        tableHead(cols) + rows + '</tbody></table>',
+        totalsBar([{label:'Total Products',value:products.length},{label:'Total Units Sold',value:num(totalSold)}]));
 }
 
-function renderSellerSection(sellers) {
-    let html = '<div class="section">';
-    html += '<h2 class="section-title"><i class="fas fa-store"></i> Seller Performance Reports</h2>';
-    html += '<table><thead><tr>';
-    html += '<th>No.</th><th>Seller Name</th><th>Products</th><th>Orders</th><th>Completed</th><th>Cancelled</th><th>Revenue</th><th>Flagged</th><th>Deactivated</th>';
-    html += '</tr></thead><tbody>';
-    
-    sellers.forEach((seller, index) => {
-        html += `<tr>
-            <td>${index + 1}</td>
-            <td>${seller.seller_name}</td>
-            <td>${seller.total_products || 0}</td>
-            <td>${seller.total_orders || 0}</td>
-            <td>${seller.completed_orders || 0}</td>
-            <td>${seller.cancelled_orders || 0}</td>
-            <td>₱${(seller.total_revenue || 0).toFixed(2)}</td>
-            <td>${seller.flagged_products || 0}</td>
-            <td>${seller.deactivated_products || 0}</td>
-        </tr>`;
-    });
-    
-    html += '</tbody></table>';
-    
-    // Totals
-    const totalRevenue = sellers.reduce((sum, s) => sum + (s.total_revenue || 0), 0);
-    html += '<div class="totals-section">';
-    html += `<div class="total-row"><span>Total Sellers:</span><span>${sellers.length}</span></div>`;
-    html += `<div class="total-row grand-total"><span>Total Revenue:</span><span>₱${totalRevenue.toFixed(2)}</span></div>`;
-    html += '</div>';
-    
-    html += '</div>';
-    return html;
+function renderSellers(sellers) {
+    var cols = [{l:'#',c:1},{l:'Seller / Business'},{l:'Products',r:1},{l:'Orders',r:1},{l:'Completed',r:1},{l:'Cancelled',r:1},{l:'Revenue',r:1},{l:'Flagged',r:1},{l:'Deactivated',r:1}];
+    var rows = sellers.map(function(s, i) {
+        return '<tr><td class="row-num center-col">' + (i+1) + '</td>' +
+            '<td><strong>' + (s.seller_name||'—') + '</strong></td>' +
+            '<td class="num-col">' + num(s.total_products) + '</td>' +
+            '<td class="num-col">' + num(s.total_orders) + '</td>' +
+            '<td class="num-col">' + num(s.completed_orders) + '</td>' +
+            '<td class="num-col">' + num(s.cancelled_orders) + '</td>' +
+            '<td class="num-col">' + peso(s.total_revenue) + '</td>' +
+            '<td class="num-col">' + (s.flagged_products > 0 ? pill(s.flagged_products,'amber') : '0') + '</td>' +
+            '<td class="num-col">' + num(s.deactivated_products) + '</td></tr>';
+    }).join('');
+    var totalRev = sellers.reduce(function(a,s){ return a+(parseFloat(s.total_revenue)||0); }, 0);
+    return sectionWrap('&#9650;', 'Seller Performance Report', sellers.length,
+        tableHead(cols) + rows + '</tbody></table>',
+        totalsBar([{label:'Total Sellers',value:sellers.length},{label:'Total Revenue',value:peso(totalRev)}]));
 }
 
-function renderRiderSection(riders) {
-    let html = '<div class="section">';
-    html += '<h2 class="section-title"><i class="fas fa-motorcycle"></i> Rider/Delivery Analytics</h2>';
-    html += '<table><thead><tr>';
-    html += '<th>No.</th><th>Rider Name</th><th>Vehicle</th><th>Plate</th><th>Deliveries</th><th>Successful</th><th>Failed</th><th>Success Rate</th><th>Earnings</th>';
-    html += '</tr></thead><tbody>';
-    
-    riders.forEach((rider, index) => {
-        const successRate = rider.total_deliveries > 0 
-            ? ((rider.successful_deliveries / rider.total_deliveries) * 100).toFixed(1) 
-            : 0;
-        
-        html += `<tr>
-            <td>${index + 1}</td>
-            <td>${rider.rider_name}</td>
-            <td>${rider.vehicle_type || 'N/A'}</td>
-            <td>${rider.plate_number || 'N/A'}</td>
-            <td>${rider.total_deliveries || 0}</td>
-            <td>${rider.successful_deliveries || 0}</td>
-            <td>${rider.failed_deliveries || 0}</td>
-            <td>${successRate}%</td>
-            <td>₱${(rider.total_earnings || 0).toFixed(2)}</td>
-        </tr>`;
-    });
-    
-    html += '</tbody></table>';
-    
-    // Totals
-    const totalDeliveries = riders.reduce((sum, r) => sum + (r.total_deliveries || 0), 0);
-    const totalEarnings = riders.reduce((sum, r) => sum + (r.total_earnings || 0), 0);
-    html += '<div class="totals-section">';
-    html += `<div class="total-row"><span>Total Riders:</span><span>${riders.length}</span></div>`;
-    html += `<div class="total-row"><span>Total Deliveries:</span><span>${totalDeliveries}</span></div>`;
-    html += `<div class="total-row grand-total"><span>Total Earnings:</span><span>₱${totalEarnings.toFixed(2)}</span></div>`;
-    html += '</div>';
-    
-    html += '</div>';
-    return html;
+function renderRiders(riders) {
+    var cols = [{l:'#',c:1},{l:'Rider Name'},{l:'Vehicle'},{l:'Plate'},{l:'Deliveries',r:1},{l:'Successful',r:1},{l:'Failed',r:1},{l:'Success Rate',r:1},{l:'Earnings',r:1}];
+    var rows = riders.map(function(r, i) {
+        var rate = r.total_deliveries > 0 ? ((r.successful_deliveries/r.total_deliveries)*100).toFixed(1) : '0.0';
+        var rp = parseFloat(rate) >= 80 ? pill(rate+'%','green') : parseFloat(rate) >= 50 ? pill(rate+'%','amber') : pill(rate+'%','red');
+        return '<tr><td class="row-num center-col">' + (i+1) + '</td>' +
+            '<td><strong>' + (r.rider_name||'—') + '</strong></td>' +
+            '<td>' + (r.vehicle_type||'N/A') + '</td>' +
+            '<td>' + (r.plate_number||'N/A') + '</td>' +
+            '<td class="num-col">' + num(r.total_deliveries) + '</td>' +
+            '<td class="num-col">' + num(r.successful_deliveries) + '</td>' +
+            '<td class="num-col">' + num(r.failed_deliveries) + '</td>' +
+            '<td class="num-col">' + rp + '</td>' +
+            '<td class="num-col">' + peso(r.total_earnings) + '</td></tr>';
+    }).join('');
+    var totalDel  = riders.reduce(function(a,r){ return a+(parseInt(r.total_deliveries)||0); }, 0);
+    var totalEarn = riders.reduce(function(a,r){ return a+(parseFloat(r.total_earnings)||0); }, 0);
+    return sectionWrap('&#9654;', 'Rider / Delivery Analytics', riders.length,
+        tableHead(cols) + rows + '</tbody></table>',
+        totalsBar([{label:'Total Riders',value:riders.length},{label:'Total Deliveries',value:num(totalDel)},{label:'Total Earnings',value:peso(totalEarn)}]));
 }
 
-function renderBuyerSection(buyers) {
-    let html = '<div class="section">';
-    html += '<h2 class="section-title"><i class="fas fa-user-chart"></i> Buyer Activity & Behavior Insights</h2>';
-    html += '<table><thead><tr>';
-    html += '<th>No.</th><th>Buyer Name</th><th>Orders</th><th>Total Spend</th><th>Avg Order Value</th><th>Last Order</th><th>Cart Items</th><th>Wishlist</th>';
-    html += '</tr></thead><tbody>';
-    
-    buyers.forEach((buyer, index) => {
-        html += `<tr>
-            <td>${index + 1}</td>
-            <td>${buyer.buyer_name}</td>
-            <td>${buyer.total_orders || 0}</td>
-            <td>₱${(buyer.total_spend || 0).toFixed(2)}</td>
-            <td>₱${(buyer.avg_order_value || 0).toFixed(2)}</td>
-            <td>${buyer.last_order_date || 'N/A'}</td>
-            <td>${buyer.cart_items || 0}</td>
-            <td>${buyer.wishlist_items || 0}</td>
-        </tr>`;
-    });
-    
-    html += '</tbody></table>';
-    
-    // Totals
-    const totalSpend = buyers.reduce((sum, b) => sum + (b.total_spend || 0), 0);
-    html += '<div class="totals-section">';
-    html += `<div class="total-row"><span>Total Buyers:</span><span>${buyers.length}</span></div>`;
-    html += `<div class="total-row grand-total"><span>Total Spend:</span><span>₱${totalSpend.toFixed(2)}</span></div>`;
-    html += '</div>';
-    
-    html += '</div>';
-    return html;
+function renderBuyers(buyers) {
+    var cols = [{l:'#',c:1},{l:'Buyer Name'},{l:'Orders',r:1},{l:'Total Spend',r:1},{l:'Avg Order Value',r:1},{l:'Last Order'},{l:'Cart',r:1},{l:'Wishlist',r:1}];
+    var rows = buyers.map(function(b, i) {
+        return '<tr><td class="row-num center-col">' + (i+1) + '</td>' +
+            '<td><strong>' + (b.buyer_name||'—') + '</strong></td>' +
+            '<td class="num-col">' + num(b.total_orders) + '</td>' +
+            '<td class="num-col">' + peso(b.total_spend) + '</td>' +
+            '<td class="num-col">' + peso(b.avg_order_value) + '</td>' +
+            '<td>' + (b.last_order_date||'N/A') + '</td>' +
+            '<td class="num-col">' + num(b.cart_items) + '</td>' +
+            '<td class="num-col">' + num(b.wishlist_items) + '</td></tr>';
+    }).join('');
+    var totalSpend = buyers.reduce(function(a,b){ return a+(parseFloat(b.total_spend)||0); }, 0);
+    return sectionWrap('&#9679;', 'Buyer Activity &amp; Behavior Insights', buyers.length,
+        tableHead(cols) + rows + '</tbody></table>',
+        totalsBar([{label:'Total Buyers',value:buyers.length},{label:'Total Spend',value:peso(totalSpend)}]));
 }
 
-function renderPromoSection(promos) {
-    let html = '<div class="section">';
-    html += '<h2 class="section-title"><i class="fas fa-tags"></i> Promo Code Usage Analytics</h2>';
-    html += '<table><thead><tr>';
-    html += '<th>No.</th><th>Promo Code</th><th>Type</th><th>Value</th><th>Start Date</th><th>End Date</th><th>Uses</th><th>Discount Given</th><th>Status</th>';
-    html += '</tr></thead><tbody>';
-    
-    promos.forEach((promo, index) => {
-        const today = new Date();
-        const startDate = new Date(promo.start_date);
-        const endDate = new Date(promo.end_date);
-        let status = today < startDate ? '<span class="badge-secondary">Upcoming</span>' :
-                     today > endDate ? '<span class="badge-danger">Expired</span>' :
-                     '<span class="badge-success">Active</span>';
-        
-        html += `<tr>
-            <td>${index + 1}</td>
-            <td>${promo.promo_code}</td>
-            <td>${promo.discount_type}</td>
-            <td>${promo.discount_value}</td>
-            <td>${promo.start_date}</td>
-            <td>${promo.end_date}</td>
-            <td>${promo.total_uses || 0}</td>
-            <td>₱${(promo.total_discount_given || 0).toFixed(2)}</td>
-            <td>${status}</td>
-        </tr>`;
-    });
-    
-    html += '</tbody></table>';
-    
-    // Totals
-    const totalUses = promos.reduce((sum, p) => sum + (p.total_uses || 0), 0);
-    const totalDiscount = promos.reduce((sum, p) => sum + (p.total_discount_given || 0), 0);
-    html += '<div class="totals-section">';
-    html += `<div class="total-row"><span>Total Promo Codes:</span><span>${promos.length}</span></div>`;
-    html += `<div class="total-row"><span>Total Uses:</span><span>${totalUses}</span></div>`;
-    html += `<div class="total-row grand-total"><span>Total Discount Given:</span><span>₱${totalDiscount.toFixed(2)}</span></div>`;
-    html += '</div>';
-    
-    html += '</div>';
-    return html;
+function renderPromos(promos) {
+    var cols = [{l:'#',c:1},{l:'Promo Code'},{l:'Type'},{l:'Value',r:1},{l:'Start'},{l:'End'},{l:'Uses',r:1},{l:'Discount Given',r:1},{l:'Status'}];
+    var today = new Date();
+    var rows = promos.map(function(p, i) {
+        var start = new Date(p.start_date), end = new Date(p.end_date);
+        var sp = today < start ? pill('Upcoming','blue') : today > end ? pill('Expired','gray') : pill('Active','green');
+        return '<tr><td class="row-num center-col">' + (i+1) + '</td>' +
+            '<td><strong>' + (p.promo_code||'—') + '</strong></td>' +
+            '<td>' + (p.discount_type||'—') + '</td>' +
+            '<td class="num-col">' + (p.discount_value||'—') + '</td>' +
+            '<td>' + (p.start_date||'—') + '</td>' +
+            '<td>' + (p.end_date||'—') + '</td>' +
+            '<td class="num-col">' + num(p.total_uses) + '</td>' +
+            '<td class="num-col">' + peso(p.total_discount_given) + '</td>' +
+            '<td>' + sp + '</td></tr>';
+    }).join('');
+    var totalUses = promos.reduce(function(a,p){ return a+(parseInt(p.total_uses)||0); }, 0);
+    var totalDisc = promos.reduce(function(a,p){ return a+(parseFloat(p.total_discount_given)||0); }, 0);
+    return sectionWrap('&#9670;', 'Promo Code Usage Analytics', promos.length,
+        tableHead(cols) + rows + '</tbody></table>',
+        totalsBar([{label:'Total Promos',value:promos.length},{label:'Total Uses',value:num(totalUses)},{label:'Discount Given',value:peso(totalDisc)}]));
 }
 
-function renderCommissionSection(commissions) {
-    let html = '<div class="section">';
-    html += '<h2 class="section-title"><i class="fas fa-coins"></i> Platform Commission Summary Report</h2>';
-    html += '<table class="compact-table"><thead><tr>';
-    html += '<th>No.</th><th>Order ID</th><th>Seller</th><th>Rider</th><th>Order Total</th><th>Delivery Fee</th><th>Seller Comm.</th><th>Rider Comm.</th><th>Platform Earnings</th><th>Order Date</th><th>Completed</th>';
-    html += '</tr></thead><tbody>';
-    
-    commissions.forEach((commission, index) => {
-        html += `<tr>
-            <td>${index + 1}</td>
-            <td>#${commission.order_id}</td>
-            <td>${commission.seller_email}</td>
-            <td>${commission.rider_email || 'N/A'}</td>
-            <td>₱${(commission.order_total || 0).toFixed(2)}</td>
-            <td>₱${(commission.delivery_fee || 0).toFixed(2)}</td>
-            <td>₱${(commission.seller_commission || 0).toFixed(2)}</td>
-            <td>₱${(commission.rider_commission || 0).toFixed(2)}</td>
-            <td>₱${(commission.total_platform_earnings || 0).toFixed(2)}</td>
-            <td>${commission.order_date}</td>
-            <td>${commission.date_completed || 'N/A'}</td>
-        </tr>`;
-    });
-    
-    html += '</tbody></table>';
-    
-    // Totals
-    const totalSellerComm = commissions.reduce((sum, c) => sum + (c.seller_commission || 0), 0);
-    const totalRiderComm = commissions.reduce((sum, c) => sum + (c.rider_commission || 0), 0);
-    const totalEarnings = commissions.reduce((sum, c) => sum + (c.total_platform_earnings || 0), 0);
-    html += '<div class="totals-section">';
-    html += `<div class="total-row"><span>Total Orders:</span><span>${commissions.length}</span></div>`;
-    html += `<div class="total-row"><span>Total Seller Commission:</span><span>₱${totalSellerComm.toFixed(2)}</span></div>`;
-    html += `<div class="total-row"><span>Total Rider Commission:</span><span>₱${totalRiderComm.toFixed(2)}</span></div>`;
-    html += `<div class="total-row grand-total"><span>Total Platform Earnings:</span><span>₱${totalEarnings.toFixed(2)}</span></div>`;
-    html += '</div>';
-    
-    html += '</div>';
-    return html;
+function renderCommission(commissions) {
+    var cols = [{l:'#',c:1},{l:'Order ID'},{l:'Seller'},{l:'Rider'},{l:'Order Total',r:1},{l:'Delivery Fee',r:1},{l:'Seller Comm.',r:1},{l:'Rider Comm.',r:1},{l:'Platform Earnings',r:1},{l:'Order Date'},{l:'Completed'}];
+    var rows = commissions.map(function(c, i) {
+        return '<tr><td class="row-num center-col">' + (i+1) + '</td>' +
+            '<td><strong>#' + (c.order_id||'—') + '</strong></td>' +
+            '<td>' + (c.seller_email||'—') + '</td>' +
+            '<td>' + (c.rider_email||'N/A') + '</td>' +
+            '<td class="num-col">' + peso(c.order_total) + '</td>' +
+            '<td class="num-col">' + peso(c.delivery_fee) + '</td>' +
+            '<td class="num-col">' + peso(c.seller_commission) + '</td>' +
+            '<td class="num-col">' + peso(c.rider_commission) + '</td>' +
+            '<td class="num-col"><strong>' + peso(c.total_platform_earnings) + '</strong></td>' +
+            '<td>' + (c.order_date||'—') + '</td>' +
+            '<td>' + (c.date_completed||'N/A') + '</td></tr>';
+    }).join('');
+    var tSC = commissions.reduce(function(a,c){ return a+(parseFloat(c.seller_commission)||0); }, 0);
+    var tRC = commissions.reduce(function(a,c){ return a+(parseFloat(c.rider_commission)||0); }, 0);
+    var tPE = commissions.reduce(function(a,c){ return a+(parseFloat(c.total_platform_earnings)||0); }, 0);
+    return sectionWrap('&#9632;', 'Platform Commission Summary', commissions.length,
+        tableHead(cols) + rows + '</tbody></table>',
+        totalsBar([{label:'Orders',value:commissions.length},{label:'Seller Commission',value:peso(tSC)},{label:'Rider Commission',value:peso(tRC)},{label:'Platform Earnings',value:peso(tPE)}]));
 }
 
-function renderIssuesSection(issues) {
-    let html = '<div class="section">';
-    html += '<h2 class="section-title"><i class="fas fa-exclamation-triangle"></i> Complaints & Issues Report</h2>';
-    html += '<table><thead><tr>';
-    html += '<th>No.</th><th>Reported By</th><th>Reported Against</th><th>Issue Type</th><th>Description</th><th>Order ID</th><th>Status</th><th>Date</th>';
-    html += '</tr></thead><tbody>';
-    
-    issues.forEach((issue, index) => {
-        const description = (issue.description || 'No description').substring(0, 80) + '...';
-        let statusBadge = '';
-        switch(issue.status.toLowerCase()) {
-            case 'pending': statusBadge = '<span class="status-pending">Pending</span>'; break;
-            case 'resolved': statusBadge = '<span class="status-resolved">Resolved</span>'; break;
-            default: statusBadge = issue.status;
-        }
-        
-        html += `<tr>
-            <td>${index + 1}</td>
-            <td>${issue.reported_by}</td>
-            <td>${issue.reported_against}</td>
-            <td>${issue.issue_type}</td>
-            <td>${description}</td>
-            <td>${issue.order_id ? '#' + issue.order_id : 'N/A'}</td>
-            <td>${statusBadge}</td>
-            <td>${issue.date_submitted}</td>
-        </tr>`;
-    });
-    
-    html += '</tbody></table>';
-    
-    // Totals
-    const pendingCount = issues.filter(i => i.status.toLowerCase() === 'pending').length;
-    const resolvedCount = issues.filter(i => i.status.toLowerCase() === 'resolved').length;
-    html += '<div class="totals-section">';
-    html += `<div class="total-row"><span>Total Issues:</span><span>${issues.length}</span></div>`;
-    html += `<div class="total-row"><span>Pending Issues:</span><span>${pendingCount}</span></div>`;
-    html += `<div class="total-row grand-total"><span>Resolved Issues:</span><span>${resolvedCount}</span></div>`;
-    html += '</div>';
-    
-    html += '</div>';
-    return html;
+function renderIssues(issues) {
+    var cols = [{l:'#',c:1},{l:'Reported By'},{l:'Reported Against'},{l:'Issue Type'},{l:'Description'},{l:'Order ID',c:1},{l:'Status'},{l:'Date'}];
+    var rows = issues.map(function(iss, i) {
+        var desc = (iss.description||'No description').substring(0, 65) + (iss.description && iss.description.length > 65 ? '…' : '');
+        var st = (iss.status||'').toLowerCase();
+        var sp = st === 'resolved' ? pill('Resolved','green') : st === 'pending' ? pill('Pending','amber') : pill(iss.status||'—','gray');
+        return '<tr><td class="row-num center-col">' + (i+1) + '</td>' +
+            '<td><strong>' + (iss.reported_by||'—') + '</strong></td>' +
+            '<td>' + (iss.reported_against||'—') + '</td>' +
+            '<td>' + pill(iss.issue_type||'—','blue') + '</td>' +
+            '<td style="max-width:160px;font-size:7pt;">' + desc + '</td>' +
+            '<td class="center-col">' + (iss.order_id ? '#'+iss.order_id : 'N/A') + '</td>' +
+            '<td>' + sp + '</td>' +
+            '<td>' + (iss.date_submitted||'—') + '</td></tr>';
+    }).join('');
+    var pending  = issues.filter(function(i){ return (i.status||'').toLowerCase()==='pending'; }).length;
+    var resolved = issues.filter(function(i){ return (i.status||'').toLowerCase()==='resolved'; }).length;
+    return sectionWrap('&#9888;', 'Complaints &amp; Issues Report', issues.length,
+        tableHead(cols) + rows + '</tbody></table>',
+        totalsBar([{label:'Total Issues',value:issues.length},{label:'Pending',value:pending},{label:'Resolved',value:resolved}]));
 }

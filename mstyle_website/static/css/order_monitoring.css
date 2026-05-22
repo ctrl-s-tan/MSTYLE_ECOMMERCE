@@ -1,4 +1,4 @@
-/* Stats Summary - Matching Issue Reports */
+﻿/* Stats Summary - Matching Issue Reports */
 .stats-summary {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -429,7 +429,7 @@
 }
 
 .products-table th {
-    background: var(--premium-gradient);
+    background: #2c3e50;
     color: white;
     padding: 1rem;
     text-align: left;
@@ -1198,4 +1198,33 @@
     .reset-btn {
         width: 100%;
     }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   UNIVERSAL TABLE HEADER — matches seller products table design
+═══════════════════════════════════════════════════════════════════ */
+table thead,
+table thead tr {
+    background: #2c3e50 !important;
+    color: white !important;
+}
+
+table thead th,
+table th {
+    background: #2c3e50 !important;
+    color: white !important;
+    padding: 1rem !important;
+    text-align: left !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0.3px !important;
+    border-bottom: 2px solid #d4af37 !important;
+    white-space: nowrap !important;
+}
+
+table thead th i,
+table th i {
+    color: #d4af37 !important;
+    margin-right: 0.4rem !important;
 }

@@ -7563,6 +7563,14 @@ def admin_reports_analytics():
                            total_products=total_products)
 
 
+@app.route('/print_layout')
+def print_layout():
+    """Admin: print layout page for reports."""
+    if 'user_id' not in session or session.get('user_type') != 'Admin':
+        return redirect(url_for('login'))
+    return render_template('print_layout.html')
+
+
 @app.route('/archive_accounts')
 def archive_accounts():
     """Admin: archived accounts page."""
