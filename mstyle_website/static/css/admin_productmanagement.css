@@ -1,7 +1,11 @@
-﻿/* Stats Summary - Matching Admin Dashboard */
+﻿/* Stats Summary */
 .stats-summary {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1rem;
+    margin-bottom: 2rem;
+    overflow-x: auto;
+}
     gap: 2rem;
     margin-bottom: 2.5rem;
 }

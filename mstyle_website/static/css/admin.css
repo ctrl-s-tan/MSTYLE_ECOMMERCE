@@ -1475,18 +1475,21 @@ body:not(.loaded)::after {
 
 /* Stats Grid */
 .stats-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 2rem;
-    margin-bottom: 3rem;
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 1rem;
+    margin-bottom: 2rem;
     padding: 0 2rem;
+    overflow-x: auto;
 }
 
 .stat-card {
+    flex: 1;
+    min-width: 0;
     background: rgba(255, 255, 255, 0.95);
     border: 1px solid rgba(212, 175, 55, 0.1);
-    border-radius: 20px;
-    padding: 2rem;
+    border-radius: 16px;
+    padding: 1.25rem 1rem;
     text-align: center;
     transition: all 0.3s ease;
     position: relative;
@@ -1518,14 +1521,14 @@ body:not(.loaded)::after {
 }
 
 .stat-icon {
-    width: 70px;
-    height: 70px;
+    width: 52px;
+    height: 52px;
     background: var(--premium-gradient);
-    border-radius: 50%;
+    border-radius: 14px;
     display: flex;
     align-items: center;
     justify-content: center;
-    margin: 0 auto 1.5rem;
+    margin: 0 auto 1rem;
     transition: all 0.3s ease;
 }
 
@@ -1535,7 +1538,7 @@ body:not(.loaded)::after {
 }
 
 .stat-icon i {
-    font-size: 1.8rem;
+    font-size: 1.4rem;
     color: white;
 }
 
