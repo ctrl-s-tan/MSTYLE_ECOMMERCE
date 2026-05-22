@@ -1,4 +1,4 @@
-﻿<!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/MStyle Logos/MStyle_logo1.png') }}">
@@ -7,7 +7,7 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>MStyle - Premium Men's Fashion</title>
+    <title>MStyle — Premium Men's Fashion</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/homepg_header.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/homepage.css') }}?v=20">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/color_size_modal.css') }}">
@@ -203,6 +203,7 @@
         if (dots[n]) dots[n].classList.add('active');
     }
     window.heroGo = heroGo;
+
     document.addEventListener('DOMContentLoaded', function () {
         var slides = document.querySelectorAll('.hero-slide');
         if (slides.length > 1) {
@@ -223,6 +224,7 @@
             }
         }
         setTimeout(tick, 600);
+
         var toggle = document.getElementById('mobile-menu-toggle');
         var nav = document.getElementById('mobile-nav');
         if (toggle && nav) {
@@ -241,6 +243,7 @@
         }
     });
 })();
+
 function performSearch() {
     var q = document.getElementById('search-input');
     if (q && q.value) window.location.href = '/search?query=' + encodeURIComponent(q.value);
