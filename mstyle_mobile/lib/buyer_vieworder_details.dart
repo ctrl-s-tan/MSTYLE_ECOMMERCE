@@ -47,6 +47,21 @@ class BuyerViewOrderDetails extends StatelessWidget {
     final deliveredAt = order['delivered_at'] as String? ?? order['received_at'] as String? ?? '';
     final statusLower = status.toLowerCase();
     final isDeliveredOrCompleted = statusLower == 'delivered' || statusLower == 'completed';
+    // Format delivery date with time in Philippine timezone (UTC+8)
+    String _formatDeliveryDate(String raw) {
+      try {
+        final dt = DateTime.parse(raw);
+        // Convert to Philippine time (UTC+8)
+        final pht = dt.isUtc ? dt.add(const Duration(hours: 8)) : dt.toUtc().add(const Duration(hours: 8));
+        final h = pht.hour > 12 ? pht.hour - 12 : (pht.hour == 0 ? 12 : pht.hour);
+        final ampm = pht.hour >= 12 ? 'PM' : 'AM';
+        final min = pht.minute.toString().padLeft(2, '0');
+        return '${pht.year}-${pht.month.toString().padLeft(2, '0')}-${pht.day.toString().padLeft(2, '0')} $h:$min $ampm';
+      } catch (_) {
+        return raw.length > 16 ? raw.substring(0, 16) : raw;
+      }
+    }
+    final deliveryDateDisplay = deliveredAt.isNotEmpty ? _formatDeliveryDate(deliveredAt) : '';
 
     return Scaffold(
       backgroundColor: _bg,
@@ -148,7 +163,7 @@ class BuyerViewOrderDetails extends StatelessWidget {
                   _row(Icons.payment_outlined, 'Payment Method', payment),
                   if (isDeliveredOrCompleted && deliveredAt.isNotEmpty) ...[
                     const SizedBox(height: 10),
-                    _row(Icons.event_available_outlined, 'Delivery Date', deliveredAt.length > 10 ? deliveredAt.substring(0, 10) : deliveredAt),
+                    _row(Icons.event_available_outlined, 'Delivery Date', deliveryDateDisplay),
                   ],
                   if (isDeliveredOrCompleted && riderName.isNotEmpty) ...[
                     const SizedBox(height: 10),

@@ -7879,20 +7879,20 @@ def get_seller_documents(seller_id):
     def signed_url(storage_path):
         if not storage_path:
             return None
-        # Already a full URL — return as-is
+        # Already a full URL — return as-is, no further processing
         if storage_path.startswith('http://') or storage_path.startswith('https://'):
             return storage_path
-        # Build public URL directly (bucket is public, no signing needed)
+        # Plain storage path — build public URL
         clean = storage_path.lstrip('/')
         public = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{clean}"
-        # Try signed URL first (works for private buckets too)
+        # Try signed URL (works for private buckets too)
         try:
             result = sb_admin.storage.from_(BUCKET).create_signed_url(storage_path, 3600)
             if isinstance(result, dict):
                 url = result.get('signedURL') or result.get('signedUrl') or result.get('signed_url')
             else:
                 url = getattr(result, 'signed_url', None) or getattr(result, 'signedURL', None)
-            if url:
+            if url and (url.startswith('http://') or url.startswith('https://')):
                 return url
         except Exception as e:
             print(f'seller signed_url error for {storage_path}: {e}')
@@ -7911,9 +7911,10 @@ def get_seller_documents(seller_id):
                 if not stored_path:
                     return None, []
                 normalised = stored_path.replace('\\', '/')
-                # Already a full URL — return directly
+                # Already a full URL — return directly, no further processing
                 if normalised.startswith('http://') or normalised.startswith('https://'):
                     return normalised, [normalised]
+                # Local filesystem path
                 is_local = (
                     'static/images/uploads' in normalised
                     or 'static/uploads' in normalised
@@ -7928,10 +7929,10 @@ def get_seller_documents(seller_id):
                         f"/uploads/{subfolder}/{fn}",
                     ]
                     return variations[0], variations
-                # Storage path — build both signed URL and public URL
-                su = signed_url(stored_path)
-                clean = stored_path.lstrip('/')
+                # Plain Supabase storage path — build public URL + try signed URL
+                clean = normalised.lstrip('/')
                 pub = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{clean}"
+                su = signed_url(normalised)
                 variations = list(dict.fromkeys(filter(None, [su, pub])))
                 return variations[0] if variations else None, variations
 
@@ -7939,6 +7940,12 @@ def get_seller_documents(seller_id):
             dti_url,       dti_vars       = resolve_seller_doc_url_sb(s.get('dti_path'),               'seller_docs')
             bir_url,       bir_vars       = resolve_seller_doc_url_sb(s.get('bir_path'),               'seller_docs')
             bp_url,        bp_vars        = resolve_seller_doc_url_sb(s.get('business_permit_path'),   'seller_docs')
+
+            print(f"[seller_docs] id={supabase_id}")
+            print(f"  valid_id_path stored: {s.get('valid_id_path')!r}")
+            print(f"  valid_id_url resolved: {valid_id_url!r}")
+            print(f"  dti_path stored: {s.get('dti_path')!r}")
+            print(f"  dti_url resolved: {dti_url!r}")
 
             return jsonify({
                 'success': True,
@@ -8040,7 +8047,7 @@ def get_user_documents(user_id):
         # Already a full URL — return as-is
         if path.startswith('http://') or path.startswith('https://'):
             return path
-        # Build public URL directly (bucket is public)
+        # Plain storage path — build public URL
         clean = path.lstrip('/')
         public = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{clean}"
         try:
@@ -8049,7 +8056,7 @@ def get_user_documents(user_id):
                 url = result.get('signedURL') or result.get('signedUrl') or result.get('signed_url')
             else:
                 url = getattr(result, 'signed_url', None) or getattr(result, 'signedURL', None)
-            if url:
+            if url and (url.startswith('http://') or url.startswith('https://')):
                 return url
         except Exception:
             pass
@@ -9916,7 +9923,9 @@ def orders():
             # Seller info
             seller = seller_map.get(o.get('seller_email', ''), {})
             o['seller_business_name']  = seller.get('business_name') or ''
-            o['seller_full_name']      = f"{seller.get('first_name','') or ''} {seller.get('last_name','') or ''}".strip()
+            _sfn = f"{seller.get('first_name','') or ''} {seller.get('last_name','') or ''}".strip()
+            # Don't use email-like strings as display name
+            o['seller_full_name'] = '' if '@' in _sfn else _sfn
             o['seller_profile_picture'] = seller.get('profile_picture') or ''
 
             # Rider id (use rider_email as identifier for chat)

@@ -887,6 +887,7 @@
         fetch(`/api/seller_documents/${userId}`)
             .then(r => { if (!r.ok) throw new Error(`HTTP ${r.status}`); return r.json(); })
             .then(data => {
+                console.log('[seller-docs] API response:', data);
                 if (data.success) showSellerDocumentsModal(data.seller_info, data.documents);
                 else showErrorInModal('Error loading documents: ' + (data.error || 'Unknown error'));
             })
@@ -954,6 +955,8 @@
                 <div class="pu-doc-img-wrap" data-src="${primaryUrl}">
                     <img src="${primaryUrl}" alt="${title}"
                          onerror="handleImageError(this, ${JSON.stringify(variations)}, 0)"
+                         onload="this.style.opacity='1'"
+                         style="opacity:0;transition:opacity .3s;"
                          loading="lazy">
                     <div class="pu-doc-img-overlay">
                         <span><i class="fas fa-expand-alt"></i> View Full Size</span>
@@ -963,14 +966,18 @@
     }
 
     function handleImageError(img, variations, tried) {
+        console.warn(`[doc-viewer] Image failed (attempt ${tried}):`, img.src);
         if (tried < variations.length) {
+            console.log(`[doc-viewer] Trying variation ${tried}:`, variations[tried]);
             img.src = variations[tried];
             img.onerror = function() { handleImageError(img, variations, tried + 1); };
         } else {
+            console.error('[doc-viewer] All variations failed:', variations);
             img.style.display = 'none';
             img.parentElement.innerHTML = `<div style="padding:2rem; text-align:center; color:#6c757d;">
                 <i class="fas fa-image" style="font-size:2rem; margin-bottom:0.5rem; display:block;"></i>
                 <small>Image not available</small>
+                <div style="font-size:10px;word-break:break-all;margin-top:8px;color:#aaa;">${variations[0] || 'No URL'}</div>
             </div>`;
         }
     }
