@@ -1,75 +1,123 @@
 ﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MStyle — Admin Analytics Report</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/print_layout.css') }}">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MStyle &mdash; Admin Analytics Report</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:9pt;color:#1a2744;background:#e8eaf0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+@media print{
+  @page{size:A4 landscape;margin:8mm 10mm;}
+  body{background:#fff!important;}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+  .no-print{display:none!important;}
+}
+@media screen{body{padding:10mm 0 20mm;}}
+</style>
 </head>
 <body>
-<div class="report-page">
 
-    <!-- ═══ REPORT HEADER (replaces cover + summary — no page break) ═══ -->
-    <div class="report-header">
-        <div class="rh-top-bar"></div>
-        <div class="rh-body">
-            <div class="rh-left">
-                <div class="rh-brand">
-                    <div class="rh-logo"><span>M</span></div>
-                    <div>
-                        <div class="rh-brand-name">M'STYLE</div>
-                        <div class="rh-brand-sub">E-Commerce Platform</div>
-                    </div>
-                </div>
-                <div class="rh-title">Admin Analytics Report</div>
-                <div class="rh-subtitle" id="coverReportType">Complete Analytics Report</div>
-            </div>
-            <div class="rh-right">
-                <div class="rh-meta-row"><span class="rh-meta-label">Generated</span><span class="rh-meta-value" id="coverDate">—</span></div>
-                <div class="rh-meta-row"><span class="rh-meta-label">Prepared By</span><span class="rh-meta-value">Admin</span></div>
-                <div class="rh-meta-row"><span class="rh-meta-label">Classification</span><span class="rh-meta-value rh-confidential">Confidential</span></div>
-            </div>
-        </div>
+<table id="reportRoot" cellpadding="0" cellspacing="0" style="width:260mm;margin:0 auto;background:#fff;border:1px solid #c8cdd8;box-shadow:0 4px 24px rgba(0,0,0,.15);">
+
+  <!-- ═══ HEADER ═══ -->
+  <tr>
+    <td style="padding:0;">
+      <!-- Gold top bar -->
+      <div style="height:4px;background:#c9a227;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div>
+      <!-- Navy header body -->
+      <table cellpadding="0" cellspacing="0" style="width:100%;background:#1a2744;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+        <tr>
+          <!-- Left: brand + title -->
+          <td style="padding:14px 20px 10px;vertical-align:top;">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="vertical-align:middle;padding-right:10px;">
+                  <div style="width:36px;height:36px;background:#c9a227;border-radius:6px;text-align:center;line-height:36px;font-size:17pt;font-weight:900;color:#1a2744;-webkit-print-color-adjust:exact;print-color-adjust:exact;">M</div>
+                </td>
+                <td style="vertical-align:middle;">
+                  <div style="font-size:15pt;font-weight:900;color:#fff;letter-spacing:2px;text-transform:uppercase;line-height:1;">M'STYLE</div>
+                  <div style="font-size:7pt;color:rgba(255,255,255,.6);letter-spacing:.4px;margin-top:1px;">E-Commerce Platform</div>
+                </td>
+              </tr>
+            </table>
+            <div style="width:36px;height:2px;background:#c9a227;margin:8px 0 6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div>
+            <div style="font-size:11pt;font-weight:700;color:#fff;letter-spacing:.2px;">Admin Analytics Report</div>
+            <div id="coverReportType" style="font-size:8pt;color:#e8c547;margin-top:2px;">Complete Analytics Report</div>
+          </td>
+          <!-- Right: meta -->
+          <td style="padding:14px 20px 10px;vertical-align:top;text-align:right;">
+            <table cellpadding="0" cellspacing="0" style="margin-left:auto;">
+              <tr>
+                <td style="font-size:6.5pt;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding-right:8px;padding-bottom:4px;white-space:nowrap;">Generated</td>
+                <td id="coverDate" style="font-size:8pt;color:#fff;font-weight:500;padding-bottom:4px;">—</td>
+              </tr>
+              <tr>
+                <td style="font-size:6.5pt;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding-right:8px;padding-bottom:4px;white-space:nowrap;">Prepared By</td>
+                <td style="font-size:8pt;color:#fff;font-weight:500;padding-bottom:4px;">Admin</td>
+              </tr>
+              <tr>
+                <td style="font-size:6.5pt;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding-right:8px;">Classification</td>
+                <td style="font-size:8pt;color:#fff;font-weight:500;">
+                  <span style="background:#c9a227;color:#1a2744;font-size:6.5pt;font-weight:800;padding:1px 6px;border-radius:2px;letter-spacing:.5px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">CONFIDENTIAL</span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
         <!-- KPI strip -->
-        <div class="kpi-strip">
-            <div class="kpi-item">
-                <div class="kpi-label">Total Orders</div>
-                <div class="kpi-value" id="printTotalOrders">0</div>
-            </div>
-            <div class="kpi-sep"></div>
-            <div class="kpi-item">
-                <div class="kpi-label">Total Revenue</div>
-                <div class="kpi-value" id="printTotalRevenue">&#8369;0.00</div>
-            </div>
-            <div class="kpi-sep"></div>
-            <div class="kpi-item">
-                <div class="kpi-label">Platform Commission</div>
-                <div class="kpi-value" id="printPlatformCommission">&#8369;0.00</div>
-            </div>
-            <div class="kpi-sep"></div>
-            <div class="kpi-item">
-                <div class="kpi-label">Total Users</div>
-                <div class="kpi-value" id="printTotalUsers">0</div>
-            </div>
-            <div class="kpi-sep"></div>
-            <div class="kpi-item">
-                <div class="kpi-label">Total Products</div>
-                <div class="kpi-value" id="printTotalProducts">0</div>
-            </div>
-        </div>
-    </div>
+        <tr>
+          <td colspan="2" style="border-top:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.2);-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+            <table cellpadding="0" cellspacing="0" style="width:100%;">
+              <tr>
+                <td style="padding:10px 14px;text-align:center;border-right:1px solid rgba(255,255,255,.1);">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Total Orders</div>
+                  <div id="printTotalOrders" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">0</div>
+                </td>
+                <td style="padding:10px 14px;text-align:center;border-right:1px solid rgba(255,255,255,.1);">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Total Revenue</div>
+                  <div id="printTotalRevenue" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">&#8369;0.00</div>
+                </td>
+                <td style="padding:10px 14px;text-align:center;border-right:1px solid rgba(255,255,255,.1);">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Platform Commission</div>
+                  <div id="printPlatformCommission" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">&#8369;0.00</div>
+                </td>
+                <td style="padding:10px 14px;text-align:center;border-right:1px solid rgba(255,255,255,.1);">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Total Users</div>
+                  <div id="printTotalUsers" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">0</div>
+                </td>
+                <td style="padding:10px 14px;text-align:center;">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Total Products</div>
+                  <div id="printTotalProducts" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">0</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
 
-    <!-- ═══ DATA SECTIONS ════════════════════════════════════════════════ -->
-    <div id="printContent"></div>
+  <!-- ═══ CONTENT ═══ -->
+  <tr>
+    <td id="printContent" style="padding:16px 20px 8px;"></td>
+  </tr>
 
-    <!-- ═══ DOCUMENT FOOTER ══════════════════════════════════════════════ -->
-    <div class="doc-footer">
-        <span>MStyle E-Commerce Platform &mdash; Admin Analytics Report</span>
-        <span class="confidential-tag">Confidential &mdash; Internal Use Only</span>
-        <span id="docFooterDate">—</span>
-    </div>
+  <!-- ═══ FOOTER ═══ -->
+  <tr>
+    <td style="border-top:1.5px solid #c8cdd8;background:#f5f7fa;padding:7px 20px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      <table cellpadding="0" cellspacing="0" style="width:100%;">
+        <tr>
+          <td style="font-size:7pt;color:#1a2744;font-weight:600;">MStyle E-Commerce Platform &mdash; Admin Analytics Report</td>
+          <td style="text-align:center;font-size:6.5pt;font-weight:700;color:#92600a;background:#fef3dc;padding:2px 8px;border-radius:3px;border:1px solid #f5d98a;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;">CONFIDENTIAL &mdash; INTERNAL USE ONLY</td>
+          <td id="docFooterDate" style="font-size:7pt;color:#718096;text-align:right;">—</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
 
-</div>
+</table>
+
 <script src="{{ url_for('static', filename='js/print_layout.js') }}"></script>
 </body>
 </html>
