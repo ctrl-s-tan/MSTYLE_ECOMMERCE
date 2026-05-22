@@ -89,10 +89,15 @@
                 <!-- Details -->
                 <div class="order-details-section">
                     <!-- Seller shop name (clickable) -->
-                    {% if order.seller_business_name or order.seller_email %}
+                    {% if order.seller_business_name %}
                     <a href="{{ url_for('view_shop', seller_email=order.seller_email) }}" class="order-seller-link" onclick="event.stopPropagation();">
                         <i class="bi bi-shop"></i>
-                        {{ order.seller_business_name if order.seller_business_name else order.seller_full_name if order.seller_full_name else order.seller_email }}
+                        {{ order.seller_business_name }}
+                    </a>
+                    {% elif order.seller_full_name %}
+                    <a href="{{ url_for('view_shop', seller_email=order.seller_email) }}" class="order-seller-link" onclick="event.stopPropagation();">
+                        <i class="bi bi-shop"></i>
+                        {{ order.seller_full_name }}
                     </a>
                     {% endif %}
                     <div class="order-name-status-row">

@@ -1377,6 +1377,7 @@ class BuyerService {
     required int rating,
     required String reviewText,
     List<String> reviewImages = const [],
+    bool isAnonymous = false,
   }) async {
     final body = <String, dynamic>{
       'order_id':       orderId,
@@ -1386,6 +1387,7 @@ class BuyerService {
       'rating':         rating,
       'review_text':    reviewText.isEmpty ? ' ' : reviewText, // guard against NOT NULL
       'review_images':  reviewImages.isNotEmpty ? reviewImages.join(',') : null,
+      'is_anonymous':   isAnonymous,
     };
 
     debugPrint('submitReview payload: $body');
