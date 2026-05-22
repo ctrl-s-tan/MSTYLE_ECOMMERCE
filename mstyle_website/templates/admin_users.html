@@ -1386,7 +1386,46 @@
 
         // Auto-submit filter form functionality - Matching Product Management
         document.addEventListener('DOMContentLoaded', function() {
-            // Auto-dismiss flash banner after 6 seconds
+            // ── Show banner from query params (approval/rejection redirects) ──
+            const params = new URLSearchParams(window.location.search);
+            const approvedName = params.get('approved');
+            const rejectedFlag = params.get('rejected');
+
+            if (approvedName || rejectedFlag) {
+                const isApproved = !!approvedName;
+                const bannerDiv = document.createElement('div');
+                bannerDiv.id = 'flashBanner';
+                bannerDiv.className = `alert-banner alert-banner-${isApproved ? 'success' : 'error'}`;
+                bannerDiv.innerHTML = `
+                    <div class="alert-banner-inner">
+                        <i class="fas fa-${isApproved ? 'check-circle' : 'times-circle'}"></i>
+                        <span>${isApproved
+                            ? `<strong>${approvedName}</strong> has been approved and can now log in as a seller.`
+                            : 'The seller application has been rejected and the applicant has been notified.'
+                        }</span>
+                    </div>
+                    <button onclick="this.parentElement.remove()" class="alert-banner-close">&times;</button>
+                `;
+                // Insert before the stats summary
+                const container = document.querySelector('.dashboard-container');
+                const stats = container?.querySelector('.stats-summary');
+                if (stats) {
+                    container.insertBefore(bannerDiv, stats);
+                } else if (container) {
+                    container.prepend(bannerDiv);
+                }
+                // Clean URL without reload
+                window.history.replaceState({}, '', window.location.pathname);
+                // Auto-dismiss after 6 seconds
+                setTimeout(() => {
+                    bannerDiv.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                    bannerDiv.style.opacity = '0';
+                    bannerDiv.style.transform = 'translateY(-8px)';
+                    setTimeout(() => bannerDiv.remove(), 500);
+                }, 6000);
+            }
+
+            // Auto-dismiss existing flash banner after 6 seconds
             const banner = document.getElementById('flashBanner');
             if (banner) {
                 setTimeout(() => {
