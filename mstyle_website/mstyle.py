@@ -419,7 +419,13 @@ def get_user_name_from_session(default='User'):
 
 
 def _resolve_wishlist_user_id(email):
-    """Resolve a numeric user_id for the wishlist table from a user email."""
+    """Resolve a numeric user_id for the wishlist table from a user email.
+
+    Priority:
+    1. Supabase users.id  (primary — same as mobile app primary path)
+    2. Polynomial hash    (same fallback as mobile app Dart code)
+    3. MD5 hash           (legacy Flask fallback — kept for backward compat)
+    """
     import hashlib
     try:
         res = sb_admin.table('users').select('id').eq('email', email).limit(1).execute()
@@ -431,19 +437,58 @@ def _resolve_wishlist_user_id(email):
                 pass
     except Exception as e:
         print(f"_resolve_wishlist_user_id error: {e}")
-    # Fallback: deterministic hash of email
-    return int(hashlib.md5(email.lower().encode()).hexdigest()[:8], 16) & 0x7FFFFFFF
+    # Fallback 1: polynomial hash — matches mobile app Dart fallback exactly
+    # hash_id = (hash_id * 31 + byte) & 0x7FFFFFFF  (over lowercased UTF-8 bytes)
+    poly_id = 0
+    for byte in email.lower().encode('utf-8'):
+        poly_id = (poly_id * 31 + byte) & 0x7FFFFFFF
+    return poly_id
+
+
+def _resolve_all_wishlist_user_ids(email):
+    """Return all possible user_ids for this email (for cross-algorithm lookup)."""
+    import hashlib
+    ids = set()
+    # 1. Supabase users.id
+    try:
+        res = sb_admin.table('users').select('id').eq('email', email).limit(1).execute()
+        if res.data:
+            raw_id = res.data[0].get('id')
+            try:
+                ids.add(int(raw_id))
+            except (ValueError, TypeError):
+                pass
+    except Exception:
+        pass
+    # 2. Polynomial hash (mobile app Dart fallback)
+    poly_id = 0
+    for byte in email.lower().encode('utf-8'):
+        poly_id = (poly_id * 31 + byte) & 0x7FFFFFFF
+    ids.add(poly_id)
+    # 3. MD5 hash (legacy Flask fallback)
+    md5_id = int(hashlib.md5(email.lower().encode()).hexdigest()[:8], 16) & 0x7FFFFFFF
+    ids.add(md5_id)
+    return list(ids)
 
 
 def _get_wishlist_ids():
-    """Return a set of product IDs in the current user's wishlist."""
+    """Return a set of product IDs in the current user's wishlist.
+    Queries all possible user_ids so items added from the mobile app are included."""
     email = session.get('email')
     if not email:
         return set()
     try:
-        user_id = _resolve_wishlist_user_id(email)
-        res = sb_admin.table('wishlist').select('product_id').eq('user_id', user_id).execute()
-        return {str(r['product_id']) for r in (res.data or [])}
+        all_user_ids = _resolve_all_wishlist_user_ids(email)
+        product_ids = set()
+        for uid in all_user_ids:
+            try:
+                res = sb_admin.table('wishlist').select('product_id').eq('user_id', uid).execute()
+                for r in (res.data or []):
+                    if r.get('product_id'):
+                        product_ids.add(str(r['product_id']))
+            except Exception:
+                pass
+        return product_ids
     except Exception as e:
         print(f"_get_wishlist_ids error: {e}")
         return set()
@@ -2176,6 +2221,8 @@ def privacy_policy():
 @app.route('/seller_register', methods=['GET', 'POST'])
 def seller_register():
     if request.method == 'POST':
+        # Support both JSON (AJAX) and multipart/form-data
+        is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
         try:
             # -- Collect form data -----------------------------------------
             first_name      = (request.form.get('first_name') or '').strip()
@@ -2190,112 +2237,134 @@ def seller_register():
             zip_code        = (request.form.get('zip_code') or '').strip()
             business_type   = (request.form.get('business_type') or '').strip()
             email           = (request.form.get('email') or '').strip()
-            otp             = request.form.get('otp')
             password        = request.form.get('password', '')
             confirm_password = request.form.get('confirm_password', '')
+
+            def _err(msg):
+                if is_ajax:
+                    return jsonify({'success': False, 'error': msg}), 400
+                return render_template('seller_register.html', error=msg)
 
             # -- Validate OTP was verified ---------------------------------
             stored = otp_storage.get(email)
             if not stored or not stored.get('verified'):
-                flash('Email verification required or session expired.', 'error')
-                return render_template('seller_register.html', error='Email verification required.')
+                return _err('Email verification required or session expired.')
 
             # -- Validate passwords ----------------------------------------
             if not password or not confirm_password:
-                return render_template('seller_register.html', error='Password and confirm password are required.')
+                return _err('Password and confirm password are required.')
             if password != confirm_password:
-                return render_template('seller_register.html', error='Passwords do not match.')
-            if len(password) < 6 or len(password) > 8:
-                return render_template('seller_register.html', error='Password must be between 6-8 characters.')
+                return _err('Passwords do not match.')
+            if len(password) < 6:
+                return _err('Password must be at least 6 characters.')
 
-            address = f"{house_no_street}, {barangay}, {municipality}, {province}, {region} {zip_code}"
+            # -- Upload documents to Supabase Storage ----------------------
+            BUCKET = 'user-documents'
 
-            # -- File uploads (local storage) ------------------------------
-            def save_uploaded_file(file, folder):
-                if file and file.filename:
-                    ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
-                    filename = f"{ts}_{secure_filename(file.filename)}"
-                    dest     = os.path.join(app.config['UPLOAD_FOLDER'], folder)
+            def upload_to_supabase(file_obj, field_name):
+                """Upload a file to Supabase Storage and return the storage path."""
+                if not file_obj or not file_obj.filename:
+                    return None
+                ts       = datetime.now().strftime('%Y%m%d_%H%M%S')
+                filename = f"seller_docs/{ts}_{secure_filename(file_obj.filename)}"
+                content  = file_obj.read()
+                mime     = file_obj.content_type or 'application/octet-stream'
+                try:
+                    sb_admin.storage.from_(BUCKET).upload(
+                        filename, content,
+                        file_options={'content-type': mime, 'upsert': 'true'}
+                    )
+                    # Return the full public URL
+                    url = f"{SUPABASE_URL}/storage/v1/object/public/{BUCKET}/{filename}"
+                    print(f"[seller_register] uploaded {field_name} → {url}")
+                    return url
+                except Exception as up_err:
+                    print(f"[seller_register] upload failed for {field_name}: {up_err}")
+                    # Fallback: save locally
+                    dest = os.path.join(app.config['UPLOAD_FOLDER'], 'seller_docs')
                     os.makedirs(dest, exist_ok=True)
-                    path = os.path.join(dest, filename)
-                    file.save(path)
-                    return path
-                return None
+                    local_path = os.path.join(dest, os.path.basename(filename))
+                    file_obj.stream.seek(0)
+                    file_obj.save(local_path)
+                    return local_path
 
             valid_id_path = dti_path = bir_path = business_permit_path = None
 
             if business_type == 'individual':
                 f = request.files.get('valid_id')
                 if not f or not f.filename:
-                    return render_template('seller_register.html', error='Valid ID is required for individual sellers.')
-                valid_id_path = save_uploaded_file(f, 'seller_docs')
+                    return _err('Valid Government ID is required for individual sellers.')
+                valid_id_path = upload_to_supabase(f, 'valid_id')
             elif business_type == 'business':
-                for field, key in [('valid_id_business', 'valid_id'), ('dti', 'dti'), ('bir', 'bir'), ('business_permit', 'business_permit')]:
+                required = [
+                    ('valid_id_business', 'Valid Government ID'),
+                    ('dti',              'DTI Certificate'),
+                    ('bir',              'BIR Certificate'),
+                    ('business_permit',  'Business Permit'),
+                ]
+                for field, label in required:
                     f = request.files.get(field)
                     if not f or not f.filename:
-                        return render_template('seller_register.html', error=f'{field.replace("_", " ").title()} is required.')
-                valid_id_path        = save_uploaded_file(request.files.get('valid_id_business'), 'seller_docs')
-                dti_path             = save_uploaded_file(request.files.get('dti'), 'seller_docs')
-                bir_path             = save_uploaded_file(request.files.get('bir'), 'seller_docs')
-                business_permit_path = save_uploaded_file(request.files.get('business_permit'), 'seller_docs')
+                        return _err(f'{label} is required.')
+                valid_id_path        = upload_to_supabase(request.files.get('valid_id_business'), 'valid_id')
+                dti_path             = upload_to_supabase(request.files.get('dti'),              'dti')
+                bir_path             = upload_to_supabase(request.files.get('bir'),              'bir')
+                business_permit_path = upload_to_supabase(request.files.get('business_permit'), 'business_permit')
+            else:
+                return _err('Please select a business type.')
 
-            # -- Update Supabase auth password -----------------------------
+            # -- Set Supabase auth password --------------------------------
             uid = stored.get('uid')
             if uid:
                 try:
-                    sb.auth.admin.update_user_by_id(uid, {'password': password})
-                    print(f"Supabase password set for seller {email}")
+                    sb_admin.auth.admin.update_user_by_id(uid, {'password': password})
+                    print(f"[seller_register] password set for {email}")
                 except Exception as pe:
-                    print(f"Warning: could not set Supabase password for seller: {pe}")
+                    print(f"[seller_register] password set warning: {pe}")
 
-            # -- Ban the auth account until admin approves -----------------
+            # -- Ban account until admin approves --------------------------
             if uid:
                 try:
                     sb_admin.auth.admin.update_user_by_id(uid, {'ban_duration': '876600h'})
-                    print(f"Supabase auth account banned (pending approval) for seller {email}")
                 except Exception as be:
-                    print(f"Warning: could not ban seller auth account: {be}")
+                    print(f"[seller_register] ban warning: {be}")
 
-            # -- Do NOT insert into Supabase users table yet ---------------
-            # Profile will be inserted into Supabase users table only when admin approves.
+            # -- Insert into pending_sellers --------------------------------
+            sb_admin.table('pending_sellers').upsert({
+                'supabase_uid':         uid,
+                'email':                email,
+                'first_name':           first_name,
+                'last_name':            last_name,
+                'business_name':        business_name,
+                'business_type':        business_type,
+                'phone':                phone_number,
+                'house_street':         house_no_street,
+                'region':               region,
+                'province':             province,
+                'city':                 municipality,
+                'barangay':             barangay,
+                'zip_code':             zip_code,
+                'valid_id_path':        valid_id_path,
+                'dti_path':             dti_path,
+                'bir_path':             bir_path,
+                'business_permit_path': business_permit_path,
+                'status':               'pending',
+            }).execute()
+            print(f"[seller_register] pending_sellers upserted for {email}")
 
-            # -- Insert into Supabase pending_sellers (primary � works without MySQL) --
-            try:
-                sb_admin.table('pending_sellers').upsert({
-                    'supabase_uid':        uid,
-                    'email':               email,
-                    'first_name':          first_name,
-                    'last_name':           last_name,
-                    'business_name':       business_name,
-                    'business_type':       business_type,
-                    'phone':               phone_number,
-                    'house_street':        house_no_street,
-                    'region':              region,
-                    'province':            province,
-                    'city':                municipality,
-                    'barangay':            barangay,
-                    'zip_code':            zip_code,
-                    'valid_id_path':       valid_id_path,
-                    'dti_path':            dti_path,
-                    'bir_path':            bir_path,
-                    'business_permit_path': business_permit_path,
-                    'status':              'pending',
-                }).execute()
-                print(f"Inserted into Supabase pending_sellers for {email}")
-            except Exception as sb_err:
-                print(f"Warning: Supabase pending_sellers insert failed: {sb_err}")
-
-            # MySQL mirror removed
-
-            # Clean up OTP storage
+            # -- Clean up OTP storage --------------------------------------
             otp_storage.pop(email, None)
+
+            if is_ajax:
+                return jsonify({'success': True, 'message': 'Application submitted successfully!'})
 
             flash('Your seller application has been submitted! We will review it within 2-3 business days.', 'success')
             return redirect(url_for('login'))
 
         except Exception as e:
             import traceback; traceback.print_exc()
-            flash(f'An error occurred: {e}', 'error')
+            if is_ajax:
+                return jsonify({'success': False, 'error': f'An error occurred: {e}'}), 500
             return render_template('seller_register.html', error=f'An error occurred: {e}')
 
     # GET
@@ -11317,18 +11386,32 @@ def wishlist():
     wishlist_items = []
     promotional_products = []
     try:
-        user_id = _resolve_wishlist_user_id(user_email)
-        print(f'[wishlist] email={user_email} resolved user_id={user_id}')
-        wl_res = sb_admin.table('wishlist').select('product_id').eq('user_id', user_id).execute()
-        print(f'[wishlist] Supabase wishlist rows for user_id={user_id}: {wl_res.data}')
-        product_ids = [r['product_id'] for r in (wl_res.data or [])]
+        # Query with ALL possible user_ids (Supabase id, polynomial hash, MD5 hash)
+        # so items added from the mobile app are always found regardless of which
+        # hash algorithm was used at insert time.
+        all_user_ids = _resolve_all_wishlist_user_ids(user_email)
+        print(f'[wishlist] email={user_email} checking user_ids={all_user_ids}')
+
+        product_ids = set()
+        for uid in all_user_ids:
+            try:
+                wl_res = sb_admin.table('wishlist').select('product_id').eq('user_id', uid).execute()
+                for r in (wl_res.data or []):
+                    if r.get('product_id'):
+                        product_ids.add(r['product_id'])
+            except Exception as e:
+                print(f'[wishlist] uid={uid} query error: {e}')
+
+        print(f'[wishlist] found product_ids={product_ids}')
+
         if product_ids:
-            prod_res = sb_admin.table('products').select('*').in_('id', product_ids).execute()
+            prod_res = sb_admin.table('products').select('*').in_('id', list(product_ids)).execute()
             wishlist_items = prod_res.data or []
 
-            # Batch-fetch ratings from reviews table
+            # Batch-fetch ratings
             if wishlist_items:
-                rev_res = sb_admin.table('reviews').select('product_id, rating').in_('product_id', product_ids).execute()
+                pid_list = [p['id'] for p in wishlist_items]
+                rev_res = sb_admin.table('reviews').select('product_id, rating').in_('product_id', pid_list).execute()
                 from collections import defaultdict
                 rating_map = defaultdict(list)
                 for r in (rev_res.data or []):
@@ -11336,22 +11419,42 @@ def wishlist():
 
                 for p in wishlist_items:
                     ratings = rating_map.get(p['id'], [])
-                    if ratings:
-                        p['rating'] = round(sum(ratings) / len(ratings), 1)
-                        p['review_count'] = len(ratings)
+                    p['rating']       = round(sum(ratings) / len(ratings), 1) if ratings else (p.get('rating') or 0)
+                    p['review_count'] = len(ratings)
+                    p['price']        = float(p.get('price') or 0)
+                    p['quantity']     = int(p.get('quantity') or 0)
+                    p['sold']         = int(p.get('sold') or 0)
+
+                    # Enrich with active promotion data
+                    active_promo = get_active_promotions_for_product(
+                        p['id'], p.get('seller_email', ''), p.get('category', ''))
+                    if active_promo:
+                        promo_price, disc_amt = calculate_promotional_price(p['price'], active_promo)
+                        p['has_promotion']      = True
+                        p['promotional_price']  = float(promo_price)
+                        p['discount_amount']    = float(disc_amt)
+                        p['promotion_type']     = active_promo.get('type', '')
+                        p['promotion_code']     = active_promo.get('code', '')
+                        p['promotion_discount'] = float(active_promo.get('discount_value') or 0)
+                        p['discount_percentage'] = round((disc_amt / p['price']) * 100, 0) if p['price'] > 0 else 0
                     else:
-                        p['rating'] = p.get('rating') or 0
-                        p['review_count'] = 0
-                    # Normalize numeric fields
-                    p['price'] = float(p.get('price') or 0)
-                    p['quantity'] = int(p.get('quantity') or 0)
-                    p['sold'] = int(p.get('sold') or 0)
+                        p['has_promotion']      = False
+                        p['promotional_price']  = p['price']
+                        p['discount_amount']    = 0
+                        p['promotion_type']     = None
+                        p['promotion_code']     = ''
+                        p['promotion_discount'] = 0
+                        p['discount_percentage'] = 0
+
         promotional_products = get_promotional_products()
     except Exception as e:
         import traceback; traceback.print_exc()
-        print(f'Error in wishlist route: {e}')
-    return render_template('wishlist.html', wishlist_items=wishlist_items,
-                           user_name=user_name, user_email=user_email,
+        print(f'[wishlist] error: {e}')
+
+    return render_template('wishlist.html',
+                           wishlist_items=wishlist_items,
+                           user_name=user_name,
+                           user_email=user_email,
                            promotional_products=promotional_products,
                            wishlist_product_ids={str(item['id']) for item in wishlist_items})
 
