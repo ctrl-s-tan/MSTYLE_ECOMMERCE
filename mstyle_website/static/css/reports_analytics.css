@@ -1,4 +1,4 @@
-/* Reports & Analytics Page Styles */
+﻿/* Reports & Analytics Page Styles */
 :root {
   --primary-color: #2c3e50;
   --secondary-color: #d4af37;
@@ -302,7 +302,7 @@ body {
 }
 
 .table thead th {
-  background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+  background: #2c3e50;
   border: none;
   color: var(--primary-color);
   font-weight: 600;
@@ -1507,7 +1507,7 @@ body {
     }
 
     .table thead th {
-        background: linear-gradient(to bottom, #2c3e50 0%, #1a252f 100%) !important;
+        background: #2c3e50;
         color: white !important;
         font-weight: 700;
         padding: 12px 8px !important;
@@ -1781,4 +1781,33 @@ body {
         font-weight: 900;
         letter-spacing: 10px;
     }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   UNIVERSAL TABLE HEADER — matches seller products table design
+═══════════════════════════════════════════════════════════════════ */
+table thead,
+table thead tr {
+    background: #2c3e50 !important;
+    color: white !important;
+}
+
+table thead th,
+table th {
+    background: #2c3e50 !important;
+    color: white !important;
+    padding: 1rem !important;
+    text-align: left !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0.3px !important;
+    border-bottom: 2px solid #d4af37 !important;
+    white-space: nowrap !important;
+}
+
+table thead th i,
+table th i {
+    color: #d4af37 !important;
+    margin-right: 0.4rem !important;
 }
