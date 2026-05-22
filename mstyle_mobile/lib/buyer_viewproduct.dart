@@ -1122,6 +1122,10 @@ class _BuyerViewProductPageState extends State<BuyerViewProductPage> {
         // Buy Now
         Expanded(child: GestureDetector(
           onTap: !_inStock ? null : () {
+            if (widget.userEmail.isEmpty) {
+              _snack('Please log in to purchase items');
+              return;
+            }
             if (_selectedColor == null && p!.colors.isNotEmpty) { _snack('Please select a color'); return; }
             if (p!.sizes.isNotEmpty && _selectedSize == null) { _snack('Please select a size'); return; }
             Navigator.push(context, MaterialPageRoute(builder: (_) => BuyerCheckoutPage(

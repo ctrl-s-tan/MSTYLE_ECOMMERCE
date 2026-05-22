@@ -39,6 +39,7 @@ class _SellerAnalyticsPageState extends State<SellerAnalyticsPage> {
   _AnalyticsSection _section = _AnalyticsSection.topProducts;
   String _search = '';
   String _businessName = '';
+  bool _isSearching = false;
   final _searchCtrl = TextEditingController();
 
   double _totalRevenue  = 0;
@@ -234,19 +235,32 @@ class _SellerAnalyticsPageState extends State<SellerAnalyticsPage> {
       icon: const Icon(Icons.arrow_back, color: Colors.white),
       onPressed: () => Navigator.pop(context),
     ),
-    title: ShaderMask(
-      shaderCallback: (b) => _goldGrad.createShader(b),
-      child: const Text('Reports & Analytics',
-        style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
-    ),
+    title: _isSearching
+      ? TextField(
+          controller: _searchCtrl,
+          autofocus: true,
+          style: const TextStyle(color: Colors.white, fontSize: 14),
+          onChanged: (v) => setState(() => _search = v),
+          decoration: InputDecoration(
+            hintText: 'Search reports...',
+            hintStyle: TextStyle(color: Colors.white.withOpacity(0.5), fontSize: 14),
+            border: InputBorder.none,
+          ),
+        )
+      : ShaderMask(
+          shaderCallback: (b) => _goldGrad.createShader(b),
+          child: const Text('Reports & Analytics',
+            style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w800, letterSpacing: 0.5)),
+        ),
     actions: [
-      IconButton(icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 22),
-        onPressed: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => SellerNotificationsPage(sellerEmail: widget.sellerEmail)))),
       IconButton(
-        icon: const Icon(Icons.person_outline, color: Colors.white, size: 22),
-        onPressed: () => Navigator.push(context,
-          MaterialPageRoute(builder: (_) => ProfilePage(userEmail: widget.sellerEmail))),
+        icon: Icon(_isSearching ? Icons.close : Icons.search, color: Colors.white, size: 22),
+        onPressed: () {
+          setState(() {
+            if (_isSearching) { _search = ''; _searchCtrl.clear(); }
+            _isSearching = !_isSearching;
+          });
+        },
       ),
     ],
   );
@@ -315,52 +329,7 @@ class _SellerAnalyticsPageState extends State<SellerAnalyticsPage> {
   );
 
   // ─── Filter Bar ───────────────────────────────────────────────────────────
-  Widget _filterBar() => Container(
-    color: Colors.white,
-    padding: const EdgeInsets.fromLTRB(14, 14, 14, 10),
-    child: Column(children: [
-      Row(children: [
-        const Icon(Icons.tune, color: _gold, size: 16),
-        const SizedBox(width: 6),
-        const Text('Filter & Search Reports', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13)),
-        const Spacer(),
-        // Export button
-        GestureDetector(
-          onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-            content: Text('Export feature — connect to backend'), behavior: SnackBarBehavior.floating)),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(color: Colors.green.shade50, borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: Colors.green.shade200)),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.file_download_outlined, size: 13, color: Colors.green.shade600),
-              const SizedBox(width: 4),
-              Text('Export', style: TextStyle(color: Colors.green.shade600, fontSize: 11, fontWeight: FontWeight.w600)),
-            ]),
-          ),
-        ),
-      ]),
-      const SizedBox(height: 10),
-      TextField(
-        controller: _searchCtrl,
-        style: const TextStyle(color: _accent, fontSize: 13),
-        onChanged: (v) => setState(() => _search = v),
-        decoration: InputDecoration(
-          hintText: 'Search products, orders, buyers...',
-          hintStyle: const TextStyle(color: _textLight, fontSize: 13),
-          prefixIcon: const Icon(Icons.search, color: _textLight, size: 18),
-          suffixIcon: _search.isNotEmpty
-            ? IconButton(icon: const Icon(Icons.close, size: 16, color: _textLight),
-                onPressed: () => setState(() { _search = ''; _searchCtrl.clear(); }))
-            : null,
-          filled: true, fillColor: _bg,
-          contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide(color: _border)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: const BorderSide(color: _gold, width: 2)),
-        ),
-      ),
-    ]),
-  );
+  Widget _filterBar() => const SizedBox.shrink();
 
   // ─── Section Tabs ─────────────────────────────────────────────────────────
   Widget _sectionTabs() => Container(

@@ -290,8 +290,21 @@ class _BuyerViewShopPageState extends State<BuyerViewShopPage> {
         const SizedBox(height: 6),
         Row(mainAxisAlignment: MainAxisAlignment.center, children: [
           Icon(Icons.phone_outlined, color: Colors.white.withOpacity(0.6), size: 13),
-          const SizedBox(width: 5),
+          const SizedBox(width: 4),
           Text(_sellerPhone, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
+          const SizedBox(width: 12),
+          Icon(Icons.email_outlined, color: Colors.white.withOpacity(0.6), size: 13),
+          const SizedBox(width: 4),
+          Flexible(child: Text(widget.sellerEmail,
+            style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12),
+            overflow: TextOverflow.ellipsis)),
+        ]),
+      ] else ...[
+        const SizedBox(height: 6),
+        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+          Icon(Icons.email_outlined, color: Colors.white.withOpacity(0.6), size: 13),
+          const SizedBox(width: 5),
+          Text(widget.sellerEmail, style: TextStyle(color: Colors.white.withOpacity(0.7), fontSize: 12)),
         ]),
       ],
       // Rating stars
