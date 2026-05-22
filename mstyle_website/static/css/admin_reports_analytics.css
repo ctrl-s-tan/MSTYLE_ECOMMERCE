@@ -878,85 +878,10 @@
     border-color: rgba(212, 175, 55, 0.3);
 }
 
-/* Total Orders - Gold */
-.stat-card:nth-child(1)::before {
-    background: linear-gradient(90deg, #d4af37, #f4d03f);
-}
-
-.stat-card:nth-child(1):hover {
-    box-shadow: 0 20px 60px rgba(212, 175, 55, 0.2);
-    border-color: rgba(212, 175, 55, 0.3);
-}
-
-.stat-card:nth-child(1) .stat-icon {
-    background: linear-gradient(135deg, #d4af37, #f4d03f);
-    box-shadow: 0 8px 25px rgba(212, 175, 55, 0.3);
-}
-
-.stat-card:nth-child(1):hover .stat-icon {
-    box-shadow: 0 12px 35px rgba(212, 175, 55, 0.4);
-}
-
-/* Platform Commission - Green */
-.stat-card.stat-card-success::before {
-    background: linear-gradient(90deg, #27ae60, #2ecc71);
-}
-
-.stat-card.stat-card-success:hover {
-    box-shadow: 0 20px 60px rgba(39, 174, 96, 0.2);
-    border-color: rgba(39, 174, 96, 0.3);
-}
-
-.stat-card.stat-card-success .stat-icon {
-    background: linear-gradient(135deg, #27ae60, #229954);
-    box-shadow: 0 8px 25px rgba(39, 174, 96, 0.3);
-}
-
-.stat-card.stat-card-success:hover .stat-icon {
-    box-shadow: 0 12px 35px rgba(39, 174, 96, 0.4);
-}
-
-/* Total Users - Blue */
-.stat-card.stat-card-info::before {
-    background: linear-gradient(90deg, #3498db, #5dade2);
-}
-
-.stat-card.stat-card-info:hover {
-    box-shadow: 0 20px 60px rgba(52, 152, 219, 0.2);
-    border-color: rgba(52, 152, 219, 0.3);
-}
-
-.stat-card.stat-card-info .stat-icon {
-    background: linear-gradient(135deg, #3498db, #5dade2);
-    box-shadow: 0 8px 25px rgba(52, 152, 219, 0.3);
-}
-
-.stat-card.stat-card-info:hover .stat-icon {
-    box-shadow: 0 12px 35px rgba(52, 152, 219, 0.4);
-}
-
-/* Total Products - Orange/Warning */
-.stat-card.stat-card-warning::before {
-    background: linear-gradient(90deg, #f39c12, #f4d03f);
-}
-
-.stat-card.stat-card-warning:hover {
-    box-shadow: 0 20px 60px rgba(243, 156, 18, 0.2);
-    border-color: rgba(243, 156, 18, 0.3);
-}
-
-.stat-card.stat-card-warning .stat-icon {
-    background: linear-gradient(135deg, #f39c12, #e67e22);
-    box-shadow: 0 8px 25px rgba(243, 156, 18, 0.3);
-}
-
-.stat-card.stat-card-warning:hover .stat-icon {
-    box-shadow: 0 12px 35px rgba(243, 156, 18, 0.4);
-}
-
 .stat-icon {
     width: 80px;
     height: 80px;
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
     border-radius: 20px;
     display: flex;
     align-items: center;
@@ -965,33 +890,19 @@
     color: white;
     flex-shrink: 0;
     margin-bottom: 1.5rem;
+    box-shadow: 0 8px 25px rgba(44, 62, 80, 0.3);
     transition: all 0.3s ease;
     position: relative;
 }
 
 .stat-card:hover .stat-icon {
+    background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
     transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 12px 35px rgba(212, 175, 55, 0.4);
 }
 
-.stat-icon::after {
-    content: '';
-    position: absolute;
-    top: -50%;
-    left: -50%;
-    width: 200%;
-    height: 200%;
-    background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-    transform: rotate(45deg);
-    animation: shimmer 3s infinite;
-}
-
-@keyframes shimmer {
-    0% {
-        transform: translateX(-100%) translateY(-100%) rotate(45deg);
-    }
-    100% {
-        transform: translateX(100%) translateY(100%) rotate(45deg);
-    }
+.stat-card:hover .stat-icon i {
+    color: #1a1a1a;
 }
 
 .stat-value {
