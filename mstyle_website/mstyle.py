@@ -419,7 +419,13 @@ def get_user_name_from_session(default='User'):
 
 
 def _resolve_wishlist_user_id(email):
-    """Resolve a numeric user_id for the wishlist table from a user email."""
+    """Resolve a numeric user_id for the wishlist table from a user email.
+
+    Priority:
+    1. Supabase users.id  (primary — same as mobile app primary path)
+    2. Polynomial hash    (same fallback as mobile app Dart code)
+    3. MD5 hash           (legacy Flask fallback — kept for backward compat)
+    """
     import hashlib
     try:
         res = sb_admin.table('users').select('id').eq('email', email).limit(1).execute()
@@ -431,19 +437,58 @@ def _resolve_wishlist_user_id(email):
                 pass
     except Exception as e:
         print(f"_resolve_wishlist_user_id error: {e}")
-    # Fallback: deterministic hash of email
-    return int(hashlib.md5(email.lower().encode()).hexdigest()[:8], 16) & 0x7FFFFFFF
+    # Fallback 1: polynomial hash — matches mobile app Dart fallback exactly
+    # hash_id = (hash_id * 31 + byte) & 0x7FFFFFFF  (over lowercased UTF-8 bytes)
+    poly_id = 0
+    for byte in email.lower().encode('utf-8'):
+        poly_id = (poly_id * 31 + byte) & 0x7FFFFFFF
+    return poly_id
+
+
+def _resolve_all_wishlist_user_ids(email):
+    """Return all possible user_ids for this email (for cross-algorithm lookup)."""
+    import hashlib
+    ids = set()
+    # 1. Supabase users.id
+    try:
+        res = sb_admin.table('users').select('id').eq('email', email).limit(1).execute()
+        if res.data:
+            raw_id = res.data[0].get('id')
+            try:
+                ids.add(int(raw_id))
+            except (ValueError, TypeError):
+                pass
+    except Exception:
+        pass
+    # 2. Polynomial hash (mobile app Dart fallback)
+    poly_id = 0
+    for byte in email.lower().encode('utf-8'):
+        poly_id = (poly_id * 31 + byte) & 0x7FFFFFFF
+    ids.add(poly_id)
+    # 3. MD5 hash (legacy Flask fallback)
+    md5_id = int(hashlib.md5(email.lower().encode()).hexdigest()[:8], 16) & 0x7FFFFFFF
+    ids.add(md5_id)
+    return list(ids)
 
 
 def _get_wishlist_ids():
-    """Return a set of product IDs in the current user's wishlist."""
+    """Return a set of product IDs in the current user's wishlist.
+    Queries all possible user_ids so items added from the mobile app are included."""
     email = session.get('email')
     if not email:
         return set()
     try:
-        user_id = _resolve_wishlist_user_id(email)
-        res = sb_admin.table('wishlist').select('product_id').eq('user_id', user_id).execute()
-        return {str(r['product_id']) for r in (res.data or [])}
+        all_user_ids = _resolve_all_wishlist_user_ids(email)
+        product_ids = set()
+        for uid in all_user_ids:
+            try:
+                res = sb_admin.table('wishlist').select('product_id').eq('user_id', uid).execute()
+                for r in (res.data or []):
+                    if r.get('product_id'):
+                        product_ids.add(str(r['product_id']))
+            except Exception:
+                pass
+        return product_ids
     except Exception as e:
         print(f"_get_wishlist_ids error: {e}")
         return set()
@@ -11317,18 +11362,32 @@ def wishlist():
     wishlist_items = []
     promotional_products = []
     try:
-        user_id = _resolve_wishlist_user_id(user_email)
-        print(f'[wishlist] email={user_email} resolved user_id={user_id}')
-        wl_res = sb_admin.table('wishlist').select('product_id').eq('user_id', user_id).execute()
-        print(f'[wishlist] Supabase wishlist rows for user_id={user_id}: {wl_res.data}')
-        product_ids = [r['product_id'] for r in (wl_res.data or [])]
+        # Query with ALL possible user_ids (Supabase id, polynomial hash, MD5 hash)
+        # so items added from the mobile app are always found regardless of which
+        # hash algorithm was used at insert time.
+        all_user_ids = _resolve_all_wishlist_user_ids(user_email)
+        print(f'[wishlist] email={user_email} checking user_ids={all_user_ids}')
+
+        product_ids = set()
+        for uid in all_user_ids:
+            try:
+                wl_res = sb_admin.table('wishlist').select('product_id').eq('user_id', uid).execute()
+                for r in (wl_res.data or []):
+                    if r.get('product_id'):
+                        product_ids.add(r['product_id'])
+            except Exception as e:
+                print(f'[wishlist] uid={uid} query error: {e}')
+
+        print(f'[wishlist] found product_ids={product_ids}')
+
         if product_ids:
-            prod_res = sb_admin.table('products').select('*').in_('id', product_ids).execute()
+            prod_res = sb_admin.table('products').select('*').in_('id', list(product_ids)).execute()
             wishlist_items = prod_res.data or []
 
-            # Batch-fetch ratings from reviews table
+            # Batch-fetch ratings
             if wishlist_items:
-                rev_res = sb_admin.table('reviews').select('product_id, rating').in_('product_id', product_ids).execute()
+                pid_list = [p['id'] for p in wishlist_items]
+                rev_res = sb_admin.table('reviews').select('product_id, rating').in_('product_id', pid_list).execute()
                 from collections import defaultdict
                 rating_map = defaultdict(list)
                 for r in (rev_res.data or []):
@@ -11336,22 +11395,42 @@ def wishlist():
 
                 for p in wishlist_items:
                     ratings = rating_map.get(p['id'], [])
-                    if ratings:
-                        p['rating'] = round(sum(ratings) / len(ratings), 1)
-                        p['review_count'] = len(ratings)
+                    p['rating']       = round(sum(ratings) / len(ratings), 1) if ratings else (p.get('rating') or 0)
+                    p['review_count'] = len(ratings)
+                    p['price']        = float(p.get('price') or 0)
+                    p['quantity']     = int(p.get('quantity') or 0)
+                    p['sold']         = int(p.get('sold') or 0)
+
+                    # Enrich with active promotion data
+                    active_promo = get_active_promotions_for_product(
+                        p['id'], p.get('seller_email', ''), p.get('category', ''))
+                    if active_promo:
+                        promo_price, disc_amt = calculate_promotional_price(p['price'], active_promo)
+                        p['has_promotion']      = True
+                        p['promotional_price']  = float(promo_price)
+                        p['discount_amount']    = float(disc_amt)
+                        p['promotion_type']     = active_promo.get('type', '')
+                        p['promotion_code']     = active_promo.get('code', '')
+                        p['promotion_discount'] = float(active_promo.get('discount_value') or 0)
+                        p['discount_percentage'] = round((disc_amt / p['price']) * 100, 0) if p['price'] > 0 else 0
                     else:
-                        p['rating'] = p.get('rating') or 0
-                        p['review_count'] = 0
-                    # Normalize numeric fields
-                    p['price'] = float(p.get('price') or 0)
-                    p['quantity'] = int(p.get('quantity') or 0)
-                    p['sold'] = int(p.get('sold') or 0)
+                        p['has_promotion']      = False
+                        p['promotional_price']  = p['price']
+                        p['discount_amount']    = 0
+                        p['promotion_type']     = None
+                        p['promotion_code']     = ''
+                        p['promotion_discount'] = 0
+                        p['discount_percentage'] = 0
+
         promotional_products = get_promotional_products()
     except Exception as e:
         import traceback; traceback.print_exc()
-        print(f'Error in wishlist route: {e}')
-    return render_template('wishlist.html', wishlist_items=wishlist_items,
-                           user_name=user_name, user_email=user_email,
+        print(f'[wishlist] error: {e}')
+
+    return render_template('wishlist.html',
+                           wishlist_items=wishlist_items,
+                           user_name=user_name,
+                           user_email=user_email,
                            promotional_products=promotional_products,
                            wishlist_product_ids={str(item['id']) for item in wishlist_items})
 

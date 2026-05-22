@@ -28,18 +28,36 @@ class BuyerWishlistPage extends StatefulWidget {
   State<BuyerWishlistPage> createState() => _BuyerWishlistPageState();
 }
 
-class _BuyerWishlistPageState extends State<BuyerWishlistPage> {
+class _BuyerWishlistPageState extends State<BuyerWishlistPage>
+    with WidgetsBindingObserver {
   bool _loading = true;
   List<Map<String, dynamic>> _items = [];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _loadWishlist();
   }
 
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  /// Refresh wishlist whenever the app comes back to the foreground
+  /// (e.g. user added an item on the website then switched back to the app).
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      _loadWishlist();
+    }
+  }
+
   Future<void> _loadWishlist() async {
-    setState(() => _loading = true);
+    // Only show full-screen spinner on first load, not on pull-to-refresh
+    if (_items.isEmpty) setState(() => _loading = true);
     try {
       final data = await BuyerService.getWishlist(widget.userEmail);
       if (mounted) setState(() { _items = data; _loading = false; });
@@ -101,42 +119,46 @@ class _BuyerWishlistPageState extends State<BuyerWishlistPage> {
       backgroundColor: _bg,
       body: _loading
         ? const Center(child: CircularProgressIndicator(color: _gold))
-        : CustomScrollView(
-            slivers: [
-              SliverAppBar(
-                pinned: true,
-                backgroundColor: _primary,
-                elevation: 6,
-                titleSpacing: 16,
-                leading: IconButton(
-                  icon: const Icon(Icons.arrow_back, color: Colors.white),
-                  onPressed: () => Navigator.pop(context),
+        : RefreshIndicator(
+            color: _gold,
+            onRefresh: _loadWishlist,
+            child: CustomScrollView(
+              slivers: [
+                SliverAppBar(
+                  pinned: true,
+                  backgroundColor: _primary,
+                  elevation: 6,
+                  titleSpacing: 16,
+                  leading: IconButton(
+                    icon: const Icon(Icons.arrow_back, color: Colors.white),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                  title: const Text('My Wishlist',
+                    style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
                 ),
-                title: const Text('My Wishlist',
-                  style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.w700)),
-              ),
-              if (_items.isEmpty)
-                SliverFillRemaining(child: _emptyState())
-              else
-                SliverPadding(
-                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
-                  sliver: SliverGrid(
-                    delegate: SliverChildBuilderDelegate(
-                      (_, i) => ProductCard(
-                        product: _toProductMap(_items[i]),
-                        userEmail: widget.userEmail,
-                        isInWishlist: true,
-                        onWishlistToggle: () => _removeItem(_items[i]),
+                if (_items.isEmpty)
+                  SliverFillRemaining(child: _emptyState())
+                else
+                  SliverPadding(
+                    padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+                    sliver: SliverGrid(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) => ProductCard(
+                          product: _toProductMap(_items[i]),
+                          userEmail: widget.userEmail,
+                          isInWishlist: true,
+                          onWishlistToggle: () => _removeItem(_items[i]),
+                        ),
+                        childCount: _items.length,
                       ),
-                      childCount: _items.length,
-                    ),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.68,
+                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        crossAxisCount: 2, crossAxisSpacing: 12, mainAxisSpacing: 12, childAspectRatio: 0.68,
+                      ),
                     ),
                   ),
-                ),
-              const SliverToBoxAdapter(child: SizedBox(height: 24)),
-            ],
+                const SliverToBoxAdapter(child: SizedBox(height: 24)),
+              ],
+            ),
           ),
     );
   }
