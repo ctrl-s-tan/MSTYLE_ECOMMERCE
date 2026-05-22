@@ -1,4 +1,4 @@
-/* Admin Panel CSS - Header Layout Style */
+﻿/* Admin Panel CSS - Header Layout Style */
 :root {
     --primary-color: #2c3e50;
     --secondary-color: #f8f9fa;
@@ -1753,7 +1753,7 @@ body:not(.loaded)::after {
 }
 
 .table-container th {
-    background: var(--premium-gradient);
+    background: #2c3e50;
     color: white;
     font-weight: 600;
     letter-spacing: 0.3px;
@@ -1987,7 +1987,7 @@ body:not(.loaded)::after {
 }
 
 .users-table th {
-    background: var(--premium-gradient);
+    background: #2c3e50;
     color: white;
     padding: 1rem;
     text-align: left;
@@ -2741,4 +2741,55 @@ s Section */
     .chart-container {
         height: 250px;
     }
+}
+
+
+/* ═══════════════════════════════════════════════════════════════════
+   UNIVERSAL TABLE HEADER — matches seller products table design
+   Applies to every table across the entire MStyle system
+═══════════════════════════════════════════════════════════════════ */
+table thead,
+table thead tr,
+.users-table thead,
+.products-table thead,
+.issues-table thead,
+.earnings-table thead,
+.variants-table thead,
+#variantModal .variants-table thead {
+    background: #2c3e50 !important;
+    color: white !important;
+}
+
+table thead th,
+table th,
+.users-table th,
+.products-table th,
+.issues-table th,
+.earnings-table th,
+.table thead th,
+.table-container th,
+.variants-table th,
+#variantModal .variants-table th {
+    background: #2c3e50 !important;
+    color: white !important;
+    padding: 1rem !important;
+    text-align: left !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0.3px !important;
+    border-bottom: 2px solid #d4af37 !important;
+    white-space: nowrap !important;
+}
+
+table thead th i,
+table th i,
+.users-table th i,
+.products-table th i,
+.issues-table th i,
+.earnings-table th i,
+.table thead th i,
+.table-container th i,
+.variants-table th i {
+    color: #d4af37 !important;
+    margin-right: 0.4rem !important;
 }

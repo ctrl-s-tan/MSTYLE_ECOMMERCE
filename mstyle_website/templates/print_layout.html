@@ -1,63 +1,75 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
-    <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/MStyle Logos/MStyle_logo1.png') }}">
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>M'STYLE Admin Analytics Report - Print</title>
+    <title>MStyle — Admin Analytics Report</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/print_layout.css') }}">
 </head>
 <body>
-    <div class="print-container">
-        <!-- Header -->
-        <div class="print-header">
-            <div class="logo-section">
-                <h1>M'STYLE</h1>
-                <p class="tagline">Admin Analytics Report</p>
-            </div>
-            <div class="report-info">
-                <p><strong>Generated:</strong> <span id="printDate"></span></p>
-                <p><strong>Report Type:</strong> <span id="reportType"></span></p>
-            </div>
-        </div>
+<div class="report-page">
 
-        <!-- Summary Stats -->
-        <div class="summary-section" id="summarySection">
-            <h2>Summary Statistics</h2>
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <span class="stat-label">Total Orders:</span>
-                    <span class="stat-value" id="printTotalOrders">0</span>
+    <!-- ═══ REPORT HEADER (replaces cover + summary — no page break) ═══ -->
+    <div class="report-header">
+        <div class="rh-top-bar"></div>
+        <div class="rh-body">
+            <div class="rh-left">
+                <div class="rh-brand">
+                    <div class="rh-logo"><span>M</span></div>
+                    <div>
+                        <div class="rh-brand-name">M'STYLE</div>
+                        <div class="rh-brand-sub">E-Commerce Platform</div>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <span class="stat-label">Platform Commission:</span>
-                    <span class="stat-value" id="printPlatformCommission">₱0.00</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Total Revenue:</span>
-                    <span class="stat-value" id="printTotalRevenue">₱0.00</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Total Users:</span>
-                    <span class="stat-value" id="printTotalUsers">0</span>
-                </div>
-                <div class="stat-item">
-                    <span class="stat-label">Total Products:</span>
-                    <span class="stat-value" id="printTotalProducts">0</span>
-                </div>
+                <div class="rh-title">Admin Analytics Report</div>
+                <div class="rh-subtitle" id="coverReportType">Complete Analytics Report</div>
+            </div>
+            <div class="rh-right">
+                <div class="rh-meta-row"><span class="rh-meta-label">Generated</span><span class="rh-meta-value" id="coverDate">—</span></div>
+                <div class="rh-meta-row"><span class="rh-meta-label">Prepared By</span><span class="rh-meta-value">Admin</span></div>
+                <div class="rh-meta-row"><span class="rh-meta-label">Classification</span><span class="rh-meta-value rh-confidential">Confidential</span></div>
             </div>
         </div>
-
-        <!-- Content Sections -->
-        <div id="printContent"></div>
-
-        <!-- Footer -->
-        <div class="print-footer">
-            <p>M'STYLE E-Commerce Platform | Confidential Report</p>
-            <p>Page <span class="page-number"></span></p>
+        <!-- KPI strip -->
+        <div class="kpi-strip">
+            <div class="kpi-item">
+                <div class="kpi-label">Total Orders</div>
+                <div class="kpi-value" id="printTotalOrders">0</div>
+            </div>
+            <div class="kpi-sep"></div>
+            <div class="kpi-item">
+                <div class="kpi-label">Total Revenue</div>
+                <div class="kpi-value" id="printTotalRevenue">&#8369;0.00</div>
+            </div>
+            <div class="kpi-sep"></div>
+            <div class="kpi-item">
+                <div class="kpi-label">Platform Commission</div>
+                <div class="kpi-value" id="printPlatformCommission">&#8369;0.00</div>
+            </div>
+            <div class="kpi-sep"></div>
+            <div class="kpi-item">
+                <div class="kpi-label">Total Users</div>
+                <div class="kpi-value" id="printTotalUsers">0</div>
+            </div>
+            <div class="kpi-sep"></div>
+            <div class="kpi-item">
+                <div class="kpi-label">Total Products</div>
+                <div class="kpi-value" id="printTotalProducts">0</div>
+            </div>
         </div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/print_layout.js') }}"></script>
+    <!-- ═══ DATA SECTIONS ════════════════════════════════════════════════ -->
+    <div id="printContent"></div>
+
+    <!-- ═══ DOCUMENT FOOTER ══════════════════════════════════════════════ -->
+    <div class="doc-footer">
+        <span>MStyle E-Commerce Platform &mdash; Admin Analytics Report</span>
+        <span class="confidential-tag">Confidential &mdash; Internal Use Only</span>
+        <span id="docFooterDate">—</span>
+    </div>
+
+</div>
+<script src="{{ url_for('static', filename='js/print_layout.js') }}"></script>
 </body>
 </html>

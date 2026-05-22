@@ -553,3 +553,31 @@ body {
     .order-seller-info-inline .seller-buttons { flex-direction:column; width:100%; }
     .btn-chat-inline, .btn-view-shop-inline { width:100%; justify-content:center; }
 }
+
+/* ═══════════════════════════════════════════════════════════════════
+   UNIVERSAL TABLE HEADER — matches seller products table design
+═══════════════════════════════════════════════════════════════════ */
+table thead,
+table thead tr {
+    background: #2c3e50 !important;
+    color: white !important;
+}
+
+table thead th,
+table th {
+    background: #2c3e50 !important;
+    color: white !important;
+    padding: 1rem !important;
+    text-align: left !important;
+    font-weight: 600 !important;
+    font-size: 0.85rem !important;
+    letter-spacing: 0.3px !important;
+    border-bottom: 2px solid #d4af37 !important;
+    white-space: nowrap !important;
+}
+
+table thead th i,
+table th i {
+    color: #d4af37 !important;
+    margin-right: 0.4rem !important;
+}

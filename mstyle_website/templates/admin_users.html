@@ -37,21 +37,21 @@
                 <div class="stat-value">{{ total_users }}</div>
                 <div class="stat-label">Total Users</div>
             </div>
-            <div class="stat-card stat-card-buyer">
+            <div class="stat-card">
                 <div class="stat-icon">
                     <i class="fas fa-user-tag"></i>
                 </div>
                 <div class="stat-value">{{ buyer_count }}</div>
                 <div class="stat-label">Buyers</div>
             </div>
-            <div class="stat-card stat-card-seller">
+            <div class="stat-card">
                 <div class="stat-icon">
                     <i class="fas fa-store"></i>
                 </div>
                 <div class="stat-value">{{ seller_count }}</div>
                 <div class="stat-label">Sellers</div>
             </div>
-            <div class="stat-card stat-card-rider">
+            <div class="stat-card">
                 <div class="stat-icon">
                     <i class="fas fa-motorcycle"></i>
                 </div>
@@ -1481,7 +1481,7 @@
         .stat-icon {
             width: 80px;
             height: 80px;
-            background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
             border-radius: 20px;
             display: flex;
             align-items: center;
@@ -1490,35 +1490,19 @@
             color: white;
             flex-shrink: 0;
             margin-bottom: 1.5rem;
-            box-shadow: 0 8px 25px rgba(212, 175, 55, 0.3);
+            box-shadow: 0 8px 25px rgba(44, 62, 80, 0.3);
             transition: all 0.3s ease;
             position: relative;
         }
 
         .stat-card:hover .stat-icon {
+            background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
             transform: scale(1.1) rotate(5deg);
             box-shadow: 0 12px 35px rgba(212, 175, 55, 0.4);
         }
 
-        .stat-icon::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: linear-gradient(45deg, transparent, rgba(255, 255, 255, 0.3), transparent);
-            transform: rotate(45deg);
-            animation: shimmer 3s infinite;
-        }
-
-        @keyframes shimmer {
-            0% {
-                transform: translateX(-100%) translateY(-100%) rotate(45deg);
-            }
-            100% {
-                transform: translateX(100%) translateY(100%) rotate(45deg);
-            }
+        .stat-card:hover .stat-icon i {
+            color: #1a1a1a;
         }
 
         .stat-value {
@@ -1527,10 +1511,6 @@
             color: var(--primary-color);
             margin: 0 0 0.5rem 0;
             line-height: 1;
-            background: linear-gradient(135deg, var(--primary-color), #34495e);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
         }
 
         .stat-label {
@@ -1540,84 +1520,6 @@
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.5px;
-        }
-
-        /* Buyer Stat Card - Cyan/Teal color matching buyer badge */
-        .stat-card-buyer::before {
-            background: linear-gradient(90deg, #17a2b8 0%, #138496 100%);
-        }
-
-        .stat-card-buyer:hover {
-            box-shadow: 0 20px 60px rgba(23, 162, 184, 0.2);
-            border-color: rgba(23, 162, 184, 0.3);
-        }
-
-        .stat-card-buyer .stat-icon {
-            background: linear-gradient(135deg, #17a2b8 0%, #138496 100%);
-            box-shadow: 0 8px 25px rgba(23, 162, 184, 0.3);
-        }
-
-        .stat-card-buyer:hover .stat-icon {
-            box-shadow: 0 12px 35px rgba(23, 162, 184, 0.4);
-        }
-
-        .stat-card-buyer .stat-value {
-            background: linear-gradient(135deg, #17a2b8, #138496);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        /* Seller Stat Card - Green color matching seller badge */
-        .stat-card-seller::before {
-            background: linear-gradient(90deg, #28a745 0%, #218838 100%);
-        }
-
-        .stat-card-seller:hover {
-            box-shadow: 0 20px 60px rgba(40, 167, 69, 0.2);
-            border-color: rgba(40, 167, 69, 0.3);
-        }
-
-        .stat-card-seller .stat-icon {
-            background: linear-gradient(135deg, #28a745 0%, #218838 100%);
-            box-shadow: 0 8px 25px rgba(40, 167, 69, 0.3);
-        }
-
-        .stat-card-seller:hover .stat-icon {
-            box-shadow: 0 12px 35px rgba(40, 167, 69, 0.4);
-        }
-
-        .stat-card-seller .stat-value {
-            background: linear-gradient(135deg, #28a745, #218838);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-        }
-
-        /* Rider Stat Card - Yellow/Orange color matching rider badge */
-        .stat-card-rider::before {
-            background: linear-gradient(90deg, #ffc107 0%, #ff9800 100%);
-        }
-
-        .stat-card-rider:hover {
-            box-shadow: 0 20px 60px rgba(255, 193, 7, 0.2);
-            border-color: rgba(255, 193, 7, 0.3);
-        }
-
-        .stat-card-rider .stat-icon {
-            background: linear-gradient(135deg, #ffc107 0%, #ff9800 100%);
-            box-shadow: 0 8px 25px rgba(255, 193, 7, 0.3);
-        }
-
-        .stat-card-rider:hover .stat-icon {
-            box-shadow: 0 12px 35px rgba(255, 193, 7, 0.4);
-        }
-
-        .stat-card-rider .stat-value {
-            background: linear-gradient(135deg, #ffc107, #ff9800);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
         }
 
         /* Filter Section Styles - Matching Product Management */
