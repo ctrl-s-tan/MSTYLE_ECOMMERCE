@@ -43,62 +43,11 @@
     border-color: rgba(212, 175, 55, 0.3);
 }
 
-/* Total Orders - Gold */
-.stat-card:nth-child(1)::before {
-    background: linear-gradient(90deg, #d4af37, #f4d03f);
-}
-
-.stat-card:nth-child(1):hover {
-    box-shadow: 0 20px 60px rgba(212, 175, 55, 0.2);
-    border-color: rgba(212, 175, 55, 0.3);
-}
-
-.stat-card:nth-child(1) .stat-icon {
-    background: linear-gradient(135deg, #d4af37, #f4d03f);
-    box-shadow: 0 8px 25px rgba(212, 175, 55, 0.3);
-}
-
-.stat-card:nth-child(1):hover .stat-icon {
-    box-shadow: 0 12px 35px rgba(212, 175, 55, 0.4);
-}
-
-/* Pending Orders - Orange/Warning */
-.stat-card.stat-card-warning::before {
-    background: linear-gradient(90deg, #f39c12, #f4d03f);
-}
-
-.stat-card.stat-card-warning:hover {
-    box-shadow: 0 20px 60px rgba(243, 156, 18, 0.2);
-    border-color: rgba(243, 156, 18, 0.3);
-}
-
-.stat-card.stat-card-warning .stat-icon {
-    background: linear-gradient(135deg, #f39c12, #e67e22);
-    box-shadow: 0 8px 25px rgba(243, 156, 18, 0.3);
-}
-
-.stat-card.stat-card-warning:hover .stat-icon {
-    box-shadow: 0 12px 35px rgba(243, 156, 18, 0.4);
-}
-
-/* Shipped Orders - Blue */
-.stat-card.stat-card-info::before {
-    background: linear-gradient(90deg, #3498db, #5dade2);
-}
-
-.stat-card.stat-card-info:hover {
-    box-shadow: 0 20px 60px rgba(52, 152, 219, 0.2);
-    border-color: rgba(52, 152, 219, 0.3);
-}
-
-.stat-card.stat-card-info .stat-icon {
-    background: linear-gradient(135deg, #3498db, #5dade2);
-    box-shadow: 0 8px 25px rgba(52, 152, 219, 0.3);
-}
-
-.stat-card.stat-card-info:hover .stat-icon {
-    box-shadow: 0 12px 35px rgba(52, 152, 219, 0.4);
-}
+.stat-icon {
+    width: 70px;
+    height: 70px;
+    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+    box-shadow: 0 8px 25px rgba(44, 62, 80, 0.3);
 
 /* Delivered Orders - Purple */
 .stat-card.stat-card-delivered::before {
@@ -110,56 +59,15 @@
     border-color: rgba(155, 89, 182, 0.3);
 }
 
-.stat-card.stat-card-delivered .stat-icon {
-    background: linear-gradient(135deg, #9b59b6, #8e44ad);
-    box-shadow: 0 8px 25px rgba(155, 89, 182, 0.3);
+.stat-card:hover .stat-icon {
+    background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
+    transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 12px 35px rgba(212, 175, 55, 0.4);
 }
 
-.stat-card.stat-card-delivered:hover .stat-icon {
-    box-shadow: 0 12px 35px rgba(155, 89, 182, 0.4);
+.stat-card:hover .stat-icon i {
+    color: #1a1a1a;
 }
-
-/* Completed Orders - Green */
-.stat-card.stat-card-success::before {
-    background: linear-gradient(90deg, #27ae60, #2ecc71);
-}
-
-.stat-card.stat-card-success:hover {
-    box-shadow: 0 20px 60px rgba(39, 174, 96, 0.2);
-    border-color: rgba(39, 174, 96, 0.3);
-}
-
-.stat-card.stat-card-success .stat-icon {
-    background: linear-gradient(135deg, #27ae60, #229954);
-    box-shadow: 0 8px 25px rgba(39, 174, 96, 0.3);
-}
-
-.stat-card.stat-card-success:hover .stat-icon {
-    box-shadow: 0 12px 35px rgba(39, 174, 96, 0.4);
-}
-
-/* Cancelled Orders - Red */
-.stat-card.stat-card-danger::before {
-    background: linear-gradient(90deg, #e74c3c, #c0392b);
-}
-
-.stat-card.stat-card-danger:hover {
-    box-shadow: 0 20px 60px rgba(231, 76, 60, 0.2);
-    border-color: rgba(231, 76, 60, 0.3);
-}
-
-.stat-card.stat-card-danger .stat-icon {
-    background: linear-gradient(135deg, #e74c3c, #c0392b);
-    box-shadow: 0 8px 25px rgba(231, 76, 60, 0.3);
-}
-
-.stat-card.stat-card-danger:hover .stat-icon {
-    box-shadow: 0 12px 35px rgba(231, 76, 60, 0.4);
-}
-
-.stat-icon {
-    width: 70px;
-    height: 70px;
     border-radius: 20px;
     display: flex;
     align-items: center;
@@ -173,7 +81,13 @@
 }
 
 .stat-card:hover .stat-icon {
+    background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
     transform: scale(1.1) rotate(5deg);
+    box-shadow: 0 12px 35px rgba(212, 175, 55, 0.4);
+}
+
+.stat-card:hover .stat-icon i {
+    color: #1a1a1a;
 }
 
 .stat-icon::after {
