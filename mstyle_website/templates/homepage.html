@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <link rel="icon" type="image/png" href="{{ url_for('static', filename='images/MStyle Logos/MStyle_logo1.png') }}">
     <meta charset="UTF-8">
@@ -8,9 +7,9 @@
     <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
     <meta http-equiv="Pragma" content="no-cache">
     <meta http-equiv="Expires" content="0">
-    <title>Homepage</title>
+    <title>MStyle — Premium Men's Fashion</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/homepg_header.css') }}">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/homepage.css') }}?v=4">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/homepage.css') }}?v=20">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/color_size_modal.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/pagination.css') }}">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/success_message_cartmodal.css') }}">
@@ -18,1059 +17,237 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/floating_chat.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.2/font/bootstrap-icons.min.css">
-    <script src="{{ url_for('static', filename='js/color_size_modal.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/logout.js') }}"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/buyer_responsive.css') }}">
 </head>
-
 <body>
-    {% include 'homepg_header.html' %}
+{% include 'homepg_header.html' %}
 
-    <!-- Hero Section — matches mobile home_page.dart _heroSection() exactly -->
-    <!-- Full-width product image fills background; left-heavy dark gradient overlay; text on top -->
-    <section class="mhero">
-        <div class="mhero-bg-carousel">
-            {% if promotional_products %}
+<!-- HERO -->
+<section class="hero">
+    <div class="hero-carousel">
+        {% if promotional_products %}
             {% for product in promotional_products[:4] %}
-            {% set images = product.image.split(',') if product.image else [] %}
-            <div class="mhero-bg-slide {% if loop.first %}active{% endif %}">
-                {% if images and images[0].strip() %}
-                <img src="{{ images[0].strip()|product_img }}" alt="{{ product.name }}" class="mhero-bg-img">
-                {% endif %}
-                <!-- Promo badge on image -->
-                {% if product.promotion_type %}
-                <div class="mhero-promo-badge">
-                    {% if product.promotion_type == 'percentage' %}{{ product.promotion_discount|int }}% OFF
-                    {% elif product.promotion_type == 'fixed' %}₱{{ product.promotion_discount|int }} OFF
-                    {% elif product.promotion_type == 'buy_one_get_one' %}BOGO
-                    {% elif product.promotion_type == 'free_shipping' %}FREE SHIP
-                    {% else %}SALE{% endif %}
+                {% set images = product.image.split(',') if product.image else [] %}
+                <div class="hero-slide {% if loop.first %}active{% endif %}">
+                    {% if images and images[0].strip() %}
+                        <img src="{{ images[0].strip()|product_img }}" alt="{{ product.name }}" class="hero-slide-img">
+                    {% endif %}
+                    {% if product.promotion_type %}
+                        <div class="hero-promo-tag">
+                            {% if product.promotion_type == 'percentage' %}{{ product.promotion_discount|int }}% OFF
+                            {% elif product.promotion_type == 'fixed' %}&#8369;{{ product.promotion_discount|int }} OFF
+                            {% elif product.promotion_type == 'buy_one_get_one' %}BOGO
+                            {% elif product.promotion_type == 'free_shipping' %}FREE SHIP
+                            {% else %}SALE{% endif %}
+                        </div>
+                    {% endif %}
                 </div>
-                {% endif %}
-            </div>
             {% endfor %}
-            {% else %}
-            <div class="mhero-bg-slide active mhero-bg-fallback"></div>
+        {% else %}
+            <div class="hero-slide active hero-slide-fallback"></div>
+        {% endif %}
+    </div>
+    <div class="hero-overlay"></div>
+    <div class="hero-content">
+        <span class="hero-eyebrow">New Collection 2025</span>
+        <h1 class="hero-heading">
+            <span class="hero-heading-light">Craft Your</span>
+            <span class="hero-heading-gold" id="hero-dynamic-text">Signature Style</span>
+        </h1>
+        <p class="hero-desc">Premium menswear for the modern man.</p>
+        <div class="hero-actions">
+            <a href="#featured-products" class="btn-hero-primary">Shop Now <i class="fas fa-arrow-right"></i></a>
+            <a href="/suits" class="btn-hero-ghost">Explore Suits</a>
+        </div>
+        <div class="hero-trust">
+            <span><i class="fas fa-shield-alt"></i> Secure Checkout</span>
+            <span><i class="fas fa-truck"></i> Fast Delivery</span>
+            <span><i class="fas fa-undo"></i> Easy Returns</span>
+        </div>
+    </div>
+    {% if promotional_products and promotional_products|length > 1 %}
+    <div class="hero-dots">
+        {% for product in promotional_products[:4] %}
+        <button class="hero-dot {% if loop.first %}active{% endif %}" onclick="heroGo({{ loop.index0 }})" aria-label="Slide {{ loop.index }}"></button>
+        {% endfor %}
+    </div>
+    {% endif %}
+</section>
+
+<!-- TRUST BAR -->
+<div class="trust-bar">
+    <div class="trust-bar-inner">
+        <div class="trust-item"><i class="fas fa-shipping-fast"></i><div><strong>Free Shipping</strong><span>On orders over &#8369;1,500</span></div></div>
+        <div class="trust-divider"></div>
+        <div class="trust-item"><i class="fas fa-medal"></i><div><strong>Premium Quality</strong><span>Curated collections</span></div></div>
+        <div class="trust-divider"></div>
+        <div class="trust-item"><i class="fas fa-headset"></i><div><strong>24/7 Support</strong><span>Always here to help</span></div></div>
+        <div class="trust-divider"></div>
+        <div class="trust-item"><i class="fas fa-lock"></i><div><strong>Secure Payment</strong><span>100% protected</span></div></div>
+    </div>
+</div>
+
+<!-- CATEGORIES -->
+<section class="categories-section">
+    <div class="section-header">
+        <h2 class="section-title">Shop by Category</h2>
+        <p class="section-sub">Find your perfect style</p>
+    </div>
+    <div class="categories-grid">
+        <a href="/suits" class="cat-tile">
+            <div class="cat-tile-icon"><i class="fas fa-user-tie"></i></div>
+            <span class="cat-tile-name">Suits &amp; Blazers</span>
+            <i class="fas fa-chevron-right cat-tile-arrow"></i>
+        </a>
+        <a href="/casual" class="cat-tile">
+            <div class="cat-tile-icon"><i class="fas fa-tshirt"></i></div>
+            <span class="cat-tile-name">Casual Wear</span>
+            <i class="fas fa-chevron-right cat-tile-arrow"></i>
+        </a>
+        <a href="/outerwear" class="cat-tile">
+            <div class="cat-tile-icon"><i class="fas fa-vest"></i></div>
+            <span class="cat-tile-name">Outerwear</span>
+            <i class="fas fa-chevron-right cat-tile-arrow"></i>
+        </a>
+        <a href="/activewear" class="cat-tile">
+            <div class="cat-tile-icon"><i class="fas fa-running"></i></div>
+            <span class="cat-tile-name">Activewear</span>
+            <i class="fas fa-chevron-right cat-tile-arrow"></i>
+        </a>
+        <a href="/shoes" class="cat-tile">
+            <div class="cat-tile-icon"><i class="fas fa-shoe-prints"></i></div>
+            <span class="cat-tile-name">Shoes &amp; Accessories</span>
+            <i class="fas fa-chevron-right cat-tile-arrow"></i>
+        </a>
+        <a href="/grooming" class="cat-tile">
+            <div class="cat-tile-icon"><i class="fas fa-cut"></i></div>
+            <span class="cat-tile-name">Grooming</span>
+            <i class="fas fa-chevron-right cat-tile-arrow"></i>
+        </a>
+    </div>
+</section>
+
+<!-- FEATURED PRODUCTS -->
+<section id="featured-products" class="products-section">
+    <div class="section-header">
+        <h2 class="section-title">Featured Products</h2>
+        <p class="section-sub">Handpicked for the modern gentleman</p>
+    </div>
+    {% set products = all_products %}
+    {% include 'product_grid.html' %}
+    {% if all_products and total_pages > 1 %}
+    <div class="pagination-container">
+        <div class="pagination">
+            {% if current_page > 1 %}
+            <a href="?page={{ current_page - 1 }}" class="pagination-btn prev-btn"><i class="fas fa-chevron-left"></i> Previous</a>
+            {% endif %}
+            <div class="page-numbers">
+                {% for page_num in range(1, total_pages + 1) %}
+                    {% if page_num == current_page %}
+                        <span class="page-number active">{{ page_num }}</span>
+                    {% elif page_num == 1 or page_num == total_pages or (page_num >= current_page - 2 and page_num <= current_page + 2) %}
+                        <a href="?page={{ page_num }}" class="page-number">{{ page_num }}</a>
+                    {% elif page_num == current_page - 3 or page_num == current_page + 3 %}
+                        <span class="page-ellipsis">...</span>
+                    {% endif %}
+                {% endfor %}
+            </div>
+            {% if current_page < total_pages %}
+            <a href="?page={{ current_page + 1 }}" class="pagination-btn next-btn">Next <i class="fas fa-chevron-right"></i></a>
             {% endif %}
         </div>
+    </div>
+    {% endif %}
+</section>
 
-        <div class="mhero-overlay"></div>
-
-        <div class="mhero-content">
-            <div class="mhero-badge">NEW COLLECTION</div>
-            <p class="mhero-title-top">Craft Your</p>
-            <h1 class="mhero-highlight" id="mhero-highlight">Signature Style</h1>
-            <div class="mhero-bar"></div>
-            <p class="mhero-sub">Premium menswear for the modern man.</p>
-            <div class="mhero-btns">
-                <a href="#featured-products" class="mhero-btn-primary">
-                    Shop Now <i class="fas fa-arrow-right"></i>
-                </a>
-            </div>
+<!-- SELLER CTA -->
+<section class="seller-cta-section">
+    <div class="seller-cta-inner">
+        <div class="seller-cta-text">
+            <span class="seller-cta-eyebrow"><i class="fas fa-store"></i> Become a Seller</span>
+            <h2>Grow Your Fashion Business</h2>
+            <p>Join our network of premium sellers. Reach thousands of style-conscious customers and scale your brand with our tools and support.</p>
+            <ul class="seller-perks">
+                <li><i class="fas fa-check-circle"></i> Analytics dashboard</li>
+                <li><i class="fas fa-check-circle"></i> Premium customer base</li>
+                <li><i class="fas fa-check-circle"></i> Dedicated support</li>
+            </ul>
+            <a href="/seller_register" class="btn-seller-cta">Start Selling <i class="fas fa-arrow-right"></i></a>
         </div>
-
-        {% if promotional_products and promotional_products|length > 1 %}
-        <div class="mhero-dots">
-            {% for product in promotional_products[:4] %}
-            <span class="mhero-dot {% if loop.first %}active{% endif %}"
-                  onclick="mheroGo({{ loop.index0 }})"></span>
-            {% endfor %}
+        <div class="seller-cta-visual">
+            <div class="seller-stat-card"><i class="fas fa-chart-line"></i><div><strong>+40%</strong><span>Avg. monthly growth</span></div></div>
+            <div class="seller-stat-card"><i class="fas fa-users"></i><div><strong>10K+</strong><span>Active buyers</span></div></div>
+            <div class="seller-stat-card"><i class="fas fa-star"></i><div><strong>4.8&#9733;</strong><span>Seller satisfaction</span></div></div>
         </div>
-        {% endif %}
-    </section>
+    </div>
+</section>
 
-    <style>
-    .mhero {
-        position: relative; height: 520px; overflow: hidden;
-        background: linear-gradient(135deg, #1a1a1a, #2c3e50);
-    }
-    .mhero-bg-carousel { position: absolute; inset: 0; }
-    .mhero-bg-slide { position: absolute; inset: 0; opacity: 0; transition: opacity 0.6s ease; display: flex; align-items: stretch; justify-content: flex-end; }
-    .mhero-bg-slide.active { opacity: 1; }
-    .mhero-bg-img { height: 100%; width: auto; max-width: 55%; object-fit: contain; object-position: center center; display: block; }
-    .mhero-bg-fallback { background: linear-gradient(135deg, #0d1b2a, #1b2a3b); }
-    .mhero-overlay {
-        position: absolute; inset: 0; z-index: 1;
-        background: linear-gradient(to right,
-            rgba(26,26,26,0.97) 0%,
-            rgba(26,26,26,0.88) 45%,
-            rgba(26,26,26,0.55) 70%,
-            rgba(26,26,26,0.10) 100%);
-    }
-    .mhero-content {
-        position: absolute; left: 0; top: 0; bottom: 0;
-        width: 55%; padding: 0 32px 48px 32px;
-        display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
-        text-align: left; z-index: 2;
-    }
-    .mhero-badge {
-        display: inline-block;
-        background: linear-gradient(135deg, #d4af37, #f4d03f);
-        color: #1a1a1a; font-size: 9px; font-weight: 900; letter-spacing: 1.5px;
-        padding: 5px 14px; border-radius: 20px; width: fit-content;
-        margin-bottom: 16px; box-shadow: 0 3px 10px rgba(212,175,55,0.4);
-    }
-    .mhero-title-top {
-        color: rgba(255,255,255,0.7); font-size: 15px; font-weight: 400;
-        letter-spacing: 0.3px; margin: 0 0 6px;
-    }
-    .mhero-highlight {
-        background: linear-gradient(135deg, #d4af37, #f4d03f);
-        -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
-        font-size: 38px; font-weight: 900; letter-spacing: -0.5px; line-height: 1.1;
-        margin: 0 0 14px; min-height: 46px;
-    }
-    .mhero-bar {
-        width: 44px; height: 3px;
-        background: linear-gradient(135deg, #d4af37, #f4d03f);
-        border-radius: 2px; margin-bottom: 14px;
-    }
-    .mhero-sub {
-        color: rgba(255,255,255,0.6); font-size: 13px; line-height: 1.6;
-        margin: 0 0 24px; max-width: 340px;
-    }
-    .mhero-btns { display: flex; gap: 12px; flex-wrap: wrap; }
-    .mhero-btn-primary {
-        display: inline-flex; align-items: center; gap: 7px;
-        background: linear-gradient(135deg, #d4af37, #f4d03f);
-        color: #1a1a1a; font-size: 13px; font-weight: 800; letter-spacing: 0.5px;
-        padding: 11px 22px; border-radius: 30px; text-decoration: none;
-        box-shadow: 0 4px 14px rgba(212,175,55,0.45);
-        transition: transform 0.2s, box-shadow 0.2s;
-    }
-    .mhero-btn-primary:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(212,175,55,0.55); text-decoration: none; color: #1a1a1a; }
-    .mhero-btn-secondary {
-        display: inline-flex; align-items: center; gap: 7px;
-        border: 1.5px solid rgba(255,255,255,0.38); color: rgba(255,255,255,0.9);
-        font-size: 13px; font-weight: 800; letter-spacing: 0.5px;
-        padding: 11px 20px; border-radius: 30px; text-decoration: none;
-        transition: border-color 0.2s, color 0.2s;
-    }
-    .mhero-btn-secondary:hover { border-color: #d4af37; color: #d4af37; text-decoration: none; }
-    .mhero-dots {
-        position: absolute; bottom: 18px; left: 50%; transform: translateX(-50%);
-        display: flex; gap: 6px; z-index: 3;
-    }
-    .mhero-dot {
-        width: 8px; height: 8px; border-radius: 4px;
-        background: rgba(255,255,255,0.38); cursor: pointer; transition: all 0.3s;
-    }
-    .mhero-dot.active { width: 24px; background: #d4af37; box-shadow: 0 0 8px rgba(212,175,55,0.6); }
-    .mhero-promo-badge {
-        position: absolute; top: 20px; right: 20px; z-index: 4;
-        background: linear-gradient(135deg, #d4af37, #f4d03f);
-        color: #1a1a1a; font-size: 11px; font-weight: 900; letter-spacing: 0.8px;
-        padding: 6px 14px; border-radius: 16px;
-        box-shadow: 0 3px 10px rgba(212,175,55,0.5);
-    }
-    @media (max-width: 1024px) {
-        .mhero { height: 460px; }
-        .mhero-highlight { font-size: 32px; }
-        .mhero-bg-img { height: 100%; width: auto; max-width: 55%; object-fit: contain; object-position: center center; display: block; }
-    }
-    @media (max-width: 768px) {
-        .mhero { height: 360px; }
-        .mhero-content {
-        position: absolute; left: 0; top: 0; bottom: 0;
-        width: 55%; padding: 0 32px 48px 32px;
-        display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
-        text-align: left; z-index: 2;
-    }
-        .mhero-highlight { font-size: 26px; }
-        .mhero-sub { font-size: 12px; }
-        .mhero-bg-img { height: 100%; width: auto; max-width: 55%; object-fit: contain; object-position: center center; display: block; }
-    }
-    @media (max-width: 480px) {
-        .mhero { height: 300px; }
-        .mhero-content {
-        position: absolute; left: 0; top: 0; bottom: 0;
-        width: 55%; padding: 0 32px 48px 32px;
-        display: flex; flex-direction: column; justify-content: center; align-items: flex-start;
-        text-align: left; z-index: 2;
-    }
-        .mhero-highlight { font-size: 20px; }
-        .mhero-btn-primary, .mhero-btn-secondary { font-size: 12px; padding: 9px 16px; }
-        .mhero-bg-img { height: 100%; width: auto; max-width: 55%; object-fit: contain; object-position: center center; display: block; }
-    }
-    </style>
+{% include 'footer.html' %}
+{% include 'success_message_cartmodal.html' %}
+{% include 'success_message_wishlistmodal.html' %}
+{% include 'chat_support.html' %}
 
-    <script>
-    (function() {
-        var _s = 0;
-        var _texts = ['Signature Style','Executive Look','Premium Fashion','Timeless Elegance','Modern Sophistication','Classic Appeal'];
-        var _ti = 0, _ci = 0, _typing = true;
-        function mheroGo(n) {
-            var slides = document.querySelectorAll('.mhero-bg-slide');
-            var dots   = document.querySelectorAll('.mhero-dot');
-            slides.forEach(function(s){ s.classList.remove('active'); });
-            dots.forEach(function(d){ d.classList.remove('active'); });
-            _s = n;
-            if (slides[n]) slides[n].classList.add('active');
-            if (dots[n])   dots[n].classList.add('active');
+<script>
+(function () {
+    var current = 0;
+    function heroGo(n) {
+        var slides = document.querySelectorAll('.hero-slide');
+        var dots = document.querySelectorAll('.hero-dot');
+        slides.forEach(function (s) { s.classList.remove('active'); });
+        dots.forEach(function (d) { d.classList.remove('active'); });
+        current = n;
+        if (slides[n]) slides[n].classList.add('active');
+        if (dots[n]) dots[n].classList.add('active');
+    }
+    window.heroGo = heroGo;
+
+    document.addEventListener('DOMContentLoaded', function () {
+        var slides = document.querySelectorAll('.hero-slide');
+        if (slides.length > 1) {
+            setInterval(function () { heroGo((current + 1) % slides.length); }, 4500);
         }
-        window.mheroGo = mheroGo;
-        document.addEventListener('DOMContentLoaded', function() {
-            var slides = document.querySelectorAll('.mhero-bg-slide');
-            if (slides.length > 1) setInterval(function(){ mheroGo((_s+1)%slides.length); }, 4000);
-            var el = document.getElementById('mhero-highlight');
-            if (!el) return;
-            function typeNext() {
-                var text = _texts[_ti];
-                if (_typing) {
-                    if (_ci < text.length) { el.textContent = text.substring(0,++_ci); setTimeout(typeNext,80); }
-                    else { _typing=false; setTimeout(typeNext,2200); }
-                } else {
-                    if (_ci > 0) { el.textContent = text.substring(0,--_ci); setTimeout(typeNext,40); }
-                    else { _ti=(_ti+1)%_texts.length; _typing=true; setTimeout(typeNext,400); }
-                }
-            }
-            setTimeout(typeNext, 800);
-        });
-    })();
-    </script>
-
-
-    <!-- Featured Categories — matches mobile app design -->
-    <section id="featured-categories" class="featured-categories">
-        <div class="products-header">
-            <h2>Premium Men's Categories</h2>
-        </div>
-
-        <div class="category-scroll-track">
-            <a href="/suits" class="cat-card">
-                <div class="cat-icon-wrap"><i class="fas fa-user-tie"></i></div>
-                <span class="cat-label">Suits &amp; Blazers</span>
-                <span class="cat-arrow">→</span>
-            </a>
-            <a href="/casual" class="cat-card">
-                <div class="cat-icon-wrap"><i class="fas fa-tshirt"></i></div>
-                <span class="cat-label">Casual Wear</span>
-                <span class="cat-arrow">→</span>
-            </a>
-            <a href="/outerwear" class="cat-card">
-                <div class="cat-icon-wrap"><i class="fas fa-vest"></i></div>
-                <span class="cat-label">Outerwear</span>
-                <span class="cat-arrow">→</span>
-            </a>
-            <a href="/activewear" class="cat-card">
-                <div class="cat-icon-wrap"><i class="fas fa-running"></i></div>
-                <span class="cat-label">Activewear</span>
-                <span class="cat-arrow">→</span>
-            </a>
-            <a href="/shoes" class="cat-card">
-                <div class="cat-icon-wrap"><i class="fas fa-shoe-prints"></i></div>
-                <span class="cat-label">Shoes &amp; Accessories</span>
-                <span class="cat-arrow">→</span>
-            </a>
-            <a href="/grooming" class="cat-card">
-                <div class="cat-icon-wrap"><i class="fas fa-cut"></i></div>
-                <span class="cat-label">Grooming</span>
-                <span class="cat-arrow">→</span>
-            </a>
-        </div>
-    </section>
-
-    <style>
-    .featured-categories { background: #fff; padding: 32px 0; }
-    .category-scroll-track {
-        display: flex; gap: 12px;
-        overflow-x: auto; padding: 4px 20px 16px;
-        scrollbar-width: none; -ms-overflow-style: none;
-    }
-    .category-scroll-track::-webkit-scrollbar { display: none; }
-    .cat-card {
-        flex: 0 0 108px; width: 108px; min-height: 140px;
-        background: #f8f9fa; border-radius: 18px;
-        border: 1px solid #e9ecef;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        display: flex; flex-direction: column;
-        align-items: center; justify-content: center;
-        padding: 16px 8px; text-decoration: none;
-        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
-    }
-    .cat-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 10px 28px rgba(212,175,55,0.18);
-        border-color: rgba(212,175,55,0.4);
-        text-decoration: none;
-    }
-    .cat-icon-wrap {
-        width: 52px; height: 52px; border-radius: 16px;
-        background: linear-gradient(135deg, #1a1a1a 0%, #2c3e50 100%);
-        display: flex; align-items: center; justify-content: center;
-        font-size: 22px; color: #fff;
-        box-shadow: 0 3px 8px rgba(26,26,26,0.25);
-        margin-bottom: 10px; flex-shrink: 0;
-    }
-    .cat-card:hover .cat-icon-wrap {
-        background: linear-gradient(135deg, #d4af37 0%, #f4d03f 100%);
-        box-shadow: 0 4px 14px rgba(212,175,55,0.4);
-    }
-    .cat-card:hover .cat-icon-wrap i { color: #1a1a1a; }
-    .cat-label {
-        font-size: 10.5px; font-weight: 700; color: #2c3e50;
-        text-align: center; line-height: 1.35;
-        letter-spacing: 0.2px; margin-bottom: 4px;
-    }
-    .cat-arrow { font-size: 13px; font-weight: 700; color: #d4af37; line-height: 1; }
-    @media (min-width: 768px) {
-        .category-scroll-track { justify-content: center; flex-wrap: wrap; overflow-x: visible; }
-        .cat-card { flex: 0 0 120px; width: 120px; }
-    }
-    </style>
-
-    <!-- Featured Products -->
-    <section id="featured-products" class="featured-products">
-        <div class="products-header">
-            <h2>Featured Products</h2>
-        </div>
-
-        {% set products = all_products %}
-        {% include 'product_grid.html' %}
-
-        <!-- Pagination -->
-        {% if all_products and total_pages > 1 %}
-        <div class="pagination-container">
-            <div class="pagination">
-                {% if current_page > 1 %}
-                <a href="?page={{ current_page - 1 }}" class="pagination-btn prev-btn">
-                    <i class="fas fa-chevron-left"></i>
-                    Previous
-                </a>
-                {% endif %}
-
-                <div class="page-numbers">
-                    {% for page_num in range(1, total_pages + 1) %}
-                    {% if page_num == current_page %}
-                    <span class="page-number active">{{ page_num }}</span>
-                    {% elif page_num == 1 or page_num == total_pages or (page_num >= current_page - 2 and page_num <= current_page + 2) %}
-                    <a href="?page={{ page_num }}" class="page-number">{{ page_num }}</a>
-                    {% elif page_num == current_page - 3 or page_num == current_page + 3 %}
-                    <span class="page-ellipsis">...</span>
-                    {% endif %}
-                    {% endfor %}
-                </div>
-
-                {% if current_page < total_pages %}
-                <a href="?page={{ current_page + 1 }}" class="pagination-btn next-btn">
-                    Next
-                    <i class="fas fa-chevron-right"></i>
-                </a>
-                {% endif %}
-            </div>
-        </div>
-        {% endif %}
-    </section>
-
-    <!-- Seller Registration Section -->
-    <section class="seller-registration-section">
-        <div class="seller-background-effects">
-            <div class="seller-shape shape-1"></div>
-            <div class="seller-shape shape-2"></div>
-            <div class="seller-shape shape-3"></div>
-        </div>
-        <div class="seller-content">
-            <div class="seller-badge">
-                <i class="fas fa-store"></i>
-                <span>Become a Seller</span>
-            </div>
-            <h2>Start Your Premium Fashion Business</h2>
-            <p>Join our exclusive network of premium fashion sellers. Access our curated marketplace, reach discerning
-                customers, and grow your business with our professional support.</p>
-
-            <div class="seller-benefits">
-                <div class="benefit-item">
-                    <div class="benefit-icon">
-                        <i class="fas fa-chart-line"></i>
-                    </div>
-                    <span>Growth Analytics</span>
-                </div>
-                <div class="benefit-item">
-                    <div class="benefit-icon">
-                        <i class="fas fa-users"></i>
-                    </div>
-                    <span>Premium Customers</span>
-                </div>
-                <div class="benefit-item">
-                    <div class="benefit-icon">
-                        <i class="fas fa-handshake"></i>
-                    </div>
-                    <span>Business Support</span>
-                </div>
-            </div>
-
-            <div class="seller-cta">
-                <a href="/seller_register" class="seller-register-btn">
-                    <span class="btn-text">Start Selling Today</span>
-                    <span class="btn-icon">
-                        <i class="fas fa-arrow-right"></i>
-                    </span>
-                    <div class="btn-ripple"></div>
-                </a>
-                <div class="seller-info">
-                    <i class="fas fa-info-circle"></i>
-                    <span>Quick approval process • Professional guidance • Marketing support</span>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    {% include 'footer.html' %}
-    {% include 'success_message_cartmodal.html' %}
-    {% include 'success_message_wishlistmodal.html' %}
-    {% include 'chat_support.html' %}
-
-    <script>
-        function performSearch() {
-            const query = document.getElementById('search-input').value;
-            if (query) {
-                window.location.href = `/search?query=${encodeURIComponent(query)}`;
+        var el = document.getElementById('hero-dynamic-text');
+        if (!el) return;
+        var words = ['Signature Style', 'Executive Look', 'Premium Fashion', 'Timeless Elegance', 'Modern Edge'];
+        var wi = 0, ci = 0, typing = true;
+        function tick() {
+            var word = words[wi];
+            if (typing) {
+                if (ci < word.length) { el.textContent = word.substring(0, ++ci); setTimeout(tick, 75); }
+                else { typing = false; setTimeout(tick, 2000); }
+            } else {
+                if (ci > 0) { el.textContent = word.substring(0, --ci); setTimeout(tick, 35); }
+                else { wi = (wi + 1) % words.length; typing = true; setTimeout(tick, 300); }
             }
         }
+        setTimeout(tick, 600);
 
-        // Mobile menu functionality
-        document.addEventListener('DOMContentLoaded', function () {
-            const mobileMenuToggle = document.getElementById('mobile-menu-toggle');
-            const mobileNav = document.getElementById('mobile-nav');
-
-            if (mobileMenuToggle && mobileNav) {
-                mobileMenuToggle.addEventListener('click', function () {
-                    mobileMenuToggle.classList.toggle('active');
-                    mobileNav.classList.toggle('active');
-                    document.body.style.overflow = mobileNav.classList.contains('active') ? 'hidden' : '';
-                });
-
-                // Close mobile menu when clicking outside
-                document.addEventListener('click', function (e) {
-                    if (!mobileMenuToggle.contains(e.target) && !mobileNav.contains(e.target)) {
-                        mobileMenuToggle.classList.remove('active');
-                        mobileNav.classList.remove('active');
-                        document.body.style.overflow = '';
-                    }
-                });
-            }
-
-            // Search suggestions functionality
-            const searchInput = document.getElementById('search-input');
-            const searchSuggestions = document.getElementById('search-suggestions');
-
-            if (searchInput && searchSuggestions) {
-                const suggestions = [
-                    { icon: 'fas fa-tshirt', text: 'Premium Suits' },
-                    { icon: 'fas fa-user-tie', text: 'Business Attire' },
-                    { icon: 'fas fa-shoe-prints', text: 'Dress Shoes' },
-                    { icon: 'fas fa-vest', text: 'Blazers & Jackets' },
-                    { icon: 'fas fa-socks', text: 'Accessories' },
-                    { icon: 'fas fa-gem', text: 'Luxury Items' }
-                ];
-
-                searchInput.addEventListener('input', function () {
-                    const query = this.value.toLowerCase();
-                    if (query.length > 0) {
-                        const filteredSuggestions = suggestions.filter(item =>
-                            item.text.toLowerCase().includes(query)
-                        );
-
-                        if (filteredSuggestions.length > 0) {
-                            searchSuggestions.innerHTML = filteredSuggestions.map(item => `
-                                <div class="suggestion-item" onclick="selectSuggestion('${item.text}')">
-                                    <i class="${item.icon} suggestion-icon"></i>
-                                    <span class="suggestion-text">${item.text}</span>
-                                </div>
-                            `).join('');
-                            searchSuggestions.classList.add('show');
-                        } else {
-                            searchSuggestions.classList.remove('show');
-                        }
-                    } else {
-                        searchSuggestions.classList.remove('show');
-                    }
-                });
-
-                // Hide suggestions when clicking outside
-                document.addEventListener('click', function (e) {
-                    if (!searchInput.contains(e.target) && !searchSuggestions.contains(e.target)) {
-                        searchSuggestions.classList.remove('show');
-                    }
-                });
-            }
-
-            // Notification functionality
-            const notificationBtn = document.querySelector('.notification-btn');
-            const notificationDropdown = document.querySelector('.notification-dropdown');
-
-            if (notificationBtn && notificationDropdown) {
-                notificationBtn.addEventListener('click', function (e) {
-                    e.stopPropagation();
-                    notificationDropdown.classList.toggle('show');
-                });
-
-                // Mark all as read functionality
-                const markAllReadBtn = document.querySelector('.mark-all-read');
-                if (markAllReadBtn) {
-                    markAllReadBtn.addEventListener('click', function () {
-                        const unreadItems = document.querySelectorAll('.notification-item.unread');
-                        unreadItems.forEach(item => {
-                            item.classList.remove('unread');
-                        });
-
-                        // Update notification badge
-                        const badge = document.querySelector('.notification-badge');
-                        if (badge) {
-                            badge.textContent = '0';
-                            badge.style.display = 'none';
-                        }
-                    });
-                }
-            }
-
-            // Quick actions functionality
-            const wishlistBtn = document.querySelector('.wishlist-btn');
-            const compareBtn = document.querySelector('.compare-btn');
-
-            if (wishlistBtn) {
-                wishlistBtn.addEventListener('click', function () {
-                    // Toggle wishlist state
-                    this.classList.toggle('active');
-                    const badge = this.querySelector('.action-badge');
-                    if (this.classList.contains('active')) {
-                        badge.textContent = '1';
-                        badge.style.display = 'flex';
-                    } else {
-                        badge.textContent = '0';
-                        badge.style.display = 'none';
-                    }
-                });
-            }
-
-            if (compareBtn) {
-                compareBtn.addEventListener('click', function () {
-                    // Toggle compare state
-                    this.classList.toggle('active');
-                    const badge = this.querySelector('.action-badge');
-                    if (this.classList.contains('active')) {
-                        badge.textContent = '1';
-                        badge.style.display = 'flex';
-                    } else {
-                        badge.textContent = '0';
-                        badge.style.display = 'none';
-                    }
-                });
-            }
-        });
-
-        function selectSuggestion(text) {
-            const searchInput = document.getElementById('search-input');
-            if (searchInput) {
-                searchInput.value = text;
-                performSearch();
-            }
-        }
-
-        // Function to update user name (can be called from backend)
-        function updateUserName(name) {
-            const userNameElement = document.getElementById('user-name');
-            if (userNameElement && name) {
-                userNameElement.textContent = name;
-            }
-        }
-
-        // Hero section animations and interactions
-        document.addEventListener('DOMContentLoaded', function () {
-            // Enhanced particle system
-            createParticles();
-
-
-
-            // Enhanced parallax effect and header scroll
-            window.addEventListener('scroll', function () {
-                const scrolled = window.pageYOffset;
-                const heroSection = document.querySelector('.hero-section');
-                const floatingShapes = document.querySelectorAll('.floating-shape');
-                const header = document.querySelector('header');
-
-                // Header scroll effect
-                if (header) {
-                    if (scrolled > 50) {
-                        header.classList.add('scrolled');
-                    } else {
-                        header.classList.remove('scrolled');
-                    }
-                }
-
-                if (heroSection) {
-                    const rate = scrolled * -0.3;
-                    heroSection.style.transform = `translateY(${rate}px)`;
-                }
-
-                // Parallax for floating shapes
-                floatingShapes.forEach((shape, index) => {
-                    const speed = 0.1 + (index * 0.05);
-                    const yPos = scrolled * speed;
-                    shape.style.transform = `translateY(${yPos}px)`;
-                });
+        var toggle = document.getElementById('mobile-menu-toggle');
+        var nav = document.getElementById('mobile-nav');
+        if (toggle && nav) {
+            toggle.addEventListener('click', function () {
+                toggle.classList.toggle('active');
+                nav.classList.toggle('active');
+                document.body.style.overflow = nav.classList.contains('active') ? 'hidden' : '';
             });
-
-            // Enhanced button interactions with ripple effect
-            const heroButtons = document.querySelectorAll('.hero-btn');
-            heroButtons.forEach(button => {
-                button.addEventListener('click', function (e) {
-                    createRipple(e, this);
-                });
-
-                button.addEventListener('mouseenter', function () {
-                    this.style.transform = 'translateY(-3px) scale(1.05)';
-                });
-
-                button.addEventListener('mouseleave', function () {
-                    this.style.transform = 'translateY(0) scale(1)';
-                });
-            });
-
-            // Enhanced typing effect with cursor
-            const titleLines = document.querySelectorAll('.title-line');
-            titleLines.forEach((line, index) => {
-                if (index === 1) { // This is the highlight line
-                    const text = line.textContent;
-                    line.innerHTML = '';
-                    line.style.opacity = '0';
-
-                    setTimeout(() => {
-                        line.style.opacity = '1';
-                        startDynamicTyping(line);
-                    }, index * 1000);
-                } else {
-                    // For "Craft Your" - just show normally without typing animation
-                    line.style.opacity = '0';
-                    setTimeout(() => {
-                        line.style.opacity = '1';
-                    }, index * 1000);
+            document.addEventListener('click', function (e) {
+                if (!toggle.contains(e.target) && !nav.contains(e.target)) {
+                    toggle.classList.remove('active');
+                    nav.classList.remove('active');
+                    document.body.style.overflow = '';
                 }
             });
-
-            function typeTextWithCursor(element, text, speed, isLast) {
-                let i = 0;
-                const cursor = document.createElement('span');
-                cursor.textContent = '|';
-                cursor.style.animation = 'blink 1s infinite';
-                element.appendChild(cursor);
-
-                const timer = setInterval(() => {
-                    if (i < text.length) {
-                        element.insertBefore(document.createTextNode(text.charAt(i)), cursor);
-                        i++;
-                    } else {
-                        clearInterval(timer);
-                        if (isLast) {
-                            setTimeout(() => {
-                                element.removeChild(cursor);
-                            }, 1000);
-                        }
-                    }
-                }, speed);
-            }
-
-            // Dynamic typing effect for highlight text
-            function startDynamicTyping(element) {
-                const highlightTexts = [
-                    "Signature Style",
-                    "Executive Look",
-                    "Premium Fashion",
-                    "Timeless Elegance",
-                    "Modern Sophistication",
-                    "Classic Appeal"
-                ];
-
-                let currentTextIndex = 0;
-                let isTyping = true;
-                let currentCharIndex = 0;
-                let currentText = highlightTexts[currentTextIndex];
-
-                const cursor = document.createElement('span');
-                cursor.textContent = '|';
-                cursor.style.animation = 'blink 1s infinite';
-                cursor.style.color = 'var(--gold-accent)';
-                element.appendChild(cursor);
-
-                function typeNextChar() {
-                    if (isTyping) {
-                        // Typing phase
-                        if (currentCharIndex < currentText.length) {
-                            element.insertBefore(document.createTextNode(currentText.charAt(currentCharIndex)), cursor);
-                            currentCharIndex++;
-                            setTimeout(typeNextChar, 100);
-                        } else {
-                            // Finished typing, wait then start erasing
-                            setTimeout(() => {
-                                isTyping = false;
-                                typeNextChar();
-                            }, 2000);
-                        }
-                    } else {
-                        // Erasing phase
-                        if (currentCharIndex > 0) {
-                            const textNodes = element.childNodes;
-                            const lastTextNode = textNodes[textNodes.length - 2]; // -2 because cursor is last
-                            if (lastTextNode && lastTextNode.nodeType === Node.TEXT_NODE) {
-                                element.removeChild(lastTextNode);
-                            }
-                            currentCharIndex--;
-                            setTimeout(typeNextChar, 50);
-                        } else {
-                            // Finished erasing, move to next text
-                            currentTextIndex = (currentTextIndex + 1) % highlightTexts.length;
-                            currentText = highlightTexts[currentTextIndex];
-                            isTyping = true;
-                            setTimeout(typeNextChar, 500);
-                        }
-                    }
-                }
-
-                // Start the dynamic typing
-                setTimeout(typeNextChar, 500);
-            }
-
-            // Enhanced feature tooltips
-            const featureItems = document.querySelectorAll('.feature-item[data-tooltip]');
-            featureItems.forEach(item => {
-                item.addEventListener('mouseenter', function () {
-                    this.style.transform = 'translateY(-3px) scale(1.05)';
-                });
-
-                item.addEventListener('mouseleave', function () {
-                    this.style.transform = 'translateY(0) scale(1)';
-                });
-            });
-
-            // Social proof avatar animations
-            const avatars = document.querySelectorAll('.avatar');
-            avatars.forEach((avatar, index) => {
-                avatar.addEventListener('mouseenter', function () {
-                    this.style.transform = 'scale(1.2) translateY(-5px)';
-                    this.style.zIndex = '10';
-                });
-
-                avatar.addEventListener('mouseleave', function () {
-                    this.style.transform = 'scale(1) translateY(0)';
-                    this.style.zIndex = '1';
-                });
-            });
-
-        });
-
-        // Particle system
-        function createParticles() {
-            const particlesContainer = document.querySelector('.particles-container');
-            if (!particlesContainer) return;
-
-            for (let i = 0; i < 15; i++) {
-                const particle = document.createElement('div');
-                particle.className = 'particle';
-                particle.style.left = Math.random() * 100 + '%';
-                particle.style.animationDelay = Math.random() * 8 + 's';
-                particle.style.animationDuration = (Math.random() * 3 + 5) + 's';
-                particlesContainer.appendChild(particle);
-            }
         }
+    });
+})();
 
-        // Ripple effect for buttons
-        function createRipple(event, element) {
-            const ripple = element.querySelector('.btn-ripple');
-            if (ripple) {
-                ripple.style.width = '0px';
-                ripple.style.height = '0px';
-
-                setTimeout(() => {
-                    ripple.style.width = '300px';
-                    ripple.style.height = '300px';
-                }, 10);
-            }
-        }
-
-        // CSS animations are now defined in the CSS file
-
-        // Carousel functionality
-        let currentSlide = 0;
-        const totalSlides = 4; // 6 categories / 1-2 per slide = 4 slides
-        const slideWidth = 25; // Percentage (100% / 4 slides = 25%)
-
-        function moveCarousel(direction) {
-            currentSlide += direction;
-
-            if (currentSlide >= totalSlides) {
-                currentSlide = 0;
-            } else if (currentSlide < 0) {
-                currentSlide = totalSlides - 1;
-            }
-
-            const track = document.querySelector('.carousel-track');
-            track.style.transform = `translateX(-${currentSlide * slideWidth}%)`;
-
-            // Update dots
-            updateDots();
-        }
-
-        function updateDots() {
-            const dots = document.querySelectorAll('.dot');
-            dots.forEach((dot, index) => {
-                dot.classList.toggle('active', index === currentSlide);
-            });
-        }
-
-        // Auto-play carousel
-        setInterval(() => {
-            moveCarousel(1);
-        }, 5000); // Change slide every 5 seconds
-
-        // Hero Image Carousel functionality (Dynamic)
-        let currentImageSlideIndex = 0;
-        const heroSlides = document.querySelectorAll('.hero-image-slide');
-        const totalImageSlides = heroSlides.length;
-
-        function currentImageSlide(n) {
-            showImageSlide(currentImageSlideIndex = n - 1);
-        }
-
-        function showImageSlide(n) {
-            const slides = document.querySelectorAll('.hero-image-slide');
-            const indicators = document.querySelectorAll('.carousel-indicators .indicator');
-
-            if (n >= slides.length) { currentImageSlideIndex = 0; }
-            if (n < 0) { currentImageSlideIndex = slides.length - 1; }
-
-            slides.forEach(slide => slide.classList.remove('active'));
-            indicators.forEach(indicator => indicator.classList.remove('active'));
-
-            if (slides[currentImageSlideIndex]) {
-                slides[currentImageSlideIndex].classList.add('active');
-            }
-            if (indicators[currentImageSlideIndex]) {
-                indicators[currentImageSlideIndex].classList.add('active');
-            }
-        }
-
-        // Auto-play hero image carousel (only if there are multiple slides)
-        if (totalImageSlides > 1) {
-            setInterval(() => {
-                currentImageSlideIndex++;
-                if (currentImageSlideIndex >= totalImageSlides) {
-                    currentImageSlideIndex = 0;
-                }
-                showImageSlide(currentImageSlideIndex);
-            }, 5000); // Change image every 5 seconds
-        }
-
-        // Newsletter form functionality
-        const newsletterForm = document.getElementById('newsletterForm');
-        if (newsletterForm) {
-            newsletterForm.addEventListener('submit', function (e) {
-                e.preventDefault();
-
-                const email = document.getElementById('newsletterEmail').value;
-                const submitBtn = newsletterForm.querySelector('.newsletter-btn');
-                const btnText = submitBtn.querySelector('.btn-text');
-                const btnIcon = submitBtn.querySelector('.btn-icon');
-
-                // Show loading state
-                btnText.textContent = 'Joining...';
-                btnIcon.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-                submitBtn.disabled = true;
-
-                // Simulate API call (replace with actual implementation)
-                setTimeout(() => {
-                    // Show success state
-                    btnText.textContent = 'Welcome to VIP!';
-                    btnIcon.innerHTML = '<i class="fas fa-check"></i>';
-                    submitBtn.style.background = 'linear-gradient(135deg, #28a745, #20c997)';
-
-                    // Reset form
-                    document.getElementById('newsletterEmail').value = '';
-
-                    // Reset button after 3 seconds
-                    setTimeout(() => {
-                        btnText.textContent = 'Join VIP Community';
-                        btnIcon.innerHTML = '<i class="fas fa-arrow-right"></i>';
-                        submitBtn.style.background = 'var(--gold-gradient)';
-                        submitBtn.disabled = false;
-                    }, 3000);
-                }, 2000);
-            });
-        }
-
-        // Newsletter stats counter animation
-        function animateCounters() {
-            const statNumbers = document.querySelectorAll('.stat-number');
-
-            statNumbers.forEach(stat => {
-                const target = stat.textContent;
-                const isPercentage = target.includes('%');
-                const isRating = target.includes('★');
-                const isPlus = target.includes('+');
-
-                let numericValue;
-                if (isPercentage) {
-                    numericValue = parseInt(target.replace('%', ''));
-                } else if (isRating) {
-                    numericValue = parseFloat(target.replace('★', ''));
-                } else if (isPlus) {
-                    numericValue = parseInt(target.replace(/[+,]/g, ''));
-                } else {
-                    numericValue = parseInt(target.replace(/,/g, ''));
-                }
-
-                let current = 0;
-                const increment = numericValue / 50;
-                const timer = setInterval(() => {
-                    current += increment;
-                    if (current >= numericValue) {
-                        current = numericValue;
-                        clearInterval(timer);
-                    }
-
-                    let displayValue;
-                    if (isPercentage) {
-                        displayValue = Math.floor(current) + '%';
-                    } else if (isRating) {
-                        displayValue = current.toFixed(1) + '★';
-                    } else if (isPlus) {
-                        displayValue = Math.floor(current).toLocaleString() + '+';
-                    } else {
-                        displayValue = Math.floor(current).toLocaleString();
-                    }
-
-                    stat.textContent = displayValue;
-                }, 30);
-            });
-        }
-
-        // Trigger counter animation when newsletter section is in view
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    animateCounters();
-                    observer.unobserve(entry.target);
-                }
-            });
-        });
-
-        const newsletterStats = document.querySelector('.newsletter-stats');
-        if (newsletterStats) {
-            observer.observe(newsletterStats);
-        }
-
-        // Pagination functionality
-        function handlePaginationClick(event) {
-            const target = event.target.closest('.pagination-number, .pagination-btn');
-            if (!target) return;
-
-            event.preventDefault();
-
-            // Add loading state
-            const productGrid = document.querySelector('.product-grid');
-            if (productGrid) {
-                productGrid.classList.add('loading');
-            }
-
-            // Navigate to the new page
-            setTimeout(() => {
-                window.location.href = target.href;
-            }, 200);
-        }
-
-        // Add click handlers to pagination elements
-        const paginationContainer = document.querySelector('.pagination-container');
-        if (paginationContainer) {
-            paginationContainer.addEventListener('click', handlePaginationClick);
-        }
-
-        // Smooth scroll to products section when page loads with pagination
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('page')) {
-            setTimeout(() => {
-                const productsSection = document.querySelector('.featured-products');
-                if (productsSection) {
-                    productsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }
-            }, 100);
-        }
-
-        // Product image slider functionality
-        function showImage(indicatorElement, imageIndex) {
-            const container = indicatorElement.closest('.pc-image-wrap') || indicatorElement.closest('.product-image-container');
-            if (!container) return;
-            const images = container.querySelectorAll('.product-image');
-            const indicators = container.querySelectorAll('.indicator');
-
-            if (imageIndex < 0 || imageIndex >= images.length) return;
-
-            images.forEach(img => img.classList.remove('active'));
-            indicators.forEach(ind => ind.classList.remove('active'));
-
-            if (images[imageIndex]) images[imageIndex].classList.add('active');
-            indicatorElement.classList.add('active');
-
-            const counter = container.querySelector('.image-counter');
-            if (counter) {
-                const currentSpan = counter.querySelector('.current-image');
-                if (currentSpan) currentSpan.textContent = imageIndex + 1;
-            }
-        }
-
-        function nextImage(buttonElement) {
-            const container = buttonElement.closest('.pc-image-wrap') || buttonElement.closest('.product-image-container');
-            if (!container) return;
-            const images = container.querySelectorAll('.product-image');
-            const indicators = container.querySelectorAll('.indicator');
-            if (!images.length) return;
-            const cur = Array.from(images).findIndex(img => img.classList.contains('active'));
-            const next = (cur + 1) % images.length;
-            if (indicators[next]) showImage(indicators[next], next);
-        }
-
-        function previousImage(buttonElement) {
-            const container = buttonElement.closest('.pc-image-wrap') || buttonElement.closest('.product-image-container');
-            if (!container) return;
-            const images = container.querySelectorAll('.product-image');
-            const indicators = container.querySelectorAll('.indicator');
-            if (!images.length) return;
-            const cur = Array.from(images).findIndex(img => img.classList.contains('active'));
-            const prev = cur === 0 ? images.length - 1 : cur - 1;
-            if (indicators[prev]) showImage(indicators[prev], prev);
-        }
-
-        // Initialize sliders and auto-slide functionality
-        document.addEventListener('DOMContentLoaded', function () {
-            setTimeout(() => {
-                document.querySelectorAll('.product-image-slider').forEach(slider => {
-                    const images = slider.querySelectorAll('.product-image');
-                    const indicators = slider.querySelectorAll('.indicator');
-
-                    if (images.length > 0) {
-                        images[0].classList.add('active');
-                        if (indicators.length > 0) indicators[0].classList.add('active');
-                    }
-
-                    if (images.length > 1) {
-                        // pc-card uses .pc-next; legacy cards use .next-btn
-                        const getNextBtn = () => slider.querySelector('.pc-next') || slider.querySelector('.next-btn');
-                        let timer = setInterval(() => nextImage(getNextBtn()), 4000);
-                        const card = slider.closest('.pc-card') || slider.closest('.product-card');
-                        if (card) {
-                            card.addEventListener('mouseenter', () => clearInterval(timer));
-                            card.addEventListener('mouseleave', () => {
-                                timer = setInterval(() => nextImage(getNextBtn()), 4000);
-                            });
-                        }
-                    }
-                });
-            }, 500);
-        });
-
-        // Wishlist handled by product_grid.html
-    </script>
-
-    <script src="{{ url_for('static', filename='js/color_size_modal.js') }}"></script>
-
+function performSearch() {
+    var q = document.getElementById('search-input');
+    if (q && q.value) window.location.href = '/search?query=' + encodeURIComponent(q.value);
+}
+</script>
 </body>
-
 </html>
