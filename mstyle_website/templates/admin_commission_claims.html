@@ -117,7 +117,6 @@
                                 <th>Seller Comm.</th>
                                 <th>Rider Comm.</th>
                                 <th>Platform Earnings</th>
-                                <th>Order Date</th>
                                 <th>Completed</th>
                                 <th>Status</th>
                                 <th>Claimed Date</th>
@@ -304,7 +303,6 @@ function renderTable() {
             <td class="text-end">${peso(c.seller_commission)}</td>
             <td class="text-end">${peso(c.rider_commission)}</td>
             <td class="text-end fw-bold">${peso(c.total_platform_earnings)}</td>
-            <td>${c.order_date     || '—'}</td>
             <td>${c.date_completed || '—'}</td>
             <td>${statusBadge}</td>
             <td>${claimedDate}</td>

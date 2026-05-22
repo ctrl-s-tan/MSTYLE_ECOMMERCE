@@ -116,28 +116,37 @@
 
 /* ── Table ── */
 .table thead th {
-    background: #f5f7fa; color: #1a2744; font-size: .78rem;
+    background: #f5f7fa; color: #1a2744; font-size: .72rem;
     font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
-    border-bottom: 2px solid #1a2744; white-space: nowrap; padding: 10px 12px;
+    border-bottom: 2px solid #1a2744; white-space: nowrap; padding: 8px 10px;
 }
-.table tbody td { padding: 8px 12px; vertical-align: middle; font-size: .85rem; }
+.table tbody td { padding: 6px 10px; vertical-align: middle; font-size: .8rem; }
 .table tbody tr:hover { background: #f8f9ff; }
 .row-claimed { background: #f6fef9 !important; }
 
 .badge-claimed {
     display: inline-flex; align-items: center; gap: 4px;
     background: #e6f4ed; color: #1a7f4b; border: 1px solid #b7dfc9;
-    padding: 3px 8px; border-radius: 12px; font-size: .75rem; font-weight: 700;
+    padding: 3px 8px; border-radius: 12px; font-size: .72rem; font-weight: 700;
 }
 .badge-unclaimed {
     display: inline-flex; align-items: center; gap: 4px;
     background: #fef3dc; color: #92600a; border: 1px solid #f5d98a;
-    padding: 3px 8px; border-radius: 12px; font-size: .75rem; font-weight: 700;
+    padding: 3px 8px; border-radius: 12px; font-size: .72rem; font-weight: 700;
 }
-.claimed-date { font-size: .8rem; color: #1a7f4b; font-weight: 600; }
+.claimed-date { font-size: .78rem; color: #1a7f4b; font-weight: 600; }
 .badge-count {
-    background: #f0f3f8; color: #4a5568; border: 1px solid #c8cdd8;
+    background: rgba(255,255,255,.15);
+    color: #fff;
+    border: 1px solid rgba(255,255,255,.2);
     padding: 3px 10px; border-radius: 12px; font-size: .78rem; font-weight: 600;
+}
+/* Truncate long emails */
+.table tbody td.small {
+    max-width: 130px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 /* ── Action buttons ── */
