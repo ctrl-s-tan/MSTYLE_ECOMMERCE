@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MStyle &mdash; Seller Analytics Report</title>
+<style>
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+body{font-family:'Segoe UI',Arial,sans-serif;font-size:9pt;color:#1a2744;background:#e8eaf0;-webkit-print-color-adjust:exact;print-color-adjust:exact;}
+@media print{
+  @page{size:A4 landscape;margin:8mm 10mm;}
+  body{background:#fff!important;}
+  *{-webkit-print-color-adjust:exact!important;print-color-adjust:exact!important;}
+}
+@media screen{body{padding:10mm 0 20mm;}}
+</style>
+</head>
+<body>
+
+<table id="reportRoot" cellpadding="0" cellspacing="0" style="width:260mm;margin:0 auto;background:#fff;border:1px solid #c8cdd8;box-shadow:0 4px 24px rgba(0,0,0,.15);">
+
+  <!-- HEADER -->
+  <tr>
+    <td style="padding:0;">
+      <div style="height:4px;background:#c9a227;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div>
+      <table cellpadding="0" cellspacing="0" style="width:100%;background:#1a2744;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+        <tr>
+          <td style="padding:14px 20px 10px;vertical-align:top;">
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="vertical-align:middle;padding-right:10px;">
+                  <div style="width:36px;height:36px;background:#c9a227;border-radius:6px;text-align:center;line-height:36px;font-size:17pt;font-weight:900;color:#1a2744;-webkit-print-color-adjust:exact;print-color-adjust:exact;">M</div>
+                </td>
+                <td style="vertical-align:middle;">
+                  <div style="font-size:15pt;font-weight:900;color:#fff;letter-spacing:2px;text-transform:uppercase;line-height:1;">M'STYLE</div>
+                  <div style="font-size:7pt;color:rgba(255,255,255,.6);letter-spacing:.4px;margin-top:1px;">Seller Analytics Report</div>
+                </td>
+              </tr>
+            </table>
+            <div style="width:36px;height:2px;background:#c9a227;margin:8px 0 6px;-webkit-print-color-adjust:exact;print-color-adjust:exact;"></div>
+            <div style="font-size:11pt;font-weight:700;color:#fff;letter-spacing:.2px;">Reports &amp; Analytics</div>
+            <div id="coverReportType" style="font-size:8pt;color:#e8c547;margin-top:2px;">Complete Analytics Report</div>
+          </td>
+          <td style="padding:14px 20px 10px;vertical-align:top;text-align:right;">
+            <table cellpadding="0" cellspacing="0" style="margin-left:auto;">
+              <tr>
+                <td style="font-size:6.5pt;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding-right:8px;padding-bottom:4px;white-space:nowrap;">Generated</td>
+                <td id="coverDate" style="font-size:8pt;color:#fff;font-weight:500;padding-bottom:4px;">—</td>
+              </tr>
+              <tr>
+                <td style="font-size:6.5pt;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding-right:8px;padding-bottom:4px;white-space:nowrap;">Seller</td>
+                <td id="coverSeller" style="font-size:8pt;color:#fff;font-weight:500;padding-bottom:4px;">—</td>
+              </tr>
+              <tr>
+                <td style="font-size:6.5pt;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:.5px;font-weight:600;padding-right:8px;">Classification</td>
+                <td style="font-size:8pt;color:#fff;font-weight:500;">
+                  <span style="background:#c9a227;color:#1a2744;font-size:6.5pt;font-weight:800;padding:1px 6px;border-radius:2px;letter-spacing:.5px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">CONFIDENTIAL</span>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <!-- KPI strip -->
+        <tr>
+          <td colspan="2" style="border-top:1px solid rgba(255,255,255,.12);background:rgba(0,0,0,.2);-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+            <table cellpadding="0" cellspacing="0" style="width:100%;">
+              <tr>
+                <td style="padding:10px 14px;text-align:center;border-right:1px solid rgba(255,255,255,.1);">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Total Revenue</div>
+                  <div id="kpiRevenue" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">₱0.00</div>
+                </td>
+                <td style="padding:10px 14px;text-align:center;border-right:1px solid rgba(255,255,255,.1);">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Net Earnings</div>
+                  <div id="kpiEarnings" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">₱0.00</div>
+                </td>
+                <td style="padding:10px 14px;text-align:center;border-right:1px solid rgba(255,255,255,.1);">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Total Orders</div>
+                  <div id="kpiOrders" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">0</div>
+                </td>
+                <td style="padding:10px 14px;text-align:center;border-right:1px solid rgba(255,255,255,.1);">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Avg Order Value</div>
+                  <div id="kpiAov" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">₱0.00</div>
+                </td>
+                <td style="padding:10px 14px;text-align:center;">
+                  <div style="font-size:6.5pt;color:rgba(255,255,255,.55);text-transform:uppercase;letter-spacing:.6px;font-weight:600;margin-bottom:3px;">Top Products</div>
+                  <div id="kpiProducts" style="font-size:13pt;font-weight:800;color:#e8c547;line-height:1;">0</div>
+                </td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+  <!-- CONTENT -->
+  <tr>
+    <td id="printContent" style="padding:16px 20px 8px;"></td>
+  </tr>
+
+  <!-- FOOTER -->
+  <tr>
+    <td style="border-top:1.5px solid #c8cdd8;background:#f5f7fa;padding:7px 20px;-webkit-print-color-adjust:exact;print-color-adjust:exact;">
+      <table cellpadding="0" cellspacing="0" style="width:100%;">
+        <tr>
+          <td style="font-size:7pt;color:#1a2744;font-weight:600;">MStyle E-Commerce Platform &mdash; Seller Analytics Report</td>
+          <td style="text-align:center;font-size:6.5pt;font-weight:700;color:#92600a;background:#fef3dc;padding:2px 8px;border-radius:3px;border:1px solid #f5d98a;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;">CONFIDENTIAL &mdash; INTERNAL USE ONLY</td>
+          <td id="docFooterDate" style="font-size:7pt;color:#718096;text-align:right;">—</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+
+</table>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    var d = JSON.parse(localStorage.getItem('sellerPrintData') || '{}');
+    if (d && Object.keys(d).length > 0) {
+        renderSellerReport(d);
+        setTimeout(function(){ window.print(); }, 700);
+    } else {
+        document.getElementById('printContent').innerHTML =
+            '<p style="padding:20px;text-align:center;color:#718096;font-size:8pt;font-style:italic;">No data available for printing.</p>';
+    }
+});
+
+function fmtDateTime(d) {
+    return d.toLocaleDateString('en-US',{year:'numeric',month:'long',day:'numeric'}) +
+           ' at ' + d.toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit'});
+}
+function fmtDate(d) {
+    return d.toLocaleDateString('en-US',{year:'numeric',month:'short',day:'numeric'});
+}
+function peso(n) {
+    var v = parseFloat(n||0);
+    return '&#8369;' + v.toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,',');
+}
+function num(n) { return parseInt(n||0).toLocaleString(); }
+
+var PS = {
+    green:'background:#e6f4ed;color:#1a7f4b;border:1px solid #b7dfc9;',
+    amber:'background:#fef3dc;color:#92600a;border:1px solid #f5d98a;',
+    red:  'background:#fde8e8;color:#b91c1c;border:1px solid #f5b8b8;',
+    blue: 'background:#e8effe;color:#1d4ed8;border:1px solid #b8ccf8;',
+    gray: 'background:#f1f3f5;color:#4b5563;border:1px solid #d1d5db;'
+};
+function pill(text,type){
+    return '<span style="display:inline-block;padding:1px 5px;border-radius:2px;font-size:6.5pt;font-weight:700;letter-spacing:.3px;white-space:nowrap;-webkit-print-color-adjust:exact;print-color-adjust:exact;'+(PS[type]||PS.gray)+'">'+text+'</span>';
+}
+
+function sec(title, count, tableHtml, totHtml) {
+    return '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border:1px solid #c8cdd8;border-top:2.5px solid #1a2744;margin-bottom:14px;page-break-inside:avoid;break-inside:avoid;-webkit-print-color-adjust:exact;print-color-adjust:exact;">' +
+      '<tr><td style="padding:6px 10px;background:#f5f7fa;border-bottom:1px solid #c8cdd8;-webkit-print-color-adjust:exact;print-color-adjust:exact;">' +
+        '<span style="font-size:8.5pt;font-weight:700;color:#1a2744;text-transform:uppercase;letter-spacing:.3px;">'+title+'</span>' +
+        '<span style="font-size:7pt;color:#718096;font-weight:400;margin-left:6px;">('+count+' records)</span>' +
+      '</td></tr>' +
+      '<tr><td style="padding:0;">'+tableHtml+'</td></tr>' +
+      '<tr><td style="padding:0;">'+totHtml+'</td></tr>' +
+    '</table>';
+}
+
+function thead(cols) {
+    var ths = cols.map(function(c){
+        var align = c.r?'right':(c.c?'center':'left');
+        return '<th style="padding:5px 8px;font-size:7pt;font-weight:700;color:#1a2744;text-transform:uppercase;letter-spacing:.4px;text-align:'+align+';border-right:1px solid #dde2ea;white-space:nowrap;background:#f5f7fa;-webkit-print-color-adjust:exact;print-color-adjust:exact;">'+c.l+'</th>';
+    }).join('');
+    return '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;font-size:7.5pt;">' +
+           '<thead><tr style="border-bottom:1.5px solid #1a2744;background:#f5f7fa;-webkit-print-color-adjust:exact;print-color-adjust:exact;">'+ths+'</tr></thead><tbody>';
+}
+
+function td(val,right,center,extra){
+    var align = right?'right':(center?'center':'left');
+    return '<td style="padding:4px 8px;color:#1e2533;vertical-align:middle;border-right:1px solid #edf0f5;border-bottom:1px solid #edf0f5;text-align:'+align+';font-variant-numeric:tabular-nums;'+(extra||'')+'">'+val+'</td>';
+}
+
+function rowBg(i){ return i%2===1?'background:#fafbfd;-webkit-print-color-adjust:exact;print-color-adjust:exact;':''; }
+
+function totBar(items){
+    var cells = items.map(function(t,i){
+        var br = i<items.length-1?'border-right:1px solid #c8cdd8;':'';
+        return '<td style="padding:6px 10px;text-align:center;vertical-align:top;'+br+'">' +
+            '<div style="font-size:6.5pt;color:#718096;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px;">'+t.label+'</div>' +
+            '<div style="font-size:9.5pt;font-weight:800;color:#1a2744;line-height:1;">'+t.value+'</div>' +
+        '</td>';
+    }).join('');
+    return '<table cellpadding="0" cellspacing="0" style="width:100%;border-collapse:collapse;border-top:1.5px solid #1a2744;background:#f0f3f8;-webkit-print-color-adjust:exact;print-color-adjust:exact;"><tr>'+cells+'</tr></table>';
+}
+
+function renderSellerReport(data) {
+    var now = new Date();
+    document.getElementById('coverDate').textContent     = fmtDateTime(now);
+    document.getElementById('docFooterDate').textContent = fmtDate(now);
+    document.getElementById('coverSeller').textContent   = data.sellerName || 'Seller';
+    if (data.reportType) document.getElementById('coverReportType').textContent = data.reportType;
+
+    document.getElementById('kpiRevenue').innerHTML  = peso(data.totalRevenue  || 0);
+    document.getElementById('kpiEarnings').innerHTML = peso(data.totalEarnings || 0);
+    document.getElementById('kpiOrders').textContent = num(data.totalOrders    || 0);
+    document.getElementById('kpiAov').innerHTML      = peso(data.avgOrderValue || 0);
+    document.getElementById('kpiProducts').textContent = num((data.topProducts||[]).length);
+
+    var html = '';
+    if (data.topProducts && data.topProducts.length)       html += renderTopProducts(data.topProducts);
+    if (data.orderDetails && data.orderDetails.length)     html += renderOrders(data.orderDetails);
+    if (data.financialSummary && data.financialSummary.length) html += renderFinancial(data.financialSummary);
+    if (data.promotions && data.promotions.length)         html += renderPromotions(data.promotions);
+
+    if (!html) html = '<p style="padding:20px;text-align:center;color:#718096;font-size:8pt;font-style:italic;">No data available for the selected sections.</p>';
+    document.getElementById('printContent').innerHTML = html;
+}
+
+function renderTopProducts(products) {
+    var cols = [{l:'No.',c:1},{l:'Product Name'},{l:'Units Sold',r:1},{l:'Revenue',r:1},{l:'Stock Left',r:1},{l:'Avg Rating',r:1},{l:'Reviews',r:1}];
+    var rows = products.map(function(p,i){
+        return '<tr style="'+rowBg(i)+'">' +
+            td(i+1,false,true,'color:#718096;font-size:7pt;font-weight:600;') +
+            td('<strong style="color:#1a2744;">'+(p.name||'—')+'</strong>') +
+            td(num(p.total_sold),true) +
+            td(peso(p.revenue),true) +
+            td(num(p.stock_left),true) +
+            td(parseFloat(p.avg_rating||0).toFixed(1),true) +
+            td(num(p.review_count),true) + '</tr>';
+    }).join('');
+    var totalSold = products.reduce(function(a,p){return a+(parseInt(p.total_sold)||0);},0);
+    var totalRev  = products.reduce(function(a,p){return a+(parseFloat(p.revenue)||0);},0);
+    return sec('Top Selling Products', products.length,
+        thead(cols)+rows+'</tbody></table>',
+        totBar([{label:'Products',value:products.length},{label:'Total Units Sold',value:num(totalSold)},{label:'Total Revenue',value:peso(totalRev)}]));
+}
+
+function renderOrders(orders) {
+    var cols = [{l:'No.',c:1},{l:'Product'},{l:'Qty',r:1},{l:'Status'},{l:'Order Date'},{l:'Completed'},{l:'Total',r:1},{l:'Buyer'}];
+    var rows = orders.map(function(o,i){
+        var st = (o.status||'').toLowerCase();
+        var sp = st==='completed'?pill('Completed','green'):st==='delivered'?pill('Delivered','blue'):st==='cancelled'?pill('Cancelled','red'):pill(o.status||'—','gray');
+        return '<tr style="'+rowBg(i)+'">' +
+            td(i+1,false,true,'color:#718096;font-size:7pt;font-weight:600;') +
+            td('<strong style="color:#1a2744;">'+(o.product_name||'—')+'</strong>') +
+            td(num(o.quantity),true) +
+            td(sp) +
+            td(o.order_date||'—') +
+            td(o.completion_date||'N/A') +
+            td(peso(o.total_amount),true) +
+            td(o.buyer_name||'—') + '</tr>';
+    }).join('');
+    var totalAmt = orders.reduce(function(a,o){return a+(parseFloat(o.total_amount)||0);},0);
+    return sec('Orders Analytics', orders.length,
+        thead(cols)+rows+'</tbody></table>',
+        totBar([{label:'Total Orders',value:orders.length},{label:'Total Amount',value:peso(totalAmt)}]));
+}
+
+function renderFinancial(summary) {
+    var cols = [{l:'No.',c:1},{l:'Product'},{l:'Qty',r:1},{l:'Date'},{l:'Product Sales',r:1},{l:'Discounts',r:1},{l:'Net Sales',r:1},{l:'Shipping',r:1},{l:'Platform Comm.',r:1},{l:'Net Earnings',r:1}];
+    var rows = summary.map(function(f,i){
+        return '<tr style="'+rowBg(i)+'">' +
+            td(i+1,false,true,'color:#718096;font-size:7pt;font-weight:600;') +
+            td('<strong style="color:#1a2744;">'+(f.product_name||'—')+'</strong>') +
+            td(num(f.quantity),true) +
+            td(f.date_completed||'—') +
+            td(peso(f.product_sales),true) +
+            td(peso(f.discounts),true) +
+            td(peso(f.net_sales),true) +
+            td(peso(f.shipping_fee_collected),true) +
+            td(peso(f.platform_commission),true) +
+            td('<strong>'+peso(f.net_earnings)+'</strong>',true) + '</tr>';
+    }).join('');
+    var totalEarn = summary.reduce(function(a,f){return a+(parseFloat(f.net_earnings)||0);},0);
+    var totalComm = summary.reduce(function(a,f){return a+(parseFloat(f.platform_commission)||0);},0);
+    return sec('Financial Summary', summary.length,
+        thead(cols)+rows+'</tbody></table>',
+        totBar([{label:'Records',value:summary.length},{label:'Platform Commission',value:peso(totalComm)},{label:'Net Earnings',value:peso(totalEarn)}]));
+}
+
+function renderPromotions(promos) {
+    var cols = [{l:'No.',c:1},{l:'Promo Name'},{l:'Type'},{l:'Discount'},{l:'Start'},{l:'End'},{l:'Uses',r:1},{l:'Revenue',r:1},{l:'Status'}];
+    var today = new Date();
+    var rows = promos.map(function(p,i){
+        var sp = p.status==='active'?pill('Active','green'):p.status==='expired'?pill('Expired','gray'):p.status==='ended'?pill('Ended','red'):pill('Inactive','amber');
+        return '<tr style="'+rowBg(i)+'">' +
+            td(i+1,false,true,'color:#718096;font-size:7pt;font-weight:600;') +
+            td('<strong style="color:#1a2744;">'+(p.name||'—')+'</strong>') +
+            td(p.type||'—') +
+            td(p.discount_value||'—') +
+            td(p.start_date||'—') +
+            td(p.end_date||'—') +
+            td(num(p.usage_count),true) +
+            td(peso(p.revenue_generated),true) +
+            td(sp) + '</tr>';
+    }).join('');
+    var totalUses = promos.reduce(function(a,p){return a+(parseInt(p.usage_count)||0);},0);
+    return sec('Promotion Performance', promos.length,
+        thead(cols)+rows+'</tbody></table>',
+        totBar([{label:'Total Promos',value:promos.length},{label:'Total Uses',value:num(totalUses)}]));
+}
+</script>
+</body>
+</html>

@@ -7707,6 +7707,14 @@ def print_layout():
     return render_template('print_layout.html')
 
 
+@app.route('/seller_print_layout')
+def seller_print_layout():
+    """Seller: professional print layout page for reports."""
+    if 'email' not in session or session.get('user_type', '').lower() != 'seller':
+        return redirect(url_for('login'))
+    return render_template('seller_print_layout.html')
+
+
 @app.route('/archive_accounts')
 def archive_accounts():
     """Admin: archived accounts page."""
