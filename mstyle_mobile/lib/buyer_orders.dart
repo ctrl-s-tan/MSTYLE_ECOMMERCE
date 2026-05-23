@@ -226,19 +226,22 @@ class _BuyerOrdersPageState extends State<BuyerOrdersPage>
 
   Future<void> _loadReviewedOrders() async {
     try {
-      // Check all completed orders (case-insensitive)
-      final completedIds = _orders
-          .where((o) => (o['status'] as String? ?? '').toLowerCase() == 'completed')
+      // Check all completed AND delivered orders (covers the transition period)
+      final eligibleIds = _orders
+          .where((o) {
+            final s = (o['status'] as String? ?? '').toLowerCase();
+            return s == 'completed' || s == 'delivered';
+          })
           .map((o) => o['id'])
           .where((id) => id != null)
           .toList();
-      if (completedIds.isEmpty) return;
+      if (eligibleIds.isEmpty) return;
 
       final res = await supabase
           .from('reviews')
           .select('order_id')
           .eq('customer_email', widget.userEmail)
-          .inFilter('order_id', completedIds);
+          .inFilter('order_id', eligibleIds);
 
       final ids = (res as List).map((r) => r['order_id']).toSet();
       if (mounted) setState(() => _reviewedOrderIds.addAll(ids));
@@ -517,23 +520,37 @@ class _BuyerOrdersPageState extends State<BuyerOrdersPage>
                   ),
                 )
               else if (status == 'Delivered')
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => _showConfirmDialog(order),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
-                    decoration: BoxDecoration(
-                      color: Colors.green.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: Colors.green.withOpacity(0.3)),
-                    ),
-                    child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                      Icon(Icons.check_circle_outline, size: 13, color: Colors.green),
-                      SizedBox(width: 5),
-                      Text('Confirm Receipt', style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w700)),
-                    ]),
-                  ),
-                )
+                _reviewedOrderIds.contains(orderId)
+                  ? Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                      decoration: BoxDecoration(
+                        color: Colors.green.withOpacity(0.08),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: Colors.green.withOpacity(0.3)),
+                      ),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        Icon(Icons.check_circle, size: 13, color: Colors.green),
+                        SizedBox(width: 5),
+                        Text('Reviewed', style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w700)),
+                      ]),
+                    )
+                  : GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => _showConfirmDialog(order),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: Colors.green.withOpacity(0.08),
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: Colors.green.withOpacity(0.3)),
+                        ),
+                        child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                          Icon(Icons.check_circle_outline, size: 13, color: Colors.green),
+                          SizedBox(width: 5),
+                          Text('Confirm Receipt', style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.w700)),
+                        ]),
+                      ),
+                    )
               else if (status == 'Completed')
                 _reviewedOrderIds.contains(orderId)
                   ? Container(

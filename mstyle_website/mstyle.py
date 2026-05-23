@@ -249,6 +249,15 @@ def mobile_place_order():
             if new_order_id:
                 order_ids.append(new_order_id)
 
+            # Increment sold count on the product when order is placed
+            if product_id_int:
+                try:
+                    prod_res = sb_admin.table('products').select('sold').eq('id', product_id_int).limit(1).execute()
+                    current_sold = int((prod_res.data[0].get('sold') or 0)) if prod_res.data else 0
+                    sb_admin.table('products').update({'sold': current_sold + quantity}).eq('id', product_id_int).execute()
+                except Exception:
+                    pass
+
             # Notify seller (non-fatal, background)
             if seller_email:
                 import threading
@@ -4164,6 +4173,39 @@ def seller_respond_to_review():
     """Seller responds to a review - powered by Supabase"""
     if 'email' not in session or session.get('user_type', '').lower() != 'seller':
         return jsonify({'success': False, 'error': 'Unauthorized. Please log in as a seller.'}), 401
+
+    seller_email = session['email']
+    data = request.get_json(silent=True) or {}
+    review_id = data.get('review_id')
+    response_text = (data.get('response_text') or '').strip()
+
+    if not review_id:
+        return jsonify({'success': False, 'error': 'review_id is required'}), 400
+    if not response_text:
+        return jsonify({'success': False, 'error': 'Response text cannot be empty'}), 400
+
+    try:
+        # Verify the review belongs to this seller
+        review_res = sb_admin.table('reviews').select('id, seller_email').eq('id', review_id).limit(1).execute()
+        if not review_res.data:
+            return jsonify({'success': False, 'error': 'Review not found'}), 404
+
+        review = review_res.data[0]
+        if review.get('seller_email') != seller_email:
+            return jsonify({'success': False, 'error': 'You can only respond to reviews for your own products'}), 403
+
+        # Update the review with seller response
+        from datetime import datetime as _dt
+        sb_admin.table('reviews').update({
+            'seller_response': response_text,
+            'seller_response_at': _dt.now().isoformat(),
+        }).eq('id', review_id).execute()
+
+        return jsonify({'success': True, 'message': 'Response posted successfully'})
+
+    except Exception as e:
+        print(f"seller_respond_to_review error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ── Seller Notifications API ──────────────────────────────────────────────────
@@ -9845,6 +9887,16 @@ def confirm_order():
 
             print(f"? Order inserted id={new_order_id} item={checkout_item['name']} price={item_product_price}")
 
+            # Increment sold count on the product when order is placed
+            try:
+                if product_id_int:
+                    prod_res = sb_admin.table('products').select('sold').eq('id', product_id_int).limit(1).execute()
+                    current_sold = int((prod_res.data[0].get('sold') or 0)) if prod_res.data else 0
+                    sb_admin.table('products').update({'sold': current_sold + order_qty}).eq('id', product_id_int).execute()
+                    print(f"✅ Incremented sold count for product {product_id_int}: {current_sold} → {current_sold + order_qty}")
+            except Exception as sold_err:
+                print(f"⚠️ Failed to increment sold count: {sold_err}")
+
             # -- Record promotion usage (non-fatal) ------------------------
             if product_id_int and checkout_item.get('seller_email'):
                 try:
@@ -13380,6 +13432,128 @@ def debug_orders():
     except Exception as e:
         import traceback
         return f"<pre>Error: {e}\n{traceback.format_exc()}</pre>"
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# COMMISSION CLAIMS TRACKING
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/admin_commission_claims')
+def admin_commission_claims():
+    """Admin: Commission Claims Tracking page."""
+    if 'user_id' not in session or session.get('user_type') != 'Admin':
+        flash('Access denied.', 'error')
+        return redirect(url_for('login'))
+    return render_template('admin_commission_claims.html')
+
+
+@app.route('/api/admin/commission_claims', methods=['GET'])
+def api_get_commission_claims():
+    """Return all commission claims, syncing from orders if needed."""
+    if 'user_id' not in session or session.get('user_type') != 'Admin':
+        return jsonify({'error': 'Unauthorized'}), 401
+    try:
+        from datetime import datetime as _dt
+
+        def _fmt(d):
+            if not d:
+                return None
+            return str(d)[:10]
+
+        # Fetch completed/delivered orders
+        done_statuses = ['completed', 'delivered', 'Completed', 'Delivered']
+        orders_res = sb_admin.table('orders') \
+            .select('id, seller_email, rider_email, total_price, shipping_fee, date, delivered_at, received_at, status') \
+            .in_('status', done_statuses) \
+            .order('date', desc=True) \
+            .execute()
+        orders = orders_res.data or []
+
+        # Fetch existing claims
+        claims_res = sb_admin.table('commission_claims').select('*').execute()
+        existing = {int(c['order_id']): c for c in (claims_res.data or [])}
+
+        # Upsert missing orders into commission_claims
+        to_insert = []
+        for o in orders:
+            oid = int(o['id'])
+            if oid not in existing:
+                total = float(o.get('total_price') or 0)
+                fee   = float(o.get('shipping_fee') or 50)
+                s_comm = round(total * 0.05, 2)
+                r_comm = round(fee   * 0.05, 2)
+                completed = o.get('received_at') or o.get('delivered_at')
+                to_insert.append({
+                    'order_id':               oid,
+                    'seller_email':           o.get('seller_email', ''),
+                    'rider_email':            o.get('rider_email') or None,
+                    'order_total':            total,
+                    'delivery_fee':           fee,
+                    'seller_commission':      s_comm,
+                    'rider_commission':       r_comm,
+                    'total_platform_earnings': round(s_comm + r_comm, 2),
+                    'order_date':             _fmt(o.get('date')),
+                    'date_completed':         _fmt(completed),
+                    'is_claimed':             False,
+                })
+
+        if to_insert:
+            sb_admin.table('commission_claims').insert(to_insert).execute()
+            # Re-fetch after insert
+            claims_res = sb_admin.table('commission_claims').select('*').execute()
+
+        claims = sorted(claims_res.data or [], key=lambda x: x.get('order_date') or '', reverse=True)
+        return jsonify({'claims': claims})
+
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/commission_claims/<int:claim_id>/mark_claimed', methods=['POST'])
+def api_mark_commission_claimed(claim_id):
+    """Mark a commission claim as claimed with a date."""
+    if 'user_id' not in session or session.get('user_type') != 'Admin':
+        return jsonify({'error': 'Unauthorized'}), 401
+    try:
+        data = request.get_json() or {}
+        claimed_date = data.get('claimed_date')
+        notes        = data.get('notes', '')
+        admin_email  = session.get('email', 'admin')
+
+        if not claimed_date:
+            return jsonify({'error': 'claimed_date is required'}), 400
+
+        sb_admin.table('commission_claims').update({
+            'is_claimed':   True,
+            'claimed_date': claimed_date,
+            'claimed_by':   admin_email,
+            'notes':        notes,
+            'updated_at':   'now()',
+        }).eq('id', claim_id).execute()
+
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/admin/commission_claims/<int:claim_id>/unmark_claimed', methods=['POST'])
+def api_unmark_commission_claimed(claim_id):
+    """Unmark a commission claim (revert to unclaimed)."""
+    if 'user_id' not in session or session.get('user_type') != 'Admin':
+        return jsonify({'error': 'Unauthorized'}), 401
+    try:
+        sb_admin.table('commission_claims').update({
+            'is_claimed':   False,
+            'claimed_date': None,
+            'claimed_by':   None,
+            'notes':        None,
+            'updated_at':   'now()',
+        }).eq('id', claim_id).execute()
+        return jsonify({'success': True})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
 
 if __name__ == '__main__':
     # Supabase-only mode - no MySQL initialization needed

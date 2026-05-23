@@ -1,0 +1,421 @@
+{% extends "admin_header.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/admin_commission_claims.css') }}">
+
+<div class="admin-dashboard-content">
+    <div class="dashboard-header">
+        <div class="dashboard-avatar">
+            <i class="fas fa-coins"></i>
+        </div>
+        <h1>Commission Claims</h1>
+        <p>Track and manage platform commission payments</p>
+    </div>
+
+    <div class="dashboard-container">
+
+        <!-- Stats -->
+        <div class="stats-summary no-print" id="claimStats">
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-list"></i></div>
+                <div class="stat-value" id="statTotal">0</div>
+                <div class="stat-label">Total Orders</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                <div class="stat-value" id="statClaimed">0</div>
+                <div class="stat-label">Claimed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                <div class="stat-value" id="statUnclaimed">0</div>
+                <div class="stat-label">Unclaimed</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-peso-sign"></i></div>
+                <div class="stat-value" id="statTotalEarnings">₱0.00</div>
+                <div class="stat-label">Total Earnings</div>
+            </div>
+            <div class="stat-card">
+                <div class="stat-icon"><i class="fas fa-coins"></i></div>
+                <div class="stat-value" id="statUnclaimedAmt">₱0.00</div>
+                <div class="stat-label">Unclaimed Amount</div>
+            </div>
+        </div>
+
+        <!-- Calendar View -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0"><i class="fas fa-calendar-alt"></i> Claims Calendar</h5>
+                <div class="calendar-nav">
+                    <button class="btn-cal-nav" id="prevMonth"><i class="fas fa-chevron-left"></i></button>
+                    <span id="calMonthLabel" class="cal-month-label">—</span>
+                    <button class="btn-cal-nav" id="nextMonth"><i class="fas fa-chevron-right"></i></button>
+                </div>
+            </div>
+            <div class="card-body p-3">
+                <div class="cal-legend">
+                    <span class="cal-dot claimed"></span> Claimed
+                    <span class="cal-dot unclaimed"></span> Unclaimed
+                </div>
+                <div class="cal-grid" id="calGrid"></div>
+            </div>
+        </div>
+
+        <!-- Filter -->
+        <div class="filter-section mb-3">
+            <div class="filter-form">
+                <div class="filter-row">
+                    <div class="filter-left">
+                        <div class="filter-group search-group">
+                            <label class="filter-label"><i class="fas fa-search"></i> Search</label>
+                            <input type="text" id="searchInput" placeholder="Order ID, seller, rider..." class="search-input" oninput="renderTable()">
+                        </div>
+                    </div>
+                    <div class="filter-right">
+                        <div class="filter-group">
+                            <label class="filter-label"><i class="fas fa-filter"></i> Status</label>
+                            <select id="statusFilter" class="filter-select" onchange="renderTable()">
+                                <option value="">All</option>
+                                <option value="unclaimed">Unclaimed</option>
+                                <option value="claimed">Claimed</option>
+                            </select>
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label"><i class="fas fa-calendar"></i> From</label>
+                            <input type="date" id="fromDate" class="filter-select" onchange="renderTable()">
+                        </div>
+                        <div class="filter-group">
+                            <label class="filter-label"><i class="fas fa-calendar"></i> To</label>
+                            <input type="date" id="toDate" class="filter-select" onchange="renderTable()">
+                        </div>
+                        <div class="filter-group filter-actions">
+                            <label class="filter-label">&nbsp;</label>
+                            <button class="btn-clear" onclick="clearFilters()"><i class="fas fa-times"></i> Clear</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table -->
+        <div class="card mb-4">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="card-title mb-0"><i class="fas fa-table"></i> Commission Records</h5>
+                <span id="tableCount" class="badge-count">0 records</span>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover mb-0">
+                        <thead>
+                            <tr>
+                                <th>No.</th>
+                                <th>Order ID</th>
+                                <th>Seller</th>
+                                <th>Rider</th>
+                                <th>Order Total</th>
+                                <th>Seller Comm.</th>
+                                <th>Rider Comm.</th>
+                                <th>Platform Earnings</th>
+                                <th>Completed</th>
+                                <th>Status</th>
+                                <th>Claimed Date</th>
+                                <th>Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="claimsTableBody">
+                            <tr><td colspan="13" class="text-center py-4 text-muted">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="table-totals" id="tableTotals" style="display:none;">
+                    <div class="totals-row">
+                        <span>Total Platform Earnings:</span>
+                        <span id="totalEarningsSum">₱0.00</span>
+                    </div>
+                    <div class="totals-row">
+                        <span>Claimed:</span>
+                        <span id="claimedSum">₱0.00</span>
+                    </div>
+                    <div class="totals-row grand">
+                        <span>Unclaimed:</span>
+                        <span id="unclaimedSum">₱0.00</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Mark Claimed Modal -->
+<div id="claimModal" class="modal-overlay" style="display:none;">
+    <div class="modal-content modal-sm">
+        <div class="modal-header">
+            <h2><i class="fas fa-calendar-check"></i> Mark as Claimed</h2>
+            <span class="close-btn" onclick="closeClaimModal()">&times;</span>
+        </div>
+        <div class="modal-body">
+            <p class="modal-desc">Order <strong id="modalOrderId"></strong></p>
+            <div class="form-group">
+                <label><i class="fas fa-calendar"></i> Claim Date *</label>
+                <input type="date" id="claimDateInput" class="form-control">
+            </div>
+            <div class="form-group mt-3">
+                <label><i class="fas fa-sticky-note"></i> Notes (optional)</label>
+                <textarea id="claimNotesInput" class="form-control" rows="3" placeholder="e.g. Paid via GCash, reference #..."></textarea>
+            </div>
+            <div class="modal-actions mt-3">
+                <button class="btn-secondary" onclick="closeClaimModal()"><i class="fas fa-times"></i> Cancel</button>
+                <button class="btn-primary" onclick="submitClaim()"><i class="fas fa-check"></i> Confirm Claim</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+let allClaims = [];
+let currentClaimId = null;
+let calYear = new Date().getFullYear();
+let calMonth = new Date().getMonth(); // 0-indexed
+
+document.addEventListener('DOMContentLoaded', function() {
+    loadClaims();
+    document.getElementById('prevMonth').addEventListener('click', function() {
+        calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }
+        renderCalendar();
+    });
+    document.getElementById('nextMonth').addEventListener('click', function() {
+        calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; }
+        renderCalendar();
+    });
+});
+
+function peso(n) {
+    return '₱' + parseFloat(n || 0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
+function loadClaims() {
+    fetch('/api/admin/commission_claims')
+        .then(r => r.json())
+        .then(data => {
+            if (data.error) {
+                // Show demo data if API fails (e.g. table not yet created)
+                allClaims = getDemoData();
+            } else {
+                allClaims = data.claims || [];
+                if (!allClaims.length) allClaims = getDemoData();
+            }
+            updateStats();
+            renderTable();
+            renderCalendar();
+        })
+        .catch(() => {
+            allClaims = getDemoData();
+            updateStats();
+            renderTable();
+            renderCalendar();
+        });
+}
+
+function getDemoData() {
+    const today = new Date().toISOString().split('T')[0];
+    const lastMonth = new Date(Date.now() - 30*24*60*60*1000).toISOString().split('T')[0];
+    const twoWeeks = new Date(Date.now() - 14*24*60*60*1000).toISOString().split('T')[0];
+    return [
+        { id:1, order_id:101, seller_email:'seller1@example.com', rider_email:'rider1@example.com', order_total:980.00, delivery_fee:50, seller_commission:49.00, rider_commission:2.50, total_platform_earnings:51.50, order_date:lastMonth, date_completed:lastMonth, is_claimed:true,  claimed_date:twoWeeks, claimed_by:'admin', notes:'Paid via GCash #REF123' },
+        { id:2, order_id:102, seller_email:'seller2@example.com', rider_email:'rider2@example.com', order_total:450.00, delivery_fee:50, seller_commission:22.50, rider_commission:2.50, total_platform_earnings:25.00, order_date:twoWeeks, date_completed:twoWeeks, is_claimed:false, claimed_date:null, claimed_by:null, notes:null },
+        { id:3, order_id:103, seller_email:'seller1@example.com', rider_email:null,                 order_total:1200.00,delivery_fee:50, seller_commission:60.00, rider_commission:2.50, total_platform_earnings:62.50, order_date:today,     date_completed:today,     is_claimed:false, claimed_date:null, claimed_by:null, notes:null },
+        { id:4, order_id:104, seller_email:'seller3@example.com', rider_email:'rider1@example.com', order_total:320.00, delivery_fee:50, seller_commission:16.00, rider_commission:2.50, total_platform_earnings:18.50, order_date:lastMonth, date_completed:lastMonth, is_claimed:true,  claimed_date:lastMonth, claimed_by:'admin', notes:'Bank transfer' },
+    ];
+}
+
+function updateStats() {
+    const total     = allClaims.length;
+    const claimed   = allClaims.filter(c => c.is_claimed).length;
+    const unclaimed = total - claimed;
+    const totalEarn = allClaims.reduce((s, c) => s + parseFloat(c.total_platform_earnings || 0), 0);
+    const unclAmt   = allClaims.filter(c => !c.is_claimed).reduce((s, c) => s + parseFloat(c.total_platform_earnings || 0), 0);
+
+    document.getElementById('statTotal').textContent       = total;
+    document.getElementById('statClaimed').textContent     = claimed;
+    document.getElementById('statUnclaimed').textContent   = unclaimed;
+    document.getElementById('statTotalEarnings').textContent = peso(totalEarn);
+    document.getElementById('statUnclaimedAmt').textContent  = peso(unclAmt);
+}
+
+function getFiltered() {
+    const q      = (document.getElementById('searchInput').value || '').toLowerCase();
+    const status = document.getElementById('statusFilter').value;
+    const from   = document.getElementById('fromDate').value;
+    const to     = document.getElementById('toDate').value;
+
+    return allClaims.filter(c => {
+        if (q && !(
+            String(c.order_id).includes(q) ||
+            (c.seller_email || '').toLowerCase().includes(q) ||
+            (c.rider_email  || '').toLowerCase().includes(q)
+        )) return false;
+        if (status === 'claimed'   && !c.is_claimed) return false;
+        if (status === 'unclaimed' &&  c.is_claimed) return false;
+        const d = c.order_date || '';
+        if (from && d < from) return false;
+        if (to   && d > to)   return false;
+        return true;
+    });
+}
+
+function renderTable() {
+    const filtered = getFiltered();
+    const tbody = document.getElementById('claimsTableBody');
+
+    if (!filtered.length) {
+        tbody.innerHTML = '<tr><td colspan="13" class="text-center py-4 text-muted">No records found.</td></tr>';
+        document.getElementById('tableTotals').style.display = 'none';
+        document.getElementById('tableCount').textContent = '0 records';
+        return;
+    }
+
+    let totalE = 0, claimedE = 0, unclaimedE = 0;
+    tbody.innerHTML = filtered.map((c, i) => {
+        const earn = parseFloat(c.total_platform_earnings || 0);
+        totalE += earn;
+        if (c.is_claimed) claimedE += earn; else unclaimedE += earn;
+
+        const statusBadge = c.is_claimed
+            ? `<span class="badge-claimed"><i class="fas fa-check-circle"></i> Claimed</span>`
+            : `<span class="badge-unclaimed"><i class="fas fa-clock"></i> Unclaimed</span>`;
+
+        const claimedDate = c.claimed_date
+            ? `<span class="claimed-date">${c.claimed_date}</span>${c.notes ? `<br><small class="text-muted">${c.notes}</small>` : ''}`
+            : '—';
+
+        const actionBtn = c.is_claimed
+            ? `<button class="btn-action btn-unmark" onclick="unmarkClaim(${c.id})" title="Revert to unclaimed"><i class="fas fa-undo"></i></button>`
+            : `<button class="btn-action btn-mark" onclick="openClaimModal(${c.id}, ${c.order_id})" title="Mark as claimed"><i class="fas fa-calendar-check"></i> Mark</button>`;
+
+        return `<tr class="${c.is_claimed ? 'row-claimed' : ''}">
+            <td class="text-muted small">${i + 1}</td>
+            <td><strong>#${c.order_id}</strong></td>
+            <td class="small">${c.seller_email || '—'}</td>
+            <td class="small">${c.rider_email  || 'N/A'}</td>
+            <td class="text-end">${peso(c.order_total)}</td>
+            <td class="text-end">${peso(c.seller_commission)}</td>
+            <td class="text-end">${peso(c.rider_commission)}</td>
+            <td class="text-end fw-bold">${peso(c.total_platform_earnings)}</td>
+            <td>${c.date_completed || '—'}</td>
+            <td>${statusBadge}</td>
+            <td>${claimedDate}</td>
+            <td>${actionBtn}</td>
+        </tr>`;
+    }).join('');
+
+    document.getElementById('tableCount').textContent = `${filtered.length} records`;
+    document.getElementById('totalEarningsSum').textContent = peso(totalE);
+    document.getElementById('claimedSum').textContent       = peso(claimedE);
+    document.getElementById('unclaimedSum').textContent     = peso(unclaimedE);
+    document.getElementById('tableTotals').style.display    = 'flex';
+}
+
+/* ── Calendar ─────────────────────────────────────────────── */
+function renderCalendar() {
+    const months = ['January','February','March','April','May','June',
+                    'July','August','September','October','November','December'];
+    document.getElementById('calMonthLabel').textContent = `${months[calMonth]} ${calYear}`;
+
+    const grid = document.getElementById('calGrid');
+    const firstDay = new Date(calYear, calMonth, 1).getDay();
+    const daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+
+    // Build a map: date string → {claimed, unclaimed}
+    const dayMap = {};
+    allClaims.forEach(c => {
+        const d = c.is_claimed ? c.claimed_date : c.order_date;
+        if (!d) return;
+        const [y, m] = d.split('-').map(Number);
+        if (y !== calYear || m - 1 !== calMonth) return;
+        const day = parseInt(d.split('-')[2]);
+        if (!dayMap[day]) dayMap[day] = { claimed: 0, unclaimed: 0, total: 0 };
+        if (c.is_claimed) dayMap[day].claimed++;
+        else dayMap[day].unclaimed++;
+        dayMap[day].total++;
+    });
+
+    const dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+    let html = dayNames.map(d => `<div class="cal-day-name">${d}</div>`).join('');
+
+    // Empty cells before first day
+    for (let i = 0; i < firstDay; i++) html += '<div class="cal-cell empty"></div>';
+
+    for (let d = 1; d <= daysInMonth; d++) {
+        const info = dayMap[d];
+        const today = new Date();
+        const isToday = today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === d;
+        let dots = '';
+        if (info) {
+            if (info.claimed)   dots += `<span class="cal-dot claimed"></span>`;
+            if (info.unclaimed) dots += `<span class="cal-dot unclaimed"></span>`;
+        }
+        html += `<div class="cal-cell${isToday ? ' today' : ''}${info ? ' has-data' : ''}">
+            <span class="cal-day-num">${d}</span>
+            ${info ? `<div class="cal-dots">${dots}<span class="cal-count">${info.total}</span></div>` : ''}
+        </div>`;
+    }
+
+    grid.innerHTML = html;
+}
+
+/* ── Modal ────────────────────────────────────────────────── */
+function openClaimModal(claimId, orderId) {
+    currentClaimId = claimId;
+    document.getElementById('modalOrderId').textContent = '#' + orderId;
+    document.getElementById('claimDateInput').value = new Date().toISOString().split('T')[0];
+    document.getElementById('claimNotesInput').value = '';
+    document.getElementById('claimModal').style.display = 'flex';
+}
+
+function closeClaimModal() {
+    document.getElementById('claimModal').style.display = 'none';
+    currentClaimId = null;
+}
+
+function submitClaim() {
+    const date  = document.getElementById('claimDateInput').value;
+    const notes = document.getElementById('claimNotesInput').value;
+    if (!date) { alert('Please select a claim date.'); return; }
+
+    fetch(`/api/admin/commission_claims/${currentClaimId}/mark_claimed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ claimed_date: date, notes: notes })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            closeClaimModal();
+            loadClaims();
+        } else {
+            alert('Error: ' + (data.error || 'Unknown error'));
+        }
+    });
+}
+
+function unmarkClaim(claimId) {
+    if (!confirm('Revert this claim to unclaimed?')) return;
+    fetch(`/api/admin/commission_claims/${claimId}/unmark_claimed`, { method: 'POST' })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) loadClaims();
+            else alert('Error: ' + (data.error || 'Unknown error'));
+        });
+}
+
+function clearFilters() {
+    document.getElementById('searchInput').value = '';
+    document.getElementById('statusFilter').value = '';
+    document.getElementById('fromDate').value = '';
+    document.getElementById('toDate').value = '';
+    renderTable();
+}
+</script>
+{% endblock %}

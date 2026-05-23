@@ -3050,12 +3050,21 @@ ple Images Preview Styles */
   }
 
   .filter-sort {
-    padding: 1.25rem;
+    padding: 1rem;
     border-radius: 12px;
   }
 
+  .form-header {
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+  }
+
   .form-header h3 {
-    font-size: 1.1rem;
+    font-size: 1rem;
+  }
+
+  .form-header p {
+    display: none;
   }
 
   .sort-category-form {
@@ -3109,7 +3118,7 @@ ple Images Preview Styles */
 
   /* Square image container */
   .product-image-container {
-    padding-top: 100%;
+    padding-top: 75%;
   }
 
   /* Always show nav buttons & indicators on touch */
@@ -3315,4 +3324,185 @@ table thead th i,
 table th i {
     color: #d4af37 !important;
     margin-right: 0.4rem !important;
+}
+
+/* ── Mobile responsiveness fixes ── */
+@media (max-width: 480px) {
+  /* Always 2 columns, never 1 */
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+  /* Shorter image on small screens */
+  .product-image-container {
+    padding-top: 70% !important;
+  }
+  /* Compact filter */
+  .filter-sort,
+  .filter-sort-container {
+    padding: 0.875rem !important;
+    margin-bottom: 1rem !important;
+  }
+  .form-header {
+    margin-bottom: 0.75rem !important;
+    padding-bottom: 0.5rem !important;
+  }
+  .form-header p { display: none !important; }
+  .form-header h3 { font-size: 0.95rem !important; }
+  /* Compact product info */
+  .product-info { padding: 0.5rem !important; }
+  .product-info h3 { font-size: 0.78rem !important; min-height: unset !important; }
+  .product-price { font-size: 0.85rem !important; }
+  .product-meta { font-size: 0.7rem !important; }
+}
+
+/* ── Mobile responsiveness fixes ── */
+@media (max-width: 768px) {
+  .product-image-container {
+    padding-top: 75% !important;
+  }
+  .form-header p { display: none; }
+  .form-header h3 { font-size: 1rem; }
+  .filter-sort, .filter-sort-container {
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .product-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+  .product-image-container {
+    padding-top: 70% !important;
+  }
+  .filter-sort, .filter-sort-container {
+    padding: 0.875rem !important;
+  }
+  .form-header { margin-bottom: 0.75rem !important; padding-bottom: 0.5rem !important; }
+  .form-header p { display: none !important; }
+  .form-header h3 { font-size: 0.95rem !important; }
+  .product-info { padding: 0.5rem !important; }
+  .product-info h3 { font-size: 0.78rem !important; min-height: unset !important; }
+}
+
+/* ══════════════════════════════════════════════════════════════
+   FILTER BAR — Compact responsive redesign
+   ══════════════════════════════════════════════════════════════ */
+
+/* Hide the bulky centered form header on all sizes */
+.filter-sort .form-header,
+.filter-sort-container .form-header {
+  display: none !important;
+}
+
+/* Compact filter container */
+.filter-sort,
+.filter-sort-container {
+  padding: 0.875rem 1rem !important;
+  margin-bottom: 1rem !important;
+  border-radius: 12px !important;
+}
+
+/* Inline filter row — all controls in one line on desktop */
+.sort-category-form {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  gap: 0.5rem !important;
+  align-items: flex-end !important;
+  grid-template-columns: unset !important;
+}
+
+/* Each form group shrinks to fit */
+.sort-category-form .form-group {
+  flex: 1 1 140px;
+  min-width: 0;
+}
+
+/* Search group takes more space */
+.sort-category-form .form-group:last-child,
+.sort-category-form .search-group {
+  flex: 2 1 200px;
+}
+
+/* Compact labels */
+.sort-category-form .form-group label {
+  font-size: 0.72rem !important;
+  margin-bottom: 3px !important;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+  color: #718096;
+}
+
+/* Compact inputs and selects */
+.sort-category-form .category_dropdown,
+.sort-category-form .search_input,
+.sort-category-form select {
+  padding: 0.5rem 0.75rem !important;
+  font-size: 0.85rem !important;
+  border-radius: 8px !important;
+  height: 38px;
+}
+
+/* Search row stays horizontal always */
+.search-input-container {
+  display: flex !important;
+  flex-direction: row !important;
+  gap: 0.4rem !important;
+}
+
+.search_input {
+  flex: 1 !important;
+  min-width: 0 !important;
+}
+
+/* Compact search button */
+.search_button {
+  padding: 0.5rem 0.875rem !important;
+  font-size: 0.82rem !important;
+  border-radius: 8px !important;
+  height: 38px !important;
+  white-space: nowrap !important;
+  flex-shrink: 0 !important;
+  width: auto !important;
+}
+
+/* Mobile: 2-column filter grid */
+@media (max-width: 600px) {
+  .sort-category-form {
+    display: grid !important;
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Search spans full width */
+  .sort-category-form .form-group:has(.search-input-container),
+  .sort-category-form .search-group {
+    grid-column: 1 / -1;
+  }
+
+  .search-input-container {
+    flex-direction: row !important;
+  }
+
+  .search_button {
+    padding: 0.5rem 0.75rem !important;
+  }
+
+  /* Icon only on very small */
+  .search_button .btn-text {
+    display: none;
+  }
+}
+
+@media (max-width: 400px) {
+  .sort-category-form {
+    grid-template-columns: 1fr !important;
+  }
+  .sort-category-form .form-group:has(.search-input-container),
+  .sort-category-form .search-group {
+    grid-column: 1;
+  }
 }
