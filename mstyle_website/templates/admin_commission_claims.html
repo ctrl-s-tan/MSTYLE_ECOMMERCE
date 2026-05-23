@@ -200,7 +200,10 @@ function loadClaims() {
         .then(r => r.json())
         .then(data => {
             if (data.error) {
-                // Show demo data if API fails (e.g. table not yet created)
+                const msg = data.error || '';
+                if (msg.includes('commission_claims') || msg.includes('PGRST205') || msg.includes('schema cache')) {
+                    showMigrationBanner();
+                }
                 allClaims = getDemoData();
             } else {
                 allClaims = data.claims || [];
@@ -216,6 +219,16 @@ function loadClaims() {
             renderTable();
             renderCalendar();
         });
+}
+
+function showMigrationBanner() {
+    const existing = document.getElementById('migrationBanner');
+    if (existing) return;
+    const banner = document.createElement('div');
+    banner.id = 'migrationBanner';
+    banner.style.cssText = 'background:#fef3dc;border:1px solid #f5d98a;border-left:4px solid #c9a227;border-radius:8px;padding:12px 16px;margin-bottom:1rem;display:flex;align-items:center;gap:10px;font-size:.875rem;color:#92600a;';
+    banner.innerHTML = '<i class="fas fa-exclamation-triangle"></i><span><strong>Database setup required.</strong> Run <code>supabase_commission_claims_migration.sql</code> in Supabase Dashboard → SQL Editor to enable real data. Currently showing demo data.</span>';
+    document.querySelector('.dashboard-container').prepend(banner);
 }
 
 function getDemoData() {
@@ -395,9 +408,15 @@ function submitClaim() {
             closeClaimModal();
             loadClaims();
         } else {
-            alert('Error: ' + (data.error || 'Unknown error'));
+            const msg = data.error || 'Unknown error';
+            if (msg.includes('commission_claims') || msg.includes('PGRST205') || msg.includes('schema cache')) {
+                alert('⚠️ Database table not set up yet.\n\nPlease run the SQL migration in Supabase Dashboard → SQL Editor:\n\nFile: supabase_commission_claims_migration.sql\n\nAfter running it, refresh this page and try again.');
+            } else {
+                alert('Error: ' + msg);
+            }
         }
-    });
+    })
+    .catch(e => alert('Network error: ' + e.message));
 }
 
 function unmarkClaim(claimId) {
