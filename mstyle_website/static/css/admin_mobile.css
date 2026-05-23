@@ -84,12 +84,53 @@
         font-size: 2rem !important;
     }
 
-    /* ── Stats grids — force single column ── */
+    /* ── Stats grids — 4 cols max, 2 rows, then scroll ── */
     .stats-grid,
     .stats-summary,
     .stats-cards {
-        grid-template-columns: 1fr !important;
-        gap: 1rem !important;
+        display: flex !important;
+        flex-wrap: wrap !important;
+        justify-content: center !important;
+        gap: 0.5rem !important;
+        overflow-x: auto !important;
+        padding: 0 0.5rem !important;
+    }
+
+    .stats-grid .stat-card,
+    .stats-summary .stat-card,
+    .stats-cards .stat-card {
+        flex: 0 0 calc(25% - 0.5rem) !important;
+        min-width: 70px !important;
+        max-width: calc(25% - 0.5rem) !important;
+        padding: 0.875rem 0.5rem !important;
+        border-radius: 12px !important;
+    }
+
+    .stats-grid .stat-card .stat-icon,
+    .stats-summary .stat-card .stat-icon,
+    .stats-cards .stat-card .stat-icon {
+        width: 40px !important;
+        height: 40px !important;
+        font-size: 1.1rem !important;
+        margin-bottom: 0.5rem !important;
+        border-radius: 10px !important;
+    }
+
+    .stats-grid .stat-card .stat-value,
+    .stats-summary .stat-card .stat-value,
+    .stats-cards .stat-card .stat-value {
+        font-size: 1.1rem !important;
+        -webkit-text-fill-color: unset !important;
+        background: none !important;
+        color: #2c3e50 !important;
+    }
+
+    .stats-grid .stat-card .stat-label,
+    .stats-summary .stat-card .stat-label,
+    .stats-cards .stat-card .stat-label {
+        font-size: 0.58rem !important;
+        letter-spacing: 0 !important;
+        margin: 0 !important;
     }
 
     /* ── ALL tables — horizontal scroll ── */
@@ -155,32 +196,86 @@
         justify-content: center !important;
     }
 
-    /* ── Filter sections ── */
+    /* ── Filter sections — compact, hide bulky header ── */
     .filter-section,
     .filter-card,
     .search-filter-section {
-        padding: 1rem !important;
+        padding: 0.875rem 1rem !important;
+        margin-bottom: 1rem !important;
+        border-radius: 12px !important;
     }
 
+    /* Hide the large "Filter & Search" header */
+    .filter-section .form-header,
+    .filter-card .form-header,
+    .search-filter-section .form-header,
+    .filter-and-actions-container .form-header {
+        display: none !important;
+    }
+
+    /* Compact filter labels */
+    .filter-label {
+        font-size: 0.72rem !important;
+        margin-bottom: 3px !important;
+        font-weight: 600 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.3px !important;
+        color: #718096 !important;
+    }
+
+    /* Compact inputs */
+    .filter-select,
+    .search-input,
+    .filter-input {
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.85rem !important;
+        border-radius: 8px !important;
+        height: 38px !important;
+        width: 100% !important;
+    }
+
+    /* Filter row — 2-column grid on mobile */
     .filter-row,
     .filter-container,
     .filter-and-actions-container {
-        flex-direction: column !important;
-        gap: 0.75rem !important;
+        display: grid !important;
+        grid-template-columns: 1fr 1fr !important;
+        gap: 0.5rem !important;
+        flex-direction: unset !important;
     }
 
-    .filter-group,
+    /* Search group spans full width */
     .filter-left,
-    .filter-right {
+    .filter-group.search-group,
+    .search-group {
+        grid-column: 1 / -1 !important;
         width: 100% !important;
         max-width: 100% !important;
         min-width: unset !important;
-        flex: 1 1 auto !important;
+        flex: unset !important;
     }
 
+    .filter-right {
+        display: contents !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: unset !important;
+        flex: unset !important;
+    }
+
+    .filter-group {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: unset !important;
+        flex: unset !important;
+    }
+
+    /* Action buttons row */
     .filter-actions,
     .action-buttons-right {
+        grid-column: 1 / -1 !important;
         width: 100% !important;
+        display: flex !important;
         flex-direction: row !important;
         flex-wrap: wrap !important;
         gap: 0.5rem !important;
@@ -193,6 +288,29 @@
     .filter-clear-btn {
         flex: 1 !important;
         justify-content: center !important;
+    }
+
+    /* Search input stays inline with button */
+    .search-input-container,
+    .search-and-actions {
+        display: flex !important;
+        flex-direction: row !important;
+        gap: 0.4rem !important;
+    }
+
+    .search-input-container .search-input,
+    .search-and-actions .search-input {
+        flex: 1 !important;
+        min-width: 0 !important;
+    }
+
+    .search-button,
+    .search_button {
+        flex-shrink: 0 !important;
+        width: auto !important;
+        padding: 0.5rem 0.75rem !important;
+        height: 38px !important;
+        border-radius: 8px !important;
     }
 
     /* ── Cards / content cards ── */
@@ -331,11 +449,35 @@
         font-size: 1.25rem !important;
     }
 
-    /* Single column stats always */
+    /* Single column stats on very small screens — keep 2 cols */
     .stats-grid,
     .stats-summary,
     .order-status-cards {
+        flex-wrap: wrap !important;
+    }
+
+    .stats-grid .stat-card,
+    .stats-summary .stat-card,
+    .stats-cards .stat-card {
+        flex: 0 0 calc(50% - 0.4rem) !important;
+        max-width: calc(50% - 0.4rem) !important;
+        min-width: 60px !important;
+        padding: 0.75rem 0.4rem !important;
+    }
+
+    /* Filter: single column on very small */
+    .filter-row,
+    .filter-container,
+    .filter-and-actions-container {
         grid-template-columns: 1fr !important;
+    }
+
+    .filter-left,
+    .filter-group.search-group,
+    .search-group,
+    .filter-right,
+    .filter-group {
+        grid-column: 1 !important;
     }
 
     /* Tighter table cells */
@@ -367,11 +509,44 @@
 
     .stats-grid,
     .stats-summary {
-        grid-template-columns: repeat(2, 1fr) !important;
+        flex-wrap: nowrap !important;
+        gap: 0.75rem !important;
+        overflow-x: auto !important;
+    }
+
+    .stats-grid .stat-card,
+    .stats-summary .stat-card {
+        flex: 0 1 160px !important;
+        min-width: 120px !important;
+        max-width: none !important;
     }
 
     .order-status-cards {
         grid-template-columns: repeat(2, 1fr) !important;
+    }
+
+    /* Filter: inline flex on tablet */
+    .filter-row,
+    .filter-container {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 0.75rem !important;
+        grid-template-columns: unset !important;
+    }
+
+    .filter-right {
+        display: flex !important;
+        flex-wrap: wrap !important;
+        gap: 0.75rem !important;
+    }
+
+    .filter-group {
+        flex: 1 1 160px !important;
+        min-width: 0 !important;
+    }
+
+    .filter-left {
+        flex: 2 1 240px !important;
     }
 
     .main-container {
