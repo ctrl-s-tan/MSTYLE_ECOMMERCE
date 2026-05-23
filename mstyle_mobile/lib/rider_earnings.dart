@@ -282,7 +282,7 @@ class _RiderEarningsPageState extends State<RiderEarningsPage>
                           'apikey':        supabaseServiceRole,
                           'Authorization': 'Bearer $supabaseServiceRole',
                           'Content-Type':  'application/json',
-                          'Prefer':        'return=minimal',
+                          'Prefer':        'return=representation',
                         },
                         body: jsonEncode({
                           'rider_email':    widget.riderEmail,
@@ -295,6 +295,33 @@ class _RiderEarningsPageState extends State<RiderEarningsPage>
                       );
                       if (resp.statusCode != 200 && resp.statusCode != 201) {
                         throw Exception('Insert failed: ${resp.statusCode} ${resp.body}');
+                      }
+
+                      // Auto-approve after 1 minute
+                      final insertedData = jsonDecode(resp.body);
+                      final withdrawalId = (insertedData is List && insertedData.isNotEmpty)
+                          ? insertedData[0]['id']
+                          : (insertedData is Map ? insertedData['id'] : null);
+                      if (withdrawalId != null) {
+                        Future.delayed(const Duration(minutes: 1), () async {
+                          try {
+                            final approveUri = Uri.parse(
+                              '$supabaseUrl/rest/v1/rider_withdrawals?id=eq.$withdrawalId&status=eq.pending',
+                            );
+                            await http.patch(approveUri, headers: {
+                              'apikey':        supabaseServiceRole,
+                              'Authorization': 'Bearer $supabaseServiceRole',
+                              'Content-Type':  'application/json',
+                              'Prefer':        'return=minimal',
+                            }, body: jsonEncode({
+                              'status': 'approved',
+                              'approved_at': DateTime.now().toUtc().toIso8601String(),
+                            }));
+                            debugPrint('✅ Withdrawal #$withdrawalId auto-approved');
+                          } catch (e) {
+                            debugPrint('⚠️ Auto-approve failed: $e');
+                          }
+                        });
                       }
                       if (!mounted) return;
                       Navigator.pop(ctx);

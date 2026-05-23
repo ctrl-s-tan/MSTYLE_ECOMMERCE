@@ -251,12 +251,7 @@ def mobile_place_order():
 
             # Increment sold count on the product when order is placed
             if product_id_int:
-                try:
-                    prod_res = sb_admin.table('products').select('sold').eq('id', product_id_int).limit(1).execute()
-                    current_sold = int((prod_res.data[0].get('sold') or 0)) if prod_res.data else 0
-                    sb_admin.table('products').update({'sold': current_sold + quantity}).eq('id', product_id_int).execute()
-                except Exception:
-                    pass
+                pass  # Sold count is incremented when order is delivered, not placed
 
             # Notify seller (non-fatal, background)
             if seller_email:
@@ -4966,6 +4961,17 @@ def mark_delivered():
         order = order_res.data[0]
         sb_admin.table('orders').update({'status': 'Delivered', 'delivered_at': datetime.now().isoformat()}).eq('id', order_id).execute()
 
+        # Increment sold count on the product when delivered
+        try:
+            product_id = order.get('product_id')
+            qty_sold = int(order.get('quantity') or 1)
+            if product_id:
+                prod_res = sb_admin.table('products').select('sold').eq('id', product_id).limit(1).execute()
+                current_sold = int((prod_res.data[0].get('sold') or 0)) if prod_res.data else 0
+                sb_admin.table('products').update({'sold': current_sold + qty_sold}).eq('id', product_id).execute()
+        except Exception:
+            pass
+
         order_details = {
             'name':       order.get('name', ''),
             'quantity':   order.get('quantity', 1),
@@ -6947,6 +6953,18 @@ def update_order_status(order_id):
 
         sb_admin.table('orders').update(update_payload).eq('id', order_id).execute()
         print(f"? Supabase order {order_id} ? {new_status}")
+
+        # Increment sold count when order is delivered
+        if new_status == 'Delivered':
+            try:
+                product_id = order.get('product_id')
+                qty_sold = int(order.get('quantity') or 1)
+                if product_id:
+                    prod_res = sb_admin.table('products').select('sold').eq('id', product_id).limit(1).execute()
+                    current_sold = int((prod_res.data[0].get('sold') or 0)) if prod_res.data else 0
+                    sb_admin.table('products').update({'sold': current_sold + qty_sold}).eq('id', product_id).execute()
+            except Exception:
+                pass
 
     except Exception as sb_err:
         print(f"? Supabase update_order_status failed: {sb_err}")
@@ -9894,16 +9912,6 @@ def confirm_order():
             new_order_id = (order_res.data or [{}])[0].get('id')
 
             print(f"? Order inserted id={new_order_id} item={checkout_item['name']} price={item_product_price}")
-
-            # Increment sold count on the product when order is placed
-            try:
-                if product_id_int:
-                    prod_res = sb_admin.table('products').select('sold').eq('id', product_id_int).limit(1).execute()
-                    current_sold = int((prod_res.data[0].get('sold') or 0)) if prod_res.data else 0
-                    sb_admin.table('products').update({'sold': current_sold + order_qty}).eq('id', product_id_int).execute()
-                    print(f"✅ Incremented sold count for product {product_id_int}: {current_sold} → {current_sold + order_qty}")
-            except Exception as sold_err:
-                print(f"⚠️ Failed to increment sold count: {sold_err}")
 
             # -- Record promotion usage (non-fatal) ------------------------
             if product_id_int and checkout_item.get('seller_email'):

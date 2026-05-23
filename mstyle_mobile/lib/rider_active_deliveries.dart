@@ -514,6 +514,35 @@ class _RiderActiveDeliveriesPageState extends State<RiderActiveDeliveriesPage> {
         throw Exception('Update failed: ${updateResp.statusCode}');
       }
 
+      // Increment sold count on the product when delivered
+      if (isCompleted) {
+        try {
+          final productId = order['product_id'];
+          final qtySold = (order['quantity'] as num?)?.toInt() ?? 1;
+          if (productId != null) {
+            final prodUri = Uri.parse('$supabaseUrl/rest/v1/products?id=eq.$productId&select=sold');
+            final prodResp = await http.get(prodUri, headers: {
+              'apikey': supabaseServiceRole,
+              'Authorization': 'Bearer $supabaseServiceRole',
+            });
+            int currentSold = 0;
+            if (prodResp.statusCode == 200) {
+              final prodData = jsonDecode(prodResp.body) as List;
+              if (prodData.isNotEmpty) currentSold = (prodData[0]['sold'] as num?)?.toInt() ?? 0;
+            }
+            final soldUri = Uri.parse('$supabaseUrl/rest/v1/products?id=eq.$productId');
+            await http.patch(soldUri, headers: {
+              'apikey': supabaseServiceRole,
+              'Authorization': 'Bearer $supabaseServiceRole',
+              'Content-Type': 'application/json',
+              'Prefer': 'return=minimal',
+            }, body: jsonEncode({'sold': currentSold + qtySold}));
+          }
+        } catch (e) {
+          debugPrint('⚠️ Failed to increment sold count: $e');
+        }
+      }
+
       // Notify the buyer
       final buyerEmail = order['email'] as String?;
       if (buyerEmail != null && buyerEmail.isNotEmpty) {
