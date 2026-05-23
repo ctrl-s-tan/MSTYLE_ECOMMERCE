@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:image_picker/image_picker.dart';
+import 'dart:typed_data';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'seller_products.dart';
+import 'supabase_client.dart' show supabase, supabaseUrl, supabaseServiceRole;
 
 const Color _primary   = Color(0xFF1a1a1a);
 const Color _accent    = Color(0xFF2c3e50);
@@ -60,6 +65,11 @@ class _SellerAddProductPageState extends State<SellerAddProductPage> {
   final List<String> _customSizes  = [];
   bool _submitting = false;
 
+  // Image state
+  final ImagePicker _picker = ImagePicker();
+  final List<({XFile xfile, Uint8List bytes, String? colorName})> _images = [];
+  static const int _maxImages = 10;
+
   @override
   void dispose() {
     _nameCtrl.dispose(); _descCtrl.dispose(); _priceCtrl.dispose();
@@ -76,7 +86,7 @@ class _SellerAddProductPageState extends State<SellerAddProductPage> {
     }
   }
 
-  void _submit() {
+  void _submit() async {
     if (_nameCtrl.text.trim().isEmpty) { _snack('Product name is required'); return; }
     if (_descCtrl.text.trim().isEmpty) { _snack('Description is required'); return; }
     if (_category.isEmpty) { _snack('Please select a category'); return; }
@@ -84,9 +94,103 @@ class _SellerAddProductPageState extends State<SellerAddProductPage> {
     if (_stockCtrl.text.trim().isEmpty) { _snack('Stock quantity is required'); return; }
     if (_colorOption.isEmpty) { _snack('Please select a color option'); return; }
     if (_allSelectedSizes.isEmpty) { _snack('Please select at least one size'); return; }
+    if (_images.isEmpty) { _snack('Please upload at least one product image'); return; }
+    if (_colorOption == 'has_colors') {
+      final missingColor = _images.any((img) => (img.colorName ?? '').trim().isEmpty);
+      if (missingColor) { _snack('Please enter a color name for each image'); return; }
+    }
 
     setState(() => _submitting = true);
-    Future.delayed(const Duration(milliseconds: 800), () {
+
+    try {
+      // 1. Upload images to Supabase Storage
+      final List<String> uploadedUrls = [];
+      final Map<String, String> colorMap = {}; // colorName -> imageUrl
+
+      for (int i = 0; i < _images.length; i++) {
+        final entry = _images[i];
+        final rawExt = entry.xfile.name.contains('.')
+            ? entry.xfile.name.split('.').last.toLowerCase()
+            : 'jpg';
+        final ext = ['jpg', 'jpeg', 'png', 'webp', 'gif'].contains(rawExt) ? rawExt : 'jpg';
+        final ts = DateTime.now().millisecondsSinceEpoch + i;
+        final fileName = '${widget.sellerEmail.replaceAll('@', '_')}_${ts}.$ext';
+        final storagePath = 'products/$fileName';
+
+        final uploadUri = Uri.parse('$supabaseUrl/storage/v1/object/product-images/$storagePath');
+        final resp = await http.post(
+          uploadUri,
+          headers: {
+            'Authorization': 'Bearer $supabaseServiceRole',
+            'apikey': supabaseServiceRole,
+            'Content-Type': 'image/$ext',
+            'x-upsert': 'true',
+          },
+          body: entry.bytes,
+        );
+
+        if (resp.statusCode == 200 || resp.statusCode == 201) {
+          final publicUrl = '$supabaseUrl/storage/v1/object/public/product-images/$storagePath';
+          uploadedUrls.add(publicUrl);
+          if (_colorOption == 'has_colors' && entry.colorName != null && entry.colorName!.isNotEmpty) {
+            colorMap[entry.colorName!] = publicUrl;
+          }
+        } else {
+          debugPrint('Image upload failed [$i]: ${resp.statusCode} ${resp.body}');
+          _snack('Failed to upload image ${i + 1}. Please try again.');
+          setState(() => _submitting = false);
+          return;
+        }
+      }
+
+      // 2. Build variations string
+      String variations;
+      if (_colorOption == 'has_colors') {
+        variations = _images.map((img) => img.colorName ?? '').where((c) => c.isNotEmpty).toSet().join(',');
+      } else {
+        variations = 'Standard';
+      }
+
+      // 3. Build image_colors JSON
+      String? imageColorsJson;
+      if (_colorOption == 'has_colors' && colorMap.isNotEmpty) {
+        imageColorsJson = jsonEncode(colorMap);
+      }
+
+      // 4. Insert product into Supabase
+      final body = <String, dynamic>{
+        'name': _nameCtrl.text.trim(),
+        'description': _descCtrl.text.trim(),
+        'category': _category,
+        'price': double.tryParse(_priceCtrl.text.trim()) ?? 0,
+        'quantity': int.tryParse(_stockCtrl.text.trim()) ?? 0,
+        'low_stock_threshold': int.tryParse(_thresholdCtrl.text.trim()) ?? 5,
+        'seller_email': widget.sellerEmail,
+        'variations': variations,
+        'sizes': _allSelectedSizes.join(','),
+        'image': uploadedUrls.join(','),
+        'image_colors': imageColorsJson,
+        'is_active': true,
+        'sold': 0,
+        'rating': 0,
+      };
+
+      final insertUri = Uri.parse('$supabaseUrl/rest/v1/products');
+      final insertResp = await http.post(
+        insertUri,
+        headers: {
+          'apikey': supabaseServiceRole,
+          'Authorization': 'Bearer $supabaseServiceRole',
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal',
+        },
+        body: jsonEncode(body),
+      );
+
+      if (insertResp.statusCode != 200 && insertResp.statusCode != 201 && insertResp.statusCode != 204) {
+        throw Exception('Failed to add product (${insertResp.statusCode}): ${insertResp.body}');
+      }
+
       if (!mounted) return;
       setState(() => _submitting = false);
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -95,7 +199,13 @@ class _SellerAddProductPageState extends State<SellerAddProductPage> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ));
       Navigator.pop(context);
-    });
+    } catch (e) {
+      debugPrint('Add product error: $e');
+      if (mounted) {
+        setState(() => _submitting = false);
+        _snack('Error: ${e.toString().length > 100 ? e.toString().substring(0, 100) : e}');
+      }
+    }
   }
 
   void _snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
@@ -424,58 +534,139 @@ class _SellerAddProductPageState extends State<SellerAddProductPage> {
   }
 
   // ─── Image Upload Section ─────────────────────────────────────────────────
+  Future<void> _pickImages() async {
+    final remaining = _maxImages - _images.length;
+    if (remaining <= 0) { _snack('Maximum $_maxImages images allowed'); return; }
+    final picked = await _picker.pickMultiImage(imageQuality: 80, limit: remaining);
+    if (picked.isNotEmpty) {
+      for (final xfile in picked) {
+        if (_images.length >= _maxImages) break;
+        final bytes = await xfile.readAsBytes();
+        setState(() => _images.add((xfile: xfile, bytes: bytes, colorName: null)));
+      }
+    }
+  }
+
+  Future<void> _pickFromCamera() async {
+    if (_images.length >= _maxImages) { _snack('Maximum $_maxImages images allowed'); return; }
+    final photo = await _picker.pickImage(source: ImageSource.camera, imageQuality: 80);
+    if (photo != null) {
+      final bytes = await photo.readAsBytes();
+      setState(() => _images.add((xfile: photo, bytes: bytes, colorName: null)));
+    }
+  }
+
+  void _removeImage(int index) => setState(() => _images.removeAt(index));
+
+  void _updateColorName(int index, String name) {
+    final old = _images[index];
+    setState(() => _images[index] = (xfile: old.xfile, bytes: old.bytes, colorName: name));
+  }
+
   Widget _imageUploadSection() => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-    const Row(children: [
-      Icon(Icons.photo_library_outlined, color: _gold, size: 16),
-      SizedBox(width: 6),
-      Text('Product Images', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13)),
+    Row(children: [
+      const Icon(Icons.photo_library_outlined, color: _gold, size: 16),
+      const SizedBox(width: 6),
+      const Text('Product Images', style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 13)),
+      const Spacer(),
+      Text('${_images.length}/$_maxImages', style: const TextStyle(color: _textLight, fontSize: 12)),
     ]),
     const SizedBox(height: 4),
     Container(width: 36, height: 3, decoration: BoxDecoration(borderRadius: BorderRadius.circular(2), gradient: _goldGrad)),
     const SizedBox(height: 14),
-    GestureDetector(
-      onTap: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-        content: Text('Image picker — connect to image_picker package'),
-        behavior: SnackBarBehavior.floating)),
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 32),
-        decoration: BoxDecoration(
-          color: _bg,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: _border, width: 2, style: BorderStyle.solid),
-        ),
-        child: Column(children: [
-          Container(
-            width: 56, height: 56,
-            decoration: BoxDecoration(
-              color: _gold.withOpacity(0.1), shape: BoxShape.circle,
-              border: Border.all(color: _gold.withOpacity(0.3)),
-            ),
-            child: const Icon(Icons.cloud_upload_outlined, color: _gold, size: 28),
-          ),
-          const SizedBox(height: 12),
-          const Text('Upload Product Images',
-            style: TextStyle(color: _accent, fontWeight: FontWeight.w700, fontSize: 14)),
-          const SizedBox(height: 6),
-          const Text('Tap to browse your gallery',
-            style: TextStyle(color: _textLight, fontSize: 12)),
-          const SizedBox(height: 4),
-          const Text('Supports: JPG, PNG, GIF (Max: 10MB each)',
-            style: TextStyle(color: _textLight, fontSize: 11)),
-          const SizedBox(height: 14),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            decoration: BoxDecoration(gradient: _premiumGrad, borderRadius: BorderRadius.circular(10)),
-            child: const Row(mainAxisSize: MainAxisSize.min, children: [
-              Icon(Icons.folder_open_outlined, color: Colors.white, size: 16),
-              SizedBox(width: 6),
-              Text('Choose Files', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 13)),
+    // Image previews
+    if (_images.isNotEmpty) ...[
+      SizedBox(
+        height: _colorOption == 'has_colors' ? 160 : 110,
+        child: ListView.builder(
+          scrollDirection: Axis.horizontal,
+          itemCount: _images.length,
+          itemBuilder: (_, i) => Container(
+            width: 110,
+            margin: const EdgeInsets.only(right: 10),
+            child: Column(children: [
+              Stack(children: [
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.memory(_images[i].bytes, width: 90, height: 90, fit: BoxFit.cover),
+                ),
+                Positioned(top: 2, right: 2, child: GestureDetector(
+                  onTap: () => _removeImage(i),
+                  child: Container(
+                    width: 22, height: 22,
+                    decoration: const BoxDecoration(color: Colors.black54, shape: BoxShape.circle),
+                    child: const Icon(Icons.close, color: Colors.white, size: 13),
+                  ),
+                )),
+              ]),
+              if (_colorOption == 'has_colors') ...[
+                const SizedBox(height: 6),
+                SizedBox(
+                  height: 32,
+                  child: TextField(
+                    style: const TextStyle(fontSize: 11, color: _accent),
+                    onChanged: (v) => _updateColorName(i, v),
+                    decoration: InputDecoration(
+                      hintText: 'Color',
+                      hintStyle: const TextStyle(fontSize: 10, color: _textLight),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                      isDense: true,
+                      filled: true, fillColor: _bg,
+                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: BorderSide(color: _border)),
+                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(6), borderSide: const BorderSide(color: _gold, width: 1.5)),
+                    ),
+                  ),
+                ),
+              ],
             ]),
           ),
-        ]),
+        ),
       ),
-    ),
+      const SizedBox(height: 12),
+    ],
+    // Upload buttons
+    if (_images.length < _maxImages)
+      Row(children: [
+        Expanded(child: GestureDetector(
+          onTap: _pickImages,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            decoration: BoxDecoration(
+              color: _bg, borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border, width: 2),
+            ),
+            child: Column(children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(color: _gold.withOpacity(0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.photo_library_outlined, color: _gold, size: 22),
+              ),
+              const SizedBox(height: 8),
+              const Text('Gallery', style: TextStyle(color: _accent, fontWeight: FontWeight.w600, fontSize: 12)),
+            ]),
+          ),
+        )),
+        const SizedBox(width: 12),
+        Expanded(child: GestureDetector(
+          onTap: _pickFromCamera,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 20),
+            decoration: BoxDecoration(
+              color: _bg, borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: _border, width: 2),
+            ),
+            child: Column(children: [
+              Container(
+                width: 44, height: 44,
+                decoration: BoxDecoration(color: _gold.withOpacity(0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.camera_alt_outlined, color: _gold, size: 22),
+              ),
+              const SizedBox(height: 8),
+              const Text('Camera', style: TextStyle(color: _accent, fontWeight: FontWeight.w600, fontSize: 12)),
+            ]),
+          ),
+        )),
+      ]),
   ]);
 
   // ─── Action Buttons ───────────────────────────────────────────────────────

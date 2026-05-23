@@ -247,6 +247,15 @@ def mobile_place_order():
             if new_order_id:
                 order_ids.append(new_order_id)
 
+            # Increment sold count on the product when order is placed
+            if product_id_int:
+                try:
+                    prod_res = sb_admin.table('products').select('sold').eq('id', product_id_int).limit(1).execute()
+                    current_sold = int((prod_res.data[0].get('sold') or 0)) if prod_res.data else 0
+                    sb_admin.table('products').update({'sold': current_sold + quantity}).eq('id', product_id_int).execute()
+                except Exception:
+                    pass
+
             # Notify seller (non-fatal, background)
             if seller_email:
                 import threading
@@ -4162,6 +4171,39 @@ def seller_respond_to_review():
     """Seller responds to a review - powered by Supabase"""
     if 'email' not in session or session.get('user_type', '').lower() != 'seller':
         return jsonify({'success': False, 'error': 'Unauthorized. Please log in as a seller.'}), 401
+
+    seller_email = session['email']
+    data = request.get_json(silent=True) or {}
+    review_id = data.get('review_id')
+    response_text = (data.get('response_text') or '').strip()
+
+    if not review_id:
+        return jsonify({'success': False, 'error': 'review_id is required'}), 400
+    if not response_text:
+        return jsonify({'success': False, 'error': 'Response text cannot be empty'}), 400
+
+    try:
+        # Verify the review belongs to this seller
+        review_res = sb_admin.table('reviews').select('id, seller_email').eq('id', review_id).limit(1).execute()
+        if not review_res.data:
+            return jsonify({'success': False, 'error': 'Review not found'}), 404
+
+        review = review_res.data[0]
+        if review.get('seller_email') != seller_email:
+            return jsonify({'success': False, 'error': 'You can only respond to reviews for your own products'}), 403
+
+        # Update the review with seller response
+        from datetime import datetime as _dt
+        sb_admin.table('reviews').update({
+            'seller_response': response_text,
+            'seller_response_at': _dt.now().isoformat(),
+        }).eq('id', review_id).execute()
+
+        return jsonify({'success': True, 'message': 'Response posted successfully'})
+
+    except Exception as e:
+        print(f"seller_respond_to_review error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 # ── Seller Notifications API ──────────────────────────────────────────────────
@@ -9842,6 +9884,16 @@ def confirm_order():
             new_order_id = (order_res.data or [{}])[0].get('id')
 
             print(f"? Order inserted id={new_order_id} item={checkout_item['name']} price={item_product_price}")
+
+            # Increment sold count on the product when order is placed
+            try:
+                if product_id_int:
+                    prod_res = sb_admin.table('products').select('sold').eq('id', product_id_int).limit(1).execute()
+                    current_sold = int((prod_res.data[0].get('sold') or 0)) if prod_res.data else 0
+                    sb_admin.table('products').update({'sold': current_sold + order_qty}).eq('id', product_id_int).execute()
+                    print(f"✅ Incremented sold count for product {product_id_int}: {current_sold} → {current_sold + order_qty}")
+            except Exception as sold_err:
+                print(f"⚠️ Failed to increment sold count: {sold_err}")
 
             # -- Record promotion usage (non-fatal) ------------------------
             if product_id_int and checkout_item.get('seller_email'):
