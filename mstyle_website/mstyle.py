@@ -250,11 +250,15 @@ def mobile_place_order():
             # Increment sold count on the product when order is placed
             if product_id_int:
                 try:
-                    prod_res = sb_admin.table('products').select('sold').eq('id', product_id_int).limit(1).execute()
-                    current_sold = int((prod_res.data[0].get('sold') or 0)) if prod_res.data else 0
-                    sb_admin.table('products').update({'sold': current_sold + quantity}).eq('id', product_id_int).execute()
+                    sb_admin.rpc('increment_sold', {'p_id': product_id_int, 'qty': quantity}).execute()
                 except Exception:
-                    pass
+                    # Fallback: direct update if RPC doesn't exist
+                    try:
+                        prod_res = sb_admin.table('products').select('sold').eq('id', product_id_int).limit(1).execute()
+                        current_sold = int((prod_res.data[0].get('sold') or 0)) if prod_res.data else 0
+                        sb_admin.table('products').update({'sold': current_sold + quantity}).eq('id', product_id_int).execute()
+                    except Exception:
+                        pass
 
             # Notify seller (non-fatal, background)
             if seller_email:
