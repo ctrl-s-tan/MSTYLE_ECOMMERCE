@@ -317,6 +317,34 @@ class _RegisterPageState extends State<RegisterPage> {
     }
     setState(() { _loading = true; _error = null; });
     try {
+      // First check if email is already registered
+      try {
+        final approvedUser  = await supabase.from('users').select('id').eq('email', email);
+        final pendingUser   = await supabase.from('pending_users').select('status').eq('email', email);
+        final pendingSeller = await supabase.from('pending_sellers').select('status').eq('email', email);
+        final auList = approvedUser  as List;
+        final puList = pendingUser   as List;
+        final psList = pendingSeller as List;
+        if (auList.isNotEmpty) {
+          setState(() => _error = 'This email is already registered. Please log in instead.');
+          return;
+        }
+        if (puList.isNotEmpty || psList.isNotEmpty) {
+          final status = puList.isNotEmpty
+              ? (puList.first['status'] as String? ?? 'pending')
+              : (psList.first['status'] as String? ?? 'pending');
+          if (status == 'pending') {
+            setState(() => _error = 'Your account is pending admin approval. Please wait for approval before logging in.');
+            return;
+          } else if (status == 'rejected') {
+            setState(() => _error = 'Your previous registration was rejected. Please contact support to re-register.');
+            return;
+          }
+        }
+      } catch (_) {
+        // If check fails, proceed with OTP send anyway
+      }
+
       await supabase.auth.signInWithOtp(
         email: email,
         shouldCreateUser: true,
@@ -327,39 +355,12 @@ class _RegisterPageState extends State<RegisterPage> {
       _go(_Step.otp);
     } on AuthException catch (e) {
       final msg = e.message.toLowerCase();
-      if (msg.contains('banned')) {
-        String? errorMsg;
-        try {
-          final approvedUser  = await supabase.from('users').select('id').eq('email', email);
-          final pendingUser   = await supabase.from('pending_users').select('status').eq('email', email);
-          final pendingSeller = await supabase.from('pending_sellers').select('status').eq('email', email);
-          final auList = approvedUser  as List;
-          final puList = pendingUser   as List;
-          final psList = pendingSeller as List;
-          if (auList.isNotEmpty) {
-            // Only block if the email is an approved user in the users table
-            errorMsg = 'This email is already registered. Please log in instead.';
-          } else if (puList.isNotEmpty || psList.isNotEmpty) {
-            final status = puList.isNotEmpty
-                ? (puList.first['status'] as String? ?? 'pending')
-                : (psList.first['status'] as String? ?? 'pending');
-            if (status == 'pending') {
-              errorMsg = 'Your account is pending admin approval. Please wait for approval before logging in.';
-            } else if (status == 'rejected') {
-              errorMsg = 'Your previous registration was rejected. Please contact support to re-register.';
-            }
-            // approved status in pending means it was moved to users — handled above
-          }
-          // If not in users or pending tables, it's a stale ban — OTP was still sent, proceed
-        } catch (_) {}
-        if (errorMsg != null) {
-          setState(() => _error = errorMsg);
-        } else {
-          // Stale ban but OTP was sent — proceed to OTP step
-          if (!mounted) return;
-          for (final c in _otpCtrls) c.clear();
-          _go(_Step.otp);
-        }
+      if (msg.contains('rate') || msg.contains('limit')) {
+        setState(() => _error = 'Too many attempts. Please wait a moment and try again.');
+      } else if (msg.contains('banned')) {
+        // User exists in Supabase Auth but not in our tables — try to send OTP anyway
+        // This happens when a previous registration was incomplete
+        setState(() => _error = 'Unable to send OTP. The email may already be in use. Please try again or use a different email.');
       } else {
         setState(() => _error = e.message);
       }
@@ -388,38 +389,15 @@ class _RegisterPageState extends State<RegisterPage> {
       _go(_Step.userType);
     } on AuthException catch (e) {
       final msg = e.message.toLowerCase();
-      if (msg.contains('banned')) {
-        String? errorMsg;
-        try {
-          final approvedUser  = await supabase.from('users').select('id').eq('email', _emailCtrl.text.trim());
-          final pendingUser   = await supabase.from('pending_users').select('status').eq('email', _emailCtrl.text.trim());
-          final pendingSeller = await supabase.from('pending_sellers').select('status').eq('email', _emailCtrl.text.trim());
-          final auList = approvedUser  as List;
-          final puList = pendingUser   as List;
-          final psList = pendingSeller as List;
-          if (auList.isNotEmpty) {
-            errorMsg = 'This email is already registered. Please log in instead.';
-          } else if (puList.isNotEmpty || psList.isNotEmpty) {
-            final status = puList.isNotEmpty
-                ? (puList.first['status'] as String? ?? 'pending')
-                : (psList.first['status'] as String? ?? 'pending');
-            if (status == 'pending') {
-              errorMsg = 'Your account is pending admin approval. Please wait for approval before logging in.';
-            } else if (status == 'rejected') {
-              errorMsg = 'Your previous registration was rejected. Please contact support to re-register.';
-            }
-          }
-        } catch (_) {}
-        setState(() => _error = errorMsg ?? 'Invalid or expired code. Please try again.');
-      } else if (msg.contains('expired') || msg.contains('invalid') || msg.contains('otp')) {
-        // OTP expired or wrong — prompt to resend
-        setState(() => _error = 'The code is invalid or has expired. Please tap "Resend OTP" to get a new code.');
+      if (msg.contains('expired') || msg.contains('invalid') || msg.contains('otp') || msg.contains('token')) {
+        setState(() => _error = 'Invalid or expired code. Please tap "Resend OTP" to get a new code.');
+      } else if (msg.contains('banned')) {
+        setState(() => _error = 'This email is already registered. Please log in instead.');
       } else {
         setState(() => _error = e.message);
       }
     } catch (e) {
-      // Show the actual error to help diagnose
-      setState(() => _error = 'Verification failed: ${e.toString()}');
+      setState(() => _error = 'Verification failed. Please try again or resend the code.');
     } finally {
       if (mounted) setState(() => _loading = false);
     }
