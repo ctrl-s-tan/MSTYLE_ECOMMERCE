@@ -1382,7 +1382,8 @@
     }
     
     .stats-summary {
-        flex-wrap: wrap;
+        flex-wrap: nowrap;
+        overflow-x: auto;
     }
     
     .filter-row {
