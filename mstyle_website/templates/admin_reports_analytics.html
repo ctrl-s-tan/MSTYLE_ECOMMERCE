@@ -164,13 +164,12 @@
                                             <th>Category</th>
                                             <th>Status</th>
                                             <th>Units Sold</th>
-                                            <th>Stock</th>
                                             <th>Rating</th>
                                         </tr>
                                     </thead>
                                     <tbody id="inventoryProductsTable">
                                         <tr>
-                                            <td colspan="8" class="text-center text-muted py-4">
+                                            <td colspan="7" class="text-center text-muted py-4">
                                                 <i class="fas fa-box-open fa-3x mb-3"></i>
                                                 <h5>No data available</h5>
                                                 <p>Inventory and products analytics will appear here</p>
@@ -1199,10 +1198,6 @@
                         <td>${statusBadges}</td>
                         <td><span class="badge bg-primary">${product.units_sold}</span></td>
                         <td>
-                            <span class="stock-badge ${stockClass}">${stock}</span>
-                            ${stockLabel}
-                        </td>
-                        <td>
                             <span class="text-warning">${ratingStars}</span>
                             <small class="text-muted">(${product.rating})</small>
                         </td>
@@ -1220,7 +1215,7 @@
             // Show empty state message
             document.getElementById('inventoryProductsTable').innerHTML = `
                 <tr>
-                    <td colspan="8" class="text-center text-muted py-4">
+                    <td colspan="7" class="text-center text-muted py-4">
                         <i class="fas fa-search fa-3x mb-3" style="opacity: 0.3;"></i>
                         <h5>No products found</h5>
                         <p>Try adjusting your filters or search criteria</p>
@@ -1916,7 +1911,7 @@
 
     function exportInventoryData() {
         let csv = "INVENTORY AND PRODUCTS ANALYTICS\n";
-        csv += "No.,Product Name,Seller Name,Category,Status,Units Sold,Stock,Low Stock Threshold,Rating\n";
+        csv += "No.,Product Name,Seller Name,Category,Status,Units Sold,Rating\n";
         
         const data = originalData.inventoryProducts || [];
         
@@ -1941,8 +1936,6 @@
                 product.category || 'N/A',
                 status,
                 product.units_sold || 0,
-                product.stock || 0,
-                product.low_stock_threshold || 5,
                 product.rating || 0
             ];
             csv += rowData.join(',') + '\n';

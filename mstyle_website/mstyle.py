@@ -212,18 +212,20 @@ def mobile_place_order():
                 except Exception as ve:
                     print(f'mobile_place_order: variant stock decrement failed (non-fatal): {ve}')
 
-            # Decrement product stock (non-fatal)
+            # Decrement product stock + increment sold (non-fatal)
             if product_id_int:
                 try:
-                    ps = sb_admin.table('products').select('quantity') \
+                    ps = sb_admin.table('products').select('quantity, sold') \
                         .eq('id', product_id_int).limit(1).execute()
                     if ps.data:
-                        cur_qty = int(ps.data[0].get('quantity') or 0)
+                        cur_qty  = int(ps.data[0].get('quantity') or 0)
+                        cur_sold = int(ps.data[0].get('sold') or 0)
                         sb_admin.table('products').update({
-                            'quantity': max(0, cur_qty - quantity)
+                            'quantity': max(0, cur_qty - quantity),
+                            'sold':     cur_sold + quantity,
                         }).eq('id', product_id_int).execute()
                 except Exception as pe2:
-                    print(f'mobile_place_order: product stock decrement failed (non-fatal): {pe2}')
+                    print(f'mobile_place_order: product stock/sold update failed (non-fatal): {pe2}')
 
             total_price = price * quantity + shipping_fee
 
