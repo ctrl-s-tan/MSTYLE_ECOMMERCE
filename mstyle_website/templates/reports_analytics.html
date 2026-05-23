@@ -1254,7 +1254,24 @@
 
         // Print Report
         function printReport() {
-            window.print();
+            const sellerName = document.querySelector('.brand-text.seller-name')?.textContent?.trim() || 'Seller';
+
+            const printData = {
+                reportType: 'Seller Analytics Report',
+                sellerName: sellerName,
+                totalRevenue:  '{{ total_revenue }}',
+                totalEarnings: '{{ total_earnings }}',
+                totalOrders:   {{ total_orders }},
+                avgOrderValue: '{{ avg_order_value }}',
+                topProducts:   {{ top_products | tojson }},
+                orderDetails:  {{ order_details | tojson }},
+                financialSummary: {{ financial_summary | tojson }},
+                promotions:    {{ promotion_performance | tojson }}
+            };
+
+            localStorage.setItem('sellerPrintData', JSON.stringify(printData));
+            const w = window.open('/seller_print_layout', '_blank');
+            if (!w) alert('Please allow pop-ups to print the report.');
         }
 
         // Real-time search
