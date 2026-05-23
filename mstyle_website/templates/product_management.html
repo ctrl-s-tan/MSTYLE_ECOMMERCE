@@ -39,78 +39,79 @@
         </div>
 
         <!-- Filter Section -->
-        <div class="filter-section">
-            <form action="/product_management" method="get" class="filter-form" id="productFilterForm">
-                    <div class="filter-row">
-                        <!-- Left Side: Search -->
-                        <div class="filter-left">
-                            <div class="filter-group search-group">
-                                <label class="filter-label">
-                                    <i class="fas fa-search"></i> Search
-                                </label>
-                                <input type="text" name="search" id="searchInput" 
-                                       placeholder="Search products..." 
-                                       value="{{ request.args.get('search', '') }}" 
-                                       class="search-input">
-                            </div>
-                        </div>
-                        
-                        <!-- Right Side: Filters and Actions -->
-                        <div class="filter-right">
-                            <div class="filter-group">
-                                <label class="filter-label">
-                                    <i class="fas fa-tag"></i> Category
-                                </label>
-                                <select name="category" id="categoryFilter" class="filter-select">
-                                    <option value="">All Categories</option>
-                                    {% for category in categories %}
-                                    <option value="{{ category }}" {% if request.args.get('category') == category %}selected{% endif %}>
-                                        {{ category }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            
-                            <div class="filter-group">
-                                <label class="filter-label">
-                                    <i class="fas fa-store"></i> Seller
-                                </label>
-                                <select name="seller" id="sellerFilter" class="filter-select">
-                                    <option value="">All Sellers</option>
-                                    {% for seller in sellers %}
-                                    <option value="{{ seller.email }}" {% if request.args.get('seller') == seller.email %}selected{% endif %}>
-                                        {{ seller.seller_name }}
-                                    </option>
-                                    {% endfor %}
-                                </select>
-                            </div>
-                            
-                            <div class="filter-group">
-                                <label class="filter-label">
-                                    <i class="fas fa-info-circle"></i> Status
-                                </label>
-                                <select name="status" id="statusFilter" class="filter-select">
-                                    <option value="">All Status</option>
-                                    <option value="active" {% if request.args.get('status') == 'active' %}selected{% endif %}>Active</option>
-                                    <option value="inactive" {% if request.args.get('status') == 'inactive' %}selected{% endif %}>Inactive/Deactivated</option>
-                                    <option value="flagged" {% if request.args.get('status') == 'flagged' %}selected{% endif %}>Flagged</option>
-                                    <option value="out_of_stock" {% if request.args.get('status') == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
-                                    <option value="low_stock" {% if request.args.get('status') == 'low_stock' %}selected{% endif %}>Low Stock</option>
-                                </select>
-                            </div>
-                            
-                            <div class="filter-group filter-actions">
-                                <label class="filter-label">&nbsp;</label>
-                                {% if request.args.get('search') or request.args.get('category') or request.args.get('seller') or request.args.get('status') %}
-                                <a href="/product_management" class="btn-clear">
-                                    <i class="fas fa-times"></i> Clear
-                                </a>
-                                {% endif %}
-                            </div>
-                        </div>
+        <div style="background:white; border:1px solid rgba(212,175,55,0.2); box-shadow:0 10px 30px rgba(0,0,0,0.08); border-radius:15px; padding:1.5rem 2rem; margin-bottom:2rem;">
+            <form action="/product_management" method="get" id="productFilterForm">
+                <div style="display:flex; align-items:flex-end; justify-content:space-between; gap:1.5rem; flex-wrap:nowrap;">
+                    <!-- Search -->
+                    <div style="flex:1 1 auto; min-width:0; display:flex; flex-direction:column;">
+                        <label style="font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#2c3e50; margin-bottom:0.4rem; display:flex; align-items:center; gap:0.4rem;">
+                            <i class="fas fa-search" style="color:#d4af37;"></i> Search
+                        </label>
+                        <input type="text" name="search" id="searchInput"
+                               placeholder="Search products..."
+                               value="{{ request.args.get('search', '') }}"
+                               style="padding:0.65rem 1rem; border:2px solid #e9ecef; border-radius:12px; font-size:0.9rem; width:100%; font-family:'Poppins',sans-serif; outline:none; transition:border-color 0.2s;"
+                               onfocus="this.style.borderColor='#d4af37'" onblur="this.style.borderColor='#e9ecef'">
                     </div>
-                </form>
-            </div>
+
+                    <!-- Category -->
+                    <div style="display:flex; flex-direction:column; flex-shrink:0;">
+                        <label style="font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#2c3e50; margin-bottom:0.4rem; display:flex; align-items:center; gap:0.4rem;">
+                            <i class="fas fa-tag" style="color:#d4af37;"></i> Category
+                        </label>
+                        <select name="category" id="categoryFilter"
+                                style="padding:0.65rem 1rem; border:2px solid #e9ecef; border-radius:12px; font-size:0.9rem; min-width:150px; font-family:'Poppins',sans-serif; background:white; cursor:pointer; outline:none;"
+                                onfocus="this.style.borderColor='#d4af37'" onblur="this.style.borderColor='#e9ecef'">
+                            <option value="">All Categories</option>
+                            {% for category in categories %}
+                            <option value="{{ category }}" {% if request.args.get('category') == category %}selected{% endif %}>{{ category }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Seller -->
+                    <div style="display:flex; flex-direction:column; flex-shrink:0;">
+                        <label style="font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#2c3e50; margin-bottom:0.4rem; display:flex; align-items:center; gap:0.4rem;">
+                            <i class="fas fa-store" style="color:#d4af37;"></i> Seller
+                        </label>
+                        <select name="seller" id="sellerFilter"
+                                style="padding:0.65rem 1rem; border:2px solid #e9ecef; border-radius:12px; font-size:0.9rem; min-width:150px; font-family:'Poppins',sans-serif; background:white; cursor:pointer; outline:none;"
+                                onfocus="this.style.borderColor='#d4af37'" onblur="this.style.borderColor='#e9ecef'">
+                            <option value="">All Sellers</option>
+                            {% for seller in sellers %}
+                            <option value="{{ seller.email }}" {% if request.args.get('seller') == seller.email %}selected{% endif %}>{{ seller.seller_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <!-- Status -->
+                    <div style="display:flex; flex-direction:column; flex-shrink:0;">
+                        <label style="font-size:0.8rem; font-weight:600; text-transform:uppercase; letter-spacing:0.4px; color:#2c3e50; margin-bottom:0.4rem; display:flex; align-items:center; gap:0.4rem;">
+                            <i class="fas fa-info-circle" style="color:#d4af37;"></i> Status
+                        </label>
+                        <select name="status" id="statusFilter"
+                                style="padding:0.65rem 1rem; border:2px solid #e9ecef; border-radius:12px; font-size:0.9rem; min-width:150px; font-family:'Poppins',sans-serif; background:white; cursor:pointer; outline:none;"
+                                onfocus="this.style.borderColor='#d4af37'" onblur="this.style.borderColor='#e9ecef'">
+                            <option value="">All Status</option>
+                            <option value="active" {% if request.args.get('status') == 'active' %}selected{% endif %}>Active</option>
+                            <option value="inactive" {% if request.args.get('status') == 'inactive' %}selected{% endif %}>Inactive/Deactivated</option>
+                            <option value="flagged" {% if request.args.get('status') == 'flagged' %}selected{% endif %}>Flagged</option>
+                            <option value="out_of_stock" {% if request.args.get('status') == 'out_of_stock' %}selected{% endif %}>Out of Stock</option>
+                            <option value="low_stock" {% if request.args.get('status') == 'low_stock' %}selected{% endif %}>Low Stock</option>
+                        </select>
+                    </div>
+
+                    <!-- Clear button -->
+                    {% if request.args.get('search') or request.args.get('category') or request.args.get('seller') or request.args.get('status') %}
+                    <div style="display:flex; flex-direction:column; justify-content:flex-end; flex-shrink:0;">
+                        <a href="/product_management"
+                           style="padding:0.65rem 1.25rem; background:linear-gradient(135deg,#6c757d,#5a6268); color:white; border-radius:12px; font-weight:600; font-size:0.88rem; display:inline-flex; align-items:center; gap:0.4rem; text-decoration:none; white-space:nowrap;">
+                            <i class="fas fa-times"></i> Clear
+                        </a>
+                    </div>
+                    {% endif %}
+                </div>
+            </form>
         </div>
 
         <div class="table-section">
