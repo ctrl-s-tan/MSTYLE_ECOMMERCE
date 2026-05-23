@@ -249,10 +249,6 @@ def mobile_place_order():
             if new_order_id:
                 order_ids.append(new_order_id)
 
-            # Increment sold count on the product when order is placed
-            if product_id_int:
-                pass  # Sold count is incremented when order is delivered, not placed
-
             # Notify seller (non-fatal, background)
             if seller_email:
                 import threading
