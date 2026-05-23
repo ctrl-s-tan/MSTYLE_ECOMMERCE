@@ -157,14 +157,17 @@ body {
 }
 
 .stats-grid {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
+  display: flex;
+  flex-wrap: nowrap;
   gap: 1.5rem;
   margin-bottom: 3rem;
   padding: 0 2rem;
+  justify-content: center;
 }
 
 .stat-card {
+  flex: 0 1 180px;
+  min-width: 0;
   background: rgba(255, 255, 255, 0.95);
   border: 1px solid rgba(212, 175, 55, 0.1);
   border-radius: 20px;
@@ -250,14 +253,28 @@ body {
 
 @media (max-width: 1400px) {
   .stats-grid {
-    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    padding: 0 1rem;
   }
 }
 
 @media (max-width: 992px) {
   .stats-grid {
-    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    padding: 0 1rem;
   }
+  .stat-card {
+    padding: 1.25rem 0.75rem;
+    border-radius: 14px;
+  }
+  .stat-icon {
+    width: 48px;
+    height: 48px;
+    margin-bottom: 0.75rem;
+  }
+  .stat-icon i { font-size: 1.3rem; }
+  .stat-value { font-size: 1.6rem; }
+  .stat-label { font-size: 0.7rem; margin-bottom: 0; }
 }
 
 @media (max-width: 768px) {
@@ -272,8 +289,24 @@ body {
   }
 
   .stats-grid {
-    grid-template-columns: 1fr;
+    gap: 0.5rem;
+    padding: 0 0.5rem;
+    overflow-x: auto;
   }
+  .stat-card {
+    flex: 0 0 auto;
+    min-width: 80px;
+    padding: 1rem 0.5rem;
+    border-radius: 12px;
+  }
+  .stat-icon {
+    width: 40px;
+    height: 40px;
+    margin-bottom: 0.5rem;
+  }
+  .stat-icon i { font-size: 1.1rem; }
+  .stat-value { font-size: 1.2rem; }
+  .stat-label { font-size: 0.62rem; letter-spacing: 0; margin-bottom: 0; }
 
   .container {
     flex-direction: column;
