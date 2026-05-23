@@ -212,20 +212,18 @@ def mobile_place_order():
                 except Exception as ve:
                     print(f'mobile_place_order: variant stock decrement failed (non-fatal): {ve}')
 
-            # Decrement product stock + increment sold (non-fatal)
+            # Decrement product stock only (sold is incremented when order is Delivered)
             if product_id_int:
                 try:
-                    ps = sb_admin.table('products').select('quantity, sold') \
+                    ps = sb_admin.table('products').select('quantity') \
                         .eq('id', product_id_int).limit(1).execute()
                     if ps.data:
-                        cur_qty  = int(ps.data[0].get('quantity') or 0)
-                        cur_sold = int(ps.data[0].get('sold') or 0)
+                        cur_qty = int(ps.data[0].get('quantity') or 0)
                         sb_admin.table('products').update({
                             'quantity': max(0, cur_qty - quantity),
-                            'sold':     cur_sold + quantity,
                         }).eq('id', product_id_int).execute()
                 except Exception as pe2:
-                    print(f'mobile_place_order: product stock/sold update failed (non-fatal): {pe2}')
+                    print(f'mobile_place_order: product stock update failed (non-fatal): {pe2}')
 
             total_price = price * quantity + shipping_fee
 
@@ -9819,10 +9817,9 @@ def confirm_order():
             if new_qty < 0:
                 raise Exception(f"Insufficient stock for: {checkout_item['name']}")
 
-            # -- Update product quantity + sold ----------------------------
+            # -- Update product quantity (sold is incremented when order is Delivered) --
             sb_admin.table('products').update({
                 'quantity': new_qty,
-                'sold': int(product.get('sold') or 0) + order_qty,
             }).eq('id', product_id_int).execute()
 
             product_threshold = int(product.get('low_stock_threshold') or 5)
